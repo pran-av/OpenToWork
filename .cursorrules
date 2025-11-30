@@ -1,0 +1,30 @@
+# Cursor Rules for OpenToWork Project
+
+## File Access Restrictions
+
+### Environment Files
+- **NEVER** read, write, or modify `.env` files or any files matching `.env*` pattern
+- **NEVER** display, log, or expose environment variable values in code, comments, or documentation
+- **NEVER** commit `.env` files to version control (already in .gitignore)
+- If environment variables are needed, reference `.env.example` or documentation instead
+- When working with environment variables, use placeholder values like `process.env.VARIABLE_NAME` without revealing actual values
+
+### Sensitive Data Handling
+- Do not include API keys, tokens, passwords, or secrets in code or documentation
+- Reference environment variables in code but never show their actual values
+- When creating example files, use placeholder values like `your_key_here` or `your_value_here`
+
+## Code Guidelines
+
+- Follow TypeScript best practices
+- Use Server Components by default, Client Components only when needed
+- Maintain consistent code style with existing codebase
+- Use Tailwind CSS for styling
+- Follow the design system (Poppins for headings, Inter for body text)
+
+## Database
+
+- Use Supabase MCP tools for database operations
+- Never expose database credentials or connection strings
+- Reference project ID from environment variables, not hardcoded values
+
