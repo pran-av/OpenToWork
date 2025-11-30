@@ -2,18 +2,15 @@
 
 import { useState } from "react";
 import { Calendar, Mail, Linkedin, MessageCircle } from "lucide-react";
+import type { CampaignData } from "@/lib/db/campaigns";
 
-// Hardcoded data from wireframes
-const ctaConfig = {
-  schedule_meeting: "https://calendly.com/example",
-  mailto: "mailto:abc@email.com",
-  linkedin: "https://linkedin.com/in/example",
-  phone: "+91 98239838238",
-};
+interface CallToActionPageProps {
+  campaign: CampaignData;
+}
 
-const clientName = "Pranav";
-
-export default function CallToActionPage() {
+export default function CallToActionPage({ campaign }: CallToActionPageProps) {
+  const clientName = campaign.campaign_structure.client_name;
+  const ctaConfig = campaign.cta_config;
   const [formData, setFormData] = useState({
     name: "",
     company: "",
@@ -75,24 +72,51 @@ export default function CallToActionPage() {
 
     setIsSubmitting(true);
 
-    // TODO: In P2, this will save to database
-    // For now, just log and show success
-    console.log("Lead data:", formData);
-    
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    
-    alert("Thank you! We'll be in touch soon.");
-    setIsSubmitting(false);
-    
-    // Reset form
-    setFormData({ name: "", company: "", email: "", phone: "" });
+    try {
+      // Parse phone number if provided
+      const phoneParts = formData.phone.match(/^(\+\d{1,3})?\s*(.+)$/);
+      const leadPhoneIsd = phoneParts ? phoneParts[1] || "" : "";
+      const leadPhone = phoneParts ? phoneParts[2].replace(/\s/g, "") : formData.phone;
+
+      // Save lead to database via API route
+      const response = await fetch("/api/leads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          campaign_id: campaign.campaign_id,
+          lead_name: formData.name,
+          lead_company: formData.company,
+          lead_email: formData.email,
+          lead_phone_isd: leadPhoneIsd || undefined,
+          lead_phone: leadPhone || undefined,
+          meeting_scheduled: false,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to submit lead");
+      }
+
+      alert("Thank you! We'll be in touch soon.");
+      setFormData({ name: "", company: "", email: "", phone: "" });
+    } catch (error) {
+      console.error("Failed to submit lead:", error);
+      alert("There was an error submitting your information. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleCtaClick = (type: keyof typeof ctaConfig) => {
+  const handleCtaClick = (type: "schedule_meeting" | "mailto" | "linkedin" | "phone") => {
     const url = ctaConfig[type];
     if (url) {
-      window.open(url, "_blank", "noopener,noreferrer");
+      if (type === "mailto") {
+        window.location.href = url;
+      } else {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
     }
   };
 
@@ -115,45 +139,53 @@ export default function CallToActionPage() {
           Choose your communication preference
         </h2>
         <div className="grid grid-cols-2 gap-4">
-          <button
-            onClick={() => handleCtaClick("schedule_meeting")}
-            className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-6 transition-all hover:border-blue-400 hover:bg-blue-50"
-          >
-            <Calendar className="h-6 w-6 text-gray-700" />
-            <span className="text-sm font-medium text-gray-900">
-              Schedule a Meeting
-            </span>
-          </button>
+          {ctaConfig.schedule_meeting && (
+            <button
+              onClick={() => handleCtaClick("schedule_meeting")}
+              className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-6 transition-all hover:border-blue-400 hover:bg-blue-50"
+            >
+              <Calendar className="h-6 w-6 text-gray-700" />
+              <span className="text-sm font-medium text-gray-900">
+                Schedule a Meeting
+              </span>
+            </button>
+          )}
 
-          <button
-            onClick={() => handleCtaClick("mailto")}
-            className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-6 transition-all hover:border-blue-400 hover:bg-blue-50"
-          >
-            <Mail className="h-6 w-6 text-gray-700" />
-            <span className="text-sm font-medium text-gray-900">
-              Send an Email
-            </span>
-          </button>
+          {ctaConfig.mailto && (
+            <button
+              onClick={() => handleCtaClick("mailto")}
+              className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-6 transition-all hover:border-blue-400 hover:bg-blue-50"
+            >
+              <Mail className="h-6 w-6 text-gray-700" />
+              <span className="text-sm font-medium text-gray-900">
+                Send an Email
+              </span>
+            </button>
+          )}
 
-          <button
-            onClick={() => handleCtaClick("linkedin")}
-            className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-6 transition-all hover:border-blue-400 hover:bg-blue-50"
-          >
-            <Linkedin className="h-6 w-6 text-gray-700" />
-            <span className="text-sm font-medium text-gray-900">
-              Connect on Linkedin
-            </span>
-          </button>
+          {ctaConfig.linkedin && (
+            <button
+              onClick={() => handleCtaClick("linkedin")}
+              className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-6 transition-all hover:border-blue-400 hover:bg-blue-50"
+            >
+              <Linkedin className="h-6 w-6 text-gray-700" />
+              <span className="text-sm font-medium text-gray-900">
+                Connect on Linkedin
+              </span>
+            </button>
+          )}
 
-          <button
-            onClick={() => handleCtaClick("phone")}
-            className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-6 transition-all hover:border-blue-400 hover:bg-blue-50"
-          >
-            <MessageCircle className="h-6 w-6 text-gray-700" />
-            <span className="text-sm font-medium text-gray-900">
-              Connect on Chat/Phone Call
-            </span>
-          </button>
+          {ctaConfig.phone && (
+            <button
+              onClick={() => handleCtaClick("phone")}
+              className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-6 transition-all hover:border-blue-400 hover:bg-blue-50"
+            >
+              <MessageCircle className="h-6 w-6 text-gray-700" />
+              <span className="text-sm font-medium text-gray-900">
+                Connect on Chat/Phone Call
+              </span>
+            </button>
+          )}
         </div>
       </div>
 

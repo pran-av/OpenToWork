@@ -1,94 +1,42 @@
-"use client";
+import { notFound } from "next/navigation";
+import CampaignFlowClient from "./CampaignFlowClient";
+import {
+  getCampaignById,
+  getClientServicesByCampaignId,
+  getCaseStudiesByServiceId,
+} from "@/lib/db/campaigns";
+import type { CaseStudy } from "@/lib/db/campaigns";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import ClientSummaryPage from "@/components/campaign/ClientSummaryPage";
-import RelevantWorkPage from "@/components/campaign/RelevantWorkPage";
-import CallToActionPage from "@/components/campaign/CallToActionPage";
-import ProgressBar from "@/components/campaign/ProgressBar";
-import NavigationButtons from "@/components/campaign/NavigationButtons";
-import { useCampaignFlow } from "@/hooks/useCampaignFlow";
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
 
-type FlowStage = "summary" | "relevant-work" | "cta";
+export default async function CampaignPage({ params }: PageProps) {
+  const { id: campaignId } = await params;
 
-export default function CampaignPage() {
-  const params = useParams();
-  const campaignId = params.id as string;
-  
-  const { stage, selectedService, setStage, setSelectedService } = useCampaignFlow(campaignId);
-  const [isClient, setIsClient] = useState(false);
+  // Fetch campaign data
+  const campaign = await getCampaignById(campaignId);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  if (!isClient) {
-    return null;
+  if (!campaign) {
+    notFound();
   }
 
-  const handleNext = (nextStage: FlowStage) => {
-    setStage(nextStage);
-  };
+  // Fetch services for this campaign
+  const services = await getClientServicesByCampaignId(campaignId);
 
-  const handlePrevious = () => {
-    if (stage === "relevant-work") {
-      setStage("summary");
-    } else if (stage === "cta") {
-      setStage("relevant-work");
-    }
-  };
-
-  const handleClose = () => {
-    if (typeof window !== "undefined") {
-      window.close();
-    }
-  };
-
-  const renderPage = () => {
-    switch (stage) {
-      case "summary":
-        return (
-          <ClientSummaryPage
-            onServiceSelect={(serviceId) => {
-              setSelectedService(serviceId);
-              handleNext("relevant-work");
-            }}
-          />
-        );
-      case "relevant-work":
-        return (
-          <RelevantWorkPage
-            selectedServiceId={selectedService}
-            onConnect={() => handleNext("cta")}
-          />
-        );
-      case "cta":
-        return <CallToActionPage />;
-      default:
-        return <ClientSummaryPage onServiceSelect={(serviceId) => {
-          setSelectedService(serviceId);
-          handleNext("relevant-work");
-        }} />;
-    }
-  };
+  // Fetch case studies for all services
+  const caseStudiesMap: Record<string, CaseStudy[]> = {};
+  for (const service of services) {
+    const caseStudies = await getCaseStudiesByServiceId(service.client_service_id);
+    caseStudiesMap[service.client_service_id] = caseStudies;
+  }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="mx-auto max-w-4xl px-4 py-6 md:px-8">
-        {/* Progress Bar */}
-        <ProgressBar currentStage={stage} />
-
-        {/* Navigation Buttons */}
-        <NavigationButtons
-          stage={stage}
-          onPrevious={handlePrevious}
-          onClose={handleClose}
-        />
-
-        {/* Page Content */}
-        <div className="mt-8">{renderPage()}</div>
-      </div>
-    </div>
+    <CampaignFlowClient
+      campaign={campaign}
+      services={services}
+      caseStudiesMap={caseStudiesMap}
+    />
   );
 }
 

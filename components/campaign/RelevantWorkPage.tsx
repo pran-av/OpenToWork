@@ -1,120 +1,45 @@
 "use client";
 
 import { Check } from "lucide-react";
+import type { ClientService, CaseStudy } from "@/lib/db/campaigns";
 
 interface RelevantWorkPageProps {
   selectedServiceId: string | null;
+  services: ClientService[];
+  caseStudiesMap: Record<string, CaseStudy[]>;
   onConnect: () => void;
 }
 
-// Hardcoded data from wireframes
-const serviceData: Record<string, { name: string; summary: string }> = {
-  "service-1": {
-    name: "Engineer an MVP from Ideation to first users",
-    summary: "Pranav has 3 years of product management experience.",
-  },
-  "service-2": {
-    name: "Product Management",
-    summary: "Pranav has 3 years of product management experience.",
-  },
-  "service-3": {
-    name: "Project Management",
-    summary: "Pranav has 3 years of product management experience.",
-  },
-  "service-4": {
-    name: "Sales and Marketing",
-    summary: "Pranav has 3 years of product management experience.",
-  },
-};
-
-const caseStudies: Record<string, Array<{
-  name: string;
-  duration: string;
-  summary: string;
-  highlights: string[];
-  url: string;
-}>> = {
-  "service-2": [
-    {
-      name: "Multimedia Search Tool",
-      duration: "12th Sep, 2024 - 13th Nov, 2024",
-      summary:
-        "Added a search bar to android and web app, allowing user to enter queries and receive suggestions across a wide range of video and text content.",
-      highlights: [
-        "20% increase in content activation",
-        "10x more time spent on application",
-      ],
-      url: "https://example.com",
-    },
-    {
-      name: "Seat Reservation System",
-      duration: "12th Sep, 2024 - 13th Nov, 2024",
-      summary:
-        "Built a seat reservation system that allows learners to enter their preferences for selections and receive services immediately.",
-      highlights: [
-        "30% increase in users with same demand",
-        "40% reduction in refund requests",
-      ],
-      url: "https://example.com",
-    },
-  ],
-  "service-1": [
-    {
-      name: "Multimedia Search Tool",
-      duration: "12th Sep, 2024 - 13th Nov, 2024",
-      summary:
-        "Added a search bar to android and web app, allowing user to enter queries and receive suggestions across a wide range of video and text content.",
-      highlights: [
-        "20% increase in content activation",
-        "10x more time spent on application",
-      ],
-      url: "https://example.com",
-    },
-  ],
-  "service-3": [
-    {
-      name: "Seat Reservation System",
-      duration: "12th Sep, 2024 - 13th Nov, 2024",
-      summary:
-        "Built a seat reservation system that allows learners to enter their preferences for selections and receive services immediately.",
-      highlights: [
-        "30% increase in users with same demand",
-        "40% reduction in refund requests",
-      ],
-      url: "https://example.com",
-    },
-  ],
-  "service-4": [
-    {
-      name: "Multimedia Search Tool",
-      duration: "12th Sep, 2024 - 13th Nov, 2024",
-      summary:
-        "Added a search bar to android and web app, allowing user to enter queries and receive suggestions across a wide range of video and text content.",
-      highlights: [
-        "20% increase in content activation",
-        "10x more time spent on application",
-      ],
-      url: "https://example.com",
-    },
-  ],
-};
-
 export default function RelevantWorkPage({
   selectedServiceId,
+  services,
+  caseStudiesMap,
   onConnect,
 }: RelevantWorkPageProps) {
-  const service = selectedServiceId
-    ? serviceData[selectedServiceId] || serviceData["service-2"]
-    : serviceData["service-2"];
+  const selectedService = services.find(
+    (s) => s.client_service_id === selectedServiceId
+  );
 
-  const studies =
-    selectedServiceId && caseStudies[selectedServiceId]
-      ? caseStudies[selectedServiceId]
-      : caseStudies["service-2"];
+  const caseStudies = selectedServiceId
+    ? caseStudiesMap[selectedServiceId] || []
+    : [];
 
   const handleCardClick = (url: string) => {
     window.open(url, "_blank", "noopener,noreferrer");
   };
+
+  // Parse highlights from semicolon-separated string
+  const parseHighlights = (highlightsString: string): string[] => {
+    return highlightsString.split(";").filter((h) => h.trim().length > 0);
+  };
+
+  if (!selectedService) {
+    return (
+      <div className="mx-auto max-w-4xl">
+        <p className="text-gray-600">Please select a service first.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -123,11 +48,13 @@ export default function RelevantWorkPage({
 
       {/* Service Title */}
       <h1 className="mb-2 text-3xl font-bold text-gray-900 md:text-4xl">
-        {service.name}
+        {selectedService.client_service_name}
       </h1>
 
-      {/* Service Summary */}
-      <p className="mb-6 text-base text-gray-700">{service.summary}</p>
+      {/* Service Summary - Using a default message since we don't have service summary in DB */}
+      <p className="mb-6 text-base text-gray-700">
+        Explore relevant case studies from past work in this area.
+      </p>
 
       {/* Suggestion Text */}
       <p className="mb-6 text-base text-gray-700">
@@ -135,31 +62,42 @@ export default function RelevantWorkPage({
       </p>
 
       {/* Case Study Cards */}
-      <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2">
-        {studies.map((study, index) => (
-          <div
-            key={index}
-            onClick={() => handleCardClick(study.url)}
-            className="cursor-pointer rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-all hover:border-blue-400 hover:shadow-md"
-          >
-            <h3 className="mb-2 text-xl font-bold text-gray-900">
-              {study.name}
-            </h3>
-            <p className="mb-3 text-sm text-gray-500">{study.duration}</p>
-            <p className="mb-4 text-base leading-relaxed text-gray-700">
-              {study.summary}
-            </p>
-            <div className="space-y-2">
-              {study.highlights.map((highlight, idx) => (
-                <div key={idx} className="flex items-start gap-2">
-                  <Check className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-500" />
-                  <span className="text-sm text-gray-700">{highlight}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+      {caseStudies.length > 0 ? (
+        <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2">
+          {caseStudies.map((study) => {
+            const highlights = parseHighlights(study.case_highlights);
+            return (
+              <div
+                key={study.case_id}
+                onClick={() => handleCardClick(study.case_study_url)}
+                className="cursor-pointer rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-all hover:border-blue-400 hover:shadow-md"
+              >
+                <h3 className="mb-2 text-xl font-bold text-gray-900">
+                  {study.case_name}
+                </h3>
+                <p className="mb-3 text-sm text-gray-500">{study.case_duration}</p>
+                <p className="mb-4 text-base leading-relaxed text-gray-700">
+                  {study.case_summary}
+                </p>
+                {highlights.length > 0 && (
+                  <div className="space-y-2">
+                    {highlights.map((highlight, idx) => (
+                      <div key={idx} className="flex items-start gap-2">
+                        <Check className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
+                        <span className="text-sm text-gray-700">{highlight.trim()}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="mb-8 rounded-lg border border-gray-200 bg-gray-50 p-6">
+          <p className="text-gray-600">No case studies available for this service yet.</p>
+        </div>
+      )}
 
       {/* Connect CTA Button */}
       <div className="flex justify-end">
@@ -167,7 +105,7 @@ export default function RelevantWorkPage({
           onClick={onConnect}
           className="rounded-lg bg-gray-800 px-8 py-3 font-semibold text-white transition-colors hover:bg-gray-900"
         >
-          CONNECT WITH PRANAV
+          CONNECT
         </button>
       </div>
     </div>
