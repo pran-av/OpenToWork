@@ -1,6 +1,7 @@
 "use client";
 
 import { X, ChevronLeft } from "lucide-react";
+import Widget from "@/components/campaign/Widget";
 
 type FlowStage = "summary" | "relevant-work" | "cta";
 
@@ -8,20 +9,26 @@ interface NavigationButtonsProps {
   stage: FlowStage;
   onPrevious: () => void;
   onClose: () => void;
+  widgetId?: string | null;
 }
 
 export default function NavigationButtons({
   stage,
   onPrevious,
   onClose,
+  widgetId,
 }: NavigationButtonsProps) {
   return (
     <div className="mb-4 flex items-center justify-between">
-      {/* Status Badge - Available for Hire */}
-      <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5">
-        <div className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
-        <span className="text-sm font-medium text-gray-700">Available for Hire</span>
-      </div>
+      {/* Status Badge - Available for Hire Widget */}
+      {widgetId ? (
+        <Widget widgetId={widgetId} />
+      ) : (
+        <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5">
+          <div className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
+          <span className="text-sm font-medium text-gray-700">Available for Hire</span>
+        </div>
+      )}
 
       {/* Navigation */}
       <div className="flex items-center gap-4">

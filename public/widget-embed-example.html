@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenToWork Widget Embed Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .example-section {
+            margin: 40px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #666;
+            margin-top: 0;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>OpenToWork Widget Embed Example</h1>
+    
+    <div class="example-section">
+        <h2>Embed Code</h2>
+        <p>Copy and paste this code into your website where you want the widget to appear:</p>
+        <pre><code>&lt;div id="my-action-button-widget" data-widget-id="WIDGET_ID_123"&gt;&lt;/div&gt;
+&lt;script src="http://localhost:3000/widget-loader.js" async&gt;&lt;/script&gt;</code></pre>
+        <p><strong>Note:</strong> Replace <code>WIDGET_ID_123</code> with your actual widget ID, and update the script URL to your production domain.</p>
+    </div>
+
+    <div class="example-section">
+        <h2>Live Example</h2>
+        <p>Here's how the widget looks when embedded:</p>
+        
+        <!-- Widget Embed -->
+        <div id="my-action-button-widget" data-widget-id="YOUR_WIDGET_ID_HERE"></div>
+        <script src="/widget-loader.js" async></script>
+    </div>
+
+    <div class="example-section">
+        <h2>Features</h2>
+        <ul>
+            <li>✅ Shadow DOM isolation (no CSS conflicts)</li>
+            <li>✅ Async loading (doesn't block page render)</li>
+            <li>✅ Responsive design</li>
+            <li>✅ Accessible (ARIA labels)</li>
+            <li>✅ MIT Licensed</li>
+        </ul>
+    </div>
+</body>
+</html>
+

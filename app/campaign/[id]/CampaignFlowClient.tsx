@@ -8,6 +8,7 @@ import ProgressBar from "@/components/campaign/ProgressBar";
 import NavigationButtons from "@/components/campaign/NavigationButtons";
 import { useCampaignFlow } from "@/hooks/useCampaignFlow";
 import type { CampaignData, ClientService, CaseStudy } from "@/lib/db/campaigns";
+import type { WidgetData } from "@/lib/db/widgets";
 
 type FlowStage = "summary" | "relevant-work" | "cta";
 
@@ -15,12 +16,14 @@ interface CampaignFlowClientProps {
   campaign: CampaignData;
   services: ClientService[];
   caseStudiesMap: Record<string, CaseStudy[]>;
+  widget: WidgetData | null;
 }
 
 export default function CampaignFlowClient({
   campaign,
   services,
   caseStudiesMap,
+  widget,
 }: CampaignFlowClientProps) {
   const { stage, selectedService, setStage, setSelectedService } = useCampaignFlow(
     campaign.campaign_id
@@ -97,11 +100,12 @@ export default function CampaignFlowClient({
         {/* Progress Bar */}
         <ProgressBar currentStage={stage} />
 
-        {/* Navigation Buttons */}
+        {/* Navigation Buttons with Widget */}
         <NavigationButtons
           stage={stage}
           onPrevious={handlePrevious}
           onClose={handleClose}
+          widgetId={widget?.widget_id || null}
         />
 
         {/* Page Content */}

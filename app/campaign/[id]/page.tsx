@@ -5,6 +5,7 @@ import {
   getClientServicesByCampaignId,
   getCaseStudiesByServiceId,
 } from "@/lib/db/campaigns";
+import { getWidgetByCampaignId } from "@/lib/db/widgets";
 import type { CaseStudy } from "@/lib/db/campaigns";
 
 interface PageProps {
@@ -31,11 +32,15 @@ export default async function CampaignPage({ params }: PageProps) {
     caseStudiesMap[service.client_service_id] = caseStudies;
   }
 
+  // Fetch widget for this campaign
+  const widget = await getWidgetByCampaignId(campaignId);
+
   return (
     <CampaignFlowClient
       campaign={campaign}
       services={services}
       caseStudiesMap={caseStudiesMap}
+      widget={widget}
     />
   );
 }
