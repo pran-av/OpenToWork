@@ -9,7 +9,7 @@ export async function GET(
     const { widgetId } = await params;
     const supabase = createServerClient();
 
-    // Fetch widget configuration
+    // Fetch widget configuration with project URL
     const { data: widget, error } = await supabase
       .from("widgets")
       .select(`
@@ -19,7 +19,11 @@ export async function GET(
         is_active,
         widget_text,
         design_attributes,
-        campaigns!inner(campaign_url, campaign_status)
+        campaigns!inner(
+          campaign_status,
+          project_id,
+          projects!inner(project_url, is_archived)
+        )
       `)
       .eq("widget_id", widgetId)
       .single();
@@ -31,22 +35,24 @@ export async function GET(
       );
     }
 
-    // Only return widget if campaign is active
+    // Only return widget if campaign is active and project is not archived
     const campaign = widget.campaigns as any;
-    if (campaign.campaign_status !== "active") {
+    const project = campaign.projects as any;
+    
+    if (campaign.campaign_status !== "ACTIVE" || project.is_archived) {
       return NextResponse.json(
-        { error: "Campaign is not active" },
+        { error: "Campaign is not active or project is archived" },
         { status: 400 }
       );
     }
 
-    // Return widget configuration
+    // Return widget configuration with project URL
     return NextResponse.json({
       widget_id: widget.widget_id,
       campaign_id: widget.campaign_id,
       is_active: widget.is_active,
       widget_text: widget.widget_text,
-      destination_url: campaign.campaign_url,
+      destination_url: project.project_url,
       design: widget.design_attributes,
     });
   } catch (error) {

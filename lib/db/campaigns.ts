@@ -3,9 +3,7 @@ import { createServerClient } from "@/lib/supabase/server";
 export interface CampaignData {
   campaign_id: string;
   campaign_name: string;
-  slug: string;
-  campaign_url: string;
-  campaign_status: string;
+  campaign_status: 'DRAFT' | 'ACTIVE' | 'PAUSED';
   campaign_structure: {
     client_name: string;
     client_summary: string;
@@ -41,24 +39,7 @@ export async function getCampaignById(campaignId: string): Promise<CampaignData 
     .from("campaigns")
     .select("*")
     .eq("campaign_id", campaignId)
-    .eq("campaign_status", "active")
-    .single();
-
-  if (error || !data) {
-    return null;
-  }
-
-  return data as CampaignData;
-}
-
-export async function getCampaignBySlug(slug: string): Promise<CampaignData | null> {
-  const supabase = createServerClient();
-  
-  const { data, error } = await supabase
-    .from("campaigns")
-    .select("*")
-    .eq("slug", slug)
-    .eq("campaign_status", "active")
+    .eq("campaign_status", "ACTIVE")
     .single();
 
   if (error || !data) {

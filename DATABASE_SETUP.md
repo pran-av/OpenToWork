@@ -1,4 +1,4 @@
-# Database Setup - Phase 1
+# Database Setup
 
 ## Supabase Project Details
 
@@ -14,18 +14,28 @@
 ### 1. users
 - Primary Key: `user_id` (UUID)
 - Fields: user_first_name, user_last_name, user_email, is_email_verified, user_location, created_at, last_login_at, current_payment_plan
-- Note: No password_hash in Phase 1 (using Supabase Auth)
+- Note: Using Supabase Auth (no password_hash stored)
 
 ### 2. projects
 - Primary Key: `project_id` (UUID)
 - Foreign Key: `user_id` → users.user_id
-- Fields: project_name (75 char limit), created_at
+- Fields: project_name (50 char limit, unique per user), project_url (TEXT, unique, nullable), is_archived (BOOLEAN, default false), created_at
+- **Phase 2 Changes**: 
+  - Added `project_url`: Stores `/project/<project_id>` path, set when first campaign becomes ACTIVE
+  - Added `is_archived`: Boolean flag, once TRUE cannot be set back to FALSE (enforced by trigger)
+  - Unique constraint on `(user_id, project_name)` to prevent duplicate project names per user
 
 ### 3. campaigns
 - Primary Key: `campaign_id` (UUID)
 - Foreign Key: `project_id` → projects.project_id
-- Fields: campaign_name (25 char), slug (120 char, unique), campaign_url, campaign_status, campaign_structure (JSONB), cta_config (JSONB), created_at
+- Fields: campaign_name (25 char), campaign_status (ENUM: DRAFT, ACTIVE, PAUSED), campaign_structure (JSONB), cta_config (JSONB), created_at
 - JSONB Constraints: campaign_structure must have client_name (≤25 chars) and client_summary (≤400 chars)
+- **Phase 2 Changes**:
+  - Removed `slug` column (deprecated)
+  - Removed `campaign_url` column (moved to project level)
+  - `campaign_status` changed from VARCHAR to ENUM type (`campaign_status_enum`)
+  - Default status is `DRAFT` (was 'active')
+  - Partial unique index ensures only one `ACTIVE` campaign per project
 
 ### 4. client_services
 - Primary Key: `client_service_id` (UUID)
@@ -50,6 +60,7 @@
 
 ## Migrations Applied
 
+### Phase 1
 1. `create_users_table` - Users table with email verification and payment plan
 2. `create_projects_table` - Projects table linked to users
 3. `create_campaigns_table` - Campaigns table with JSONB fields for structure and CTA config
@@ -58,12 +69,21 @@
 6. `create_leads_table` - Leads table for capturing lead information
 7. `create_widgets_table` - Widgets table with JSONB for design attributes
 
+### Phase 2
+1. `phase2_create_campaign_status_enum` - Created enum type and updated campaigns table
+2. `phase2_add_project_fields` - Added project_url and is_archived to projects
+3. `phase2_remove_campaign_url_fields` - Removed slug and campaign_url from campaigns
+4. `phase2_unique_active_campaign_per_project` - Added partial unique index for one ACTIVE campaign per project
+5. `phase2_create_campaign_functions` - Created publish_campaign, switch_campaign, archive_project, and is_campaign_publishable functions
+6. `phase2_enable_rls_policies` - Enabled RLS and created policies for all tables
+7. `phase2_prevent_unarchive_and_unique_project_name` - Added trigger to prevent unarchiving and unique constraint on project name per user
+
 ## Indexes Created
 
+### Phase 1
 - `idx_users_email` on users(user_email)
 - `idx_projects_user_id` on projects(user_id)
 - `idx_campaigns_project_id` on campaigns(project_id)
-- `idx_campaigns_slug` on campaigns(slug)
 - `idx_campaigns_status` on campaigns(campaign_status)
 - `idx_client_services_campaign_id` on client_services(campaign_id)
 - `idx_client_services_order` on client_services(campaign_id, order_index)
@@ -74,11 +94,76 @@
 - `idx_widgets_campaign_id` on widgets(campaign_id)
 - `idx_widgets_is_active` on widgets(is_active)
 
+### Phase 2
+- `idx_campaigns_one_active_per_project` on campaigns(project_id) WHERE campaign_status = 'ACTIVE' (partial unique index)
+- `idx_projects_user_name_unique` on projects(user_id, project_name) (unique per user)
+
+## Database Functions
+
+### Phase 2 Functions
+
+1. **is_campaign_publishable(p_campaign_id UUID)**
+   - Returns BOOLEAN
+   - Checks if campaign has all mandatory fields:
+     - client_name and client_summary in campaign_structure
+     - At least one CTA in cta_config
+     - At least one client_service
+     - Each service has at least one case_study
+
+2. **publish_campaign(p_project_id UUID, p_campaign_id UUID)**
+   - Returns JSONB with success status
+   - Publishes a DRAFT campaign to ACTIVE
+   - Only works when no ACTIVE campaign exists for the project
+   - Sets project_url if not already set
+   - Validates campaign is publishable before activation
+
+3. **switch_campaign(p_project_id UUID, p_target_campaign_id UUID)**
+   - Returns JSONB with success status
+   - Atomically switches from current ACTIVE to target campaign
+   - Current ACTIVE becomes PAUSED, target becomes ACTIVE
+   - Validates target is DRAFT or PAUSED and publishable
+
+4. **archive_project(p_project_id UUID)**
+   - Returns JSONB with success status
+   - Archives a project (sets is_archived = TRUE)
+   - Pauses all ACTIVE campaigns in the project
+   - Once archived, project cannot be unarchived (enforced by trigger)
+
+## Row Level Security (RLS)
+
+**Status**: Enabled on all tables (Phase 2)
+
+### Policy Strategy
+- **Ownership Chain**: `auth.uid()` → `users.user_id` → `projects.user_id` → `campaigns.project_id` → related tables
+- **Authenticated Users**: Can only see/manage their own data through the ownership chain
+- **Public Access**: 
+  - Anonymous users can SELECT ACTIVE campaigns for non-archived projects
+  - Anonymous users can INSERT leads for ACTIVE campaigns in non-archived projects
+  - Anonymous users can SELECT related data (services, case studies, widgets) for ACTIVE campaigns
+
+### Tables with RLS Enabled
+- users (select/update own)
+- projects (select/insert/update/delete own)
+- campaigns (select own + public active, insert/update/delete own)
+- client_services (select own + public, insert/update/delete own)
+- case_studies (select own + public, insert/update/delete own)
+- widgets (select own + public, insert/update/delete own)
+- leads (select own, insert public, update/delete own)
+
+## Triggers
+
+1. **trigger_prevent_unarchive** on projects
+   - Prevents changing `is_archived` from TRUE to FALSE
+   - Raises exception if unarchive attempt is made
+
 ## Notes
 
 - All timestamps use `TIMESTAMP WITH TIME ZONE DEFAULT NOW()`
 - All primary keys are UUIDs with `gen_random_uuid()` default
-- RLS (Row Level Security) is disabled for Phase 1 (to be implemented in Phase 2)
 - Foreign keys use `ON DELETE CASCADE` for data integrity
 - JSONB fields have validation constraints to ensure data structure
+- Campaign status enum: `DRAFT` (default), `ACTIVE`, `PAUSED`
+- Project URL format: `/project/<project_id>` (stored in projects.project_url)
+- Only one ACTIVE campaign per project (enforced by partial unique index)
+- Project names must be unique per user (enforced by unique index)
 
