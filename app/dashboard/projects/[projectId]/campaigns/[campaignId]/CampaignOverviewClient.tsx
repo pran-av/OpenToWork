@@ -992,22 +992,34 @@ export default function CampaignOverviewClient({
         const allCampaigns = data.campaigns || [];
         const active = data.activeCampaign || null;
         
-        // Filter out the current campaign and only include DRAFT or PAUSED campaigns
-        const available = allCampaigns.filter((c: CampaignData) => 
-          c.campaign_id !== campaign.campaign_id && 
-          (c.campaign_status === "DRAFT" || c.campaign_status === "PAUSED")
-        );
+        // For PAUSED campaigns, include the current campaign in available list (for "Make Active")
+        // For other cases, filter out the current campaign
+        const available = allCampaigns.filter((c: CampaignData) => {
+          // Only include DRAFT or PAUSED campaigns
+          if (c.campaign_status !== "DRAFT" && c.campaign_status !== "PAUSED") {
+            return false;
+          }
+          
+          // If current campaign is PAUSED, include it in the list
+          if (campaign.campaign_status === "PAUSED" && c.campaign_id === campaign.campaign_id) {
+            return true;
+          }
+          
+          // For all other cases, exclude the current campaign
+          return c.campaign_id !== campaign.campaign_id;
+        });
         
         setAvailableCampaigns(available);
         setCurrentActiveCampaign(active);
         
-        // If this is a DRAFT or PAUSED campaign being switched to, pre-select it
-        if (campaign.campaign_status !== "ACTIVE" && available.length > 0) {
+        // Pre-select the current campaign if it's PAUSED (for "Make Active")
+        if (campaign.campaign_status === "PAUSED") {
+          setSelectedTargetCampaignId(campaign.campaign_id);
+        } else if (campaign.campaign_status === "DRAFT" && available.length > 0) {
+          // For DRAFT campaigns, pre-select if it's in the available list
           const preSelect = available.find((c: CampaignData) => c.campaign_id === campaign.campaign_id);
           if (preSelect) {
             setSelectedTargetCampaignId(campaign.campaign_id);
-          } else if (available.length === 1) {
-            setSelectedTargetCampaignId(available[0].campaign_id);
           }
         }
       }
@@ -1100,6 +1112,9 @@ export default function CampaignOverviewClient({
     }
     if (campaign.campaign_status === "DRAFT") {
       return hasActiveCampaign ? "Switch to Current" : "Publish Campaign";
+    }
+    if (campaign.campaign_status === "PAUSED") {
+      return "Make Active";
     }
     return "Switch Campaign";
   };
