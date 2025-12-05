@@ -33,7 +33,7 @@ export interface CaseStudy {
 }
 
 export async function getCampaignById(campaignId: string): Promise<CampaignData | null> {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   
   const { data, error } = await supabase
     .from("campaigns")
@@ -52,7 +52,7 @@ export async function getCampaignById(campaignId: string): Promise<CampaignData 
 export async function getClientServicesByCampaignId(
   campaignId: string
 ): Promise<ClientService[]> {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   
   const { data, error } = await supabase
     .from("client_services")
@@ -70,7 +70,7 @@ export async function getClientServicesByCampaignId(
 export async function getCaseStudiesByServiceId(
   clientServiceId: string
 ): Promise<CaseStudy[]> {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   
   const { data, error } = await supabase
     .from("case_studies")
@@ -94,7 +94,7 @@ export async function createLead(leadData: {
   lead_phone?: string;
   meeting_scheduled?: boolean;
 }) {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   
   const { data, error } = await supabase
     .from("leads")

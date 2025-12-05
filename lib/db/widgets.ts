@@ -18,7 +18,7 @@ export interface WidgetData {
 export async function getWidgetByCampaignId(
   campaignId: string
 ): Promise<WidgetData | null> {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
 
   const { data, error } = await supabase
     .from("widgets")

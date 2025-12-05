@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/server";
 
 export async function GET(
   request: NextRequest,
@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { widgetId } = await params;
-    const supabase = createServerClient();
+    const supabase = createPublicClient();
 
     // Fetch widget configuration with project URL
     const { data: widget, error } = await supabase

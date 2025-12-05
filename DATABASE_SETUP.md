@@ -13,8 +13,12 @@
 
 ### 1. users
 - Primary Key: `user_id` (UUID)
-- Fields: user_first_name, user_last_name, user_email, is_email_verified, user_location, created_at, last_login_at, current_payment_plan
+- Fields: user_first_name (nullable), user_last_name (nullable), user_email, is_email_verified, user_location (nullable), created_at, last_login_at, current_payment_plan (nullable, defaults to 'free' via trigger)
 - Note: Using Supabase Auth (no password_hash stored)
+- **Phase 2 Changes**:
+  - `user_first_name`, `user_last_name`, `user_location`, and `current_payment_plan` are now nullable
+  - Auto-sync from `auth.users` via trigger `on_auth_user_created`
+  - Trigger sets `current_payment_plan = 'free'` for new users
 
 ### 2. projects
 - Primary Key: `project_id` (UUID)
