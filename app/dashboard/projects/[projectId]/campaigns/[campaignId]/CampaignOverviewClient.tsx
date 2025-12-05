@@ -572,6 +572,13 @@ export default function CampaignOverviewClient({
   const [deleteServiceName, setDeleteServiceName] = useState<string>("");
   const [deleteServiceHasCaseStudies, setDeleteServiceHasCaseStudies] = useState(false);
 
+  // Switch Campaign Modal state
+  const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
+  const [availableCampaigns, setAvailableCampaigns] = useState<CampaignData[]>([]);
+  const [selectedTargetCampaignId, setSelectedTargetCampaignId] = useState<string>("");
+  const [currentActiveCampaign, setCurrentActiveCampaign] = useState<CampaignData | null>(null);
+
   // Check if any mandatory fields are empty (including services)
   const currentServicesCount = services.length;
   const hasEmptyMandatoryFields = 
@@ -870,16 +877,199 @@ export default function CampaignOverviewClient({
 
     setIsPublishing(true);
     setError(null);
+    setSuccess(null);
 
-    // Publish/Switch functionality will be implemented in P4
-    // For now, just show a message
-    alert("Publish/Switch functionality will be implemented in P4");
-    setIsPublishing(false);
+    try {
+      // First save any unsaved changes (without reloading)
+      if (hasUnsavedChanges) {
+        setIsSaving(true);
+        try {
+          // Save campaign updates
+          const updates = {
+            campaign_name: campaignName.trim(),
+            campaign_structure: {
+              client_name: clientName.trim(),
+              client_summary: clientSummary.trim(),
+            },
+            cta_config: {
+              ...(ctaScheduleMeeting.trim() && { schedule_meeting: ctaScheduleMeeting.trim() }),
+              ...(ctaMailto.trim() && { mailto: ctaMailto.trim() }),
+              ...(ctaLinkedin.trim() && { linkedin: ctaLinkedin.trim() }),
+              ...(ctaPhone.trim() && { phone: ctaPhone.trim() }),
+            },
+          };
+
+          const campaignRes = await fetch(`/api/campaigns/${campaign.campaign_id}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(updates),
+          });
+
+          if (!campaignRes.ok) {
+            const campaignData = await campaignRes.json();
+            throw new Error(campaignData.error || "Failed to save campaign");
+          }
+
+          // Save services and case studies if needed
+          if (pendingServiceOps.length > 0 || pendingCaseStudyOps.length > 0) {
+            // Save services first
+            if (pendingServiceOps.length > 0) {
+              const servicesRes = await fetch(`/api/campaigns/${campaign.campaign_id}/services`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ operations: pendingServiceOps }),
+              });
+
+              if (!servicesRes.ok) {
+                const servicesData = await servicesRes.json();
+                throw new Error(servicesData.error || "Failed to save services");
+              }
+            }
+
+            // Save case studies
+            if (pendingCaseStudyOps.length > 0) {
+              const caseStudiesRes = await fetch(`/api/campaigns/${campaign.campaign_id}/case-studies`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ operations: pendingCaseStudyOps }),
+              });
+
+              if (!caseStudiesRes.ok) {
+                const caseStudiesData = await caseStudiesRes.json();
+                throw new Error(caseStudiesData.error || "Failed to save case studies");
+              }
+            }
+          }
+        } catch (saveError: any) {
+          setError(saveError.message || "Failed to save changes before publishing");
+          setIsPublishing(false);
+          setIsSaving(false);
+          return;
+        }
+        setIsSaving(false);
+      }
+
+      // Now publish the campaign
+      const res = await fetch(`/api/campaigns/${campaign.campaign_id}/publish`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Failed to publish campaign");
+        setIsPublishing(false);
+        return;
+      }
+
+      setSuccess(data.message || "Campaign published successfully!");
+      
+      // Redirect to project overview after a short delay
+      setTimeout(() => {
+        router.push(`/dashboard/projects/${project.project_id}`);
+      }, 1500);
+    } catch (error: any) {
+      setError(error.message || "An unexpected error occurred");
+      setIsPublishing(false);
+    }
   };
 
-  const handleSwitchCampaign = () => {
-    // Switch functionality will be implemented in P4
-    alert("Switch Campaign functionality will be implemented in P4");
+  const fetchAvailableCampaigns = async () => {
+    try {
+      const res = await fetch(`/api/projects/${project.project_id}/campaigns`);
+      const data = await res.json();
+      
+      if (res.ok) {
+        const allCampaigns = data.campaigns || [];
+        const active = data.activeCampaign || null;
+        
+        // Filter out the current campaign and only include DRAFT or PAUSED campaigns
+        const available = allCampaigns.filter((c: CampaignData) => 
+          c.campaign_id !== campaign.campaign_id && 
+          (c.campaign_status === "DRAFT" || c.campaign_status === "PAUSED")
+        );
+        
+        setAvailableCampaigns(available);
+        setCurrentActiveCampaign(active);
+        
+        // If this is a DRAFT or PAUSED campaign being switched to, pre-select it
+        if (campaign.campaign_status !== "ACTIVE" && available.length > 0) {
+          const preSelect = available.find((c: CampaignData) => c.campaign_id === campaign.campaign_id);
+          if (preSelect) {
+            setSelectedTargetCampaignId(campaign.campaign_id);
+          } else if (available.length === 1) {
+            setSelectedTargetCampaignId(available[0].campaign_id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching campaigns:", error);
+    }
+  };
+
+  const handleSwitchCampaign = async () => {
+    // If this is a DRAFT or PAUSED campaign, pre-select it and open modal
+    if (campaign.campaign_status !== "ACTIVE") {
+      await fetchAvailableCampaigns();
+      setIsSwitchModalOpen(true);
+      return;
+    }
+
+    // If this is ACTIVE campaign, fetch campaigns and open modal
+    await fetchAvailableCampaigns();
+    setIsSwitchModalOpen(true);
+  };
+
+  const handleConfirmSwitch = async () => {
+    if (!selectedTargetCampaignId) {
+      setError("Please select a campaign to switch to");
+      return;
+    }
+
+    setIsSwitching(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const res = await fetch(`/api/campaigns/switch`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectId: project.project_id,
+          targetCampaignId: selectedTargetCampaignId,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Failed to switch campaign");
+        setIsSwitching(false);
+        return;
+      }
+
+      setSuccess(data.message || "Campaign switched successfully!");
+      setIsSwitchModalOpen(false);
+      
+      // Redirect to project overview after a short delay
+      setTimeout(() => {
+        router.push(`/dashboard/projects/${project.project_id}`);
+      }, 1500);
+    } catch (error: any) {
+      setError(error.message || "An unexpected error occurred");
+      setIsSwitching(false);
+    }
   };
 
   // Handle back navigation with unsaved changes
@@ -916,7 +1106,8 @@ export default function CampaignOverviewClient({
 
   const shouldShowPrimaryCTA = () => {
     if (campaign.campaign_status === "ACTIVE") {
-      // Only show if there are other campaigns (will be checked in P4)
+      // Only show if there are other campaigns (need to check)
+      // For now, show it - will be disabled if no other campaigns
       return true;
     }
     if (campaign.campaign_status === "DRAFT") {
@@ -939,15 +1130,28 @@ export default function CampaignOverviewClient({
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
         {shouldShowPrimaryCTA() && (
           <button
-            onClick={campaign.campaign_status === "ACTIVE" ? handleSwitchCampaign : handlePublish}
+            onClick={() => {
+              if (campaign.campaign_status === "ACTIVE") {
+                handleSwitchCampaign();
+              } else if (campaign.campaign_status === "PAUSED") {
+                handleSwitchCampaign();
+              } else if (campaign.campaign_status === "DRAFT" && hasActiveCampaign) {
+                // DRAFT with active campaign = Switch to Current
+                handleSwitchCampaign();
+              } else {
+                // DRAFT without active campaign = Publish
+                handlePublish();
+              }
+            }}
             disabled={
-              (campaign.campaign_status === "DRAFT" && !isPublishable) ||
+              (campaign.campaign_status === "DRAFT" && !hasActiveCampaign && !isPublishable) ||
               isPublishing ||
+              isSwitching ||
               project.is_archived
             }
             className="w-full rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
           >
-            {isPublishing ? "Processing..." : getPrimaryCTALabel()}
+            {(isPublishing || isSwitching) ? "Processing..." : getPrimaryCTALabel()}
           </button>
         )}
         {isEditMode && (
@@ -1393,6 +1597,91 @@ export default function CampaignOverviewClient({
               className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
             >
               Save
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Switch Campaign Modal */}
+      <Dialog open={isSwitchModalOpen} onOpenChange={(open) => {
+        if (!isSwitching) {
+          setIsSwitchModalOpen(open);
+          if (!open) {
+            setSelectedTargetCampaignId("");
+            setError(null);
+          }
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Switch Campaign</DialogTitle>
+            <DialogDescription>
+              {currentActiveCampaign 
+                ? `Switch from "${currentActiveCampaign.campaign_name}" to another campaign. The current active campaign will be paused.`
+                : "Select a campaign to activate. This will make it the active campaign for this project."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {currentActiveCampaign && (
+              <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
+                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  Current Active Campaign:
+                </p>
+                <p className="mt-1 text-sm text-zinc-900 dark:text-zinc-50">
+                  {currentActiveCampaign.campaign_name}
+                </p>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Switch To Campaign <span className="text-red-600 dark:text-red-400">*</span>
+              </label>
+              {availableCampaigns.length === 0 ? (
+                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                  No other campaigns available to switch to.
+                </p>
+              ) : (
+                <select
+                  value={selectedTargetCampaignId}
+                  onChange={(e) => setSelectedTargetCampaignId(e.target.value)}
+                  disabled={isSwitching}
+                  className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-black shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
+                >
+                  <option value="">Select a campaign...</option>
+                  {availableCampaigns.map((c) => (
+                    <option key={c.campaign_id} value={c.campaign_id}>
+                      {c.campaign_name} ({c.campaign_status})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {currentActiveCampaign && (
+              <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <strong>Warning:</strong> This will atomically switch campaigns. The current active campaign will be paused and the selected campaign will become active. The project URL will remain unchanged.
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <button
+              onClick={() => {
+                setIsSwitchModalOpen(false);
+                setSelectedTargetCampaignId("");
+                setError(null);
+              }}
+              disabled={isSwitching}
+              className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmSwitch}
+              disabled={isSwitching || !selectedTargetCampaignId || availableCampaigns.length === 0}
+              className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+            >
+              {isSwitching ? "Switching..." : "Confirm Switch"}
             </button>
           </DialogFooter>
         </DialogContent>

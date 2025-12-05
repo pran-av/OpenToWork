@@ -363,3 +363,42 @@ export async function createLead(leadData: {
   return data;
 }
 
+// Publish and Switch Campaign functions
+export async function publishCampaign(
+  projectId: string,
+  campaignId: string
+): Promise<{ success: boolean; message?: string; project_url?: string }> {
+  const supabase = await createServerClient();
+  
+  const { data, error } = await supabase.rpc("publish_campaign", {
+    p_project_id: projectId,
+    p_campaign_id: campaignId,
+  });
+
+  if (error) {
+    console.error("Error publishing campaign:", error);
+    throw new Error(error.message || "Failed to publish campaign");
+  }
+
+  return data as { success: boolean; message?: string; project_url?: string };
+}
+
+export async function switchCampaign(
+  projectId: string,
+  targetCampaignId: string
+): Promise<{ success: boolean; message?: string }> {
+  const supabase = await createServerClient();
+  
+  const { data, error } = await supabase.rpc("switch_campaign", {
+    p_project_id: projectId,
+    p_target_campaign_id: targetCampaignId,
+  });
+
+  if (error) {
+    console.error("Error switching campaign:", error);
+    throw new Error(error.message || "Failed to switch campaign");
+  }
+
+  return data as { success: boolean; message?: string };
+}
+

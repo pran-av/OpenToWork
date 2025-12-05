@@ -29,6 +29,11 @@ export default function ProjectOverviewClient({
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string>("");
+  
+  // Switch Campaign Modal state
+  const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
+  const [selectedTargetCampaignId, setSelectedTargetCampaignId] = useState<string>("");
 
   const fetchCampaigns = async () => {
     setIsLoading(true);
@@ -197,12 +202,18 @@ export default function ProjectOverviewClient({
                 Active
               </span>
               {campaigns.length > 1 && (
-                <Link
-                  href={`/dashboard/projects/${project.project_id}/campaigns/${activeCampaign.campaign_id}`}
-                  className="ml-auto rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                <button
+                  onClick={async () => {
+                    setIsSwitchModalOpen(true);
+                    // Fetch campaigns to populate dropdown
+                    await fetchCampaigns();
+                    setSelectedTargetCampaignId("");
+                  }}
+                  disabled={project.is_archived}
+                  className="ml-auto rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                 >
                   Switch Campaign
-                </Link>
+                </button>
               )}
             </div>
           </div>
@@ -341,6 +352,129 @@ export default function ProjectOverviewClient({
               className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
             >
               {isCreating ? "Creating..." : "Create Campaign"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Switch Campaign Modal */}
+      <Dialog open={isSwitchModalOpen} onOpenChange={(open) => {
+        if (!isSwitching) {
+          setIsSwitchModalOpen(open);
+          if (!open) {
+            setSelectedTargetCampaignId("");
+            setError(null);
+          }
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Switch Campaign</DialogTitle>
+            <DialogDescription>
+              {activeCampaign 
+                ? `Switch from "${activeCampaign.campaign_name}" to another campaign. The current active campaign will be paused.`
+                : "Select a campaign to activate. This will make it the active campaign for this project."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {activeCampaign && (
+              <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
+                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  Current Active Campaign:
+                </p>
+                <p className="mt-1 text-sm text-zinc-900 dark:text-zinc-50">
+                  {activeCampaign.campaign_name}
+                </p>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Switch To Campaign <span className="text-red-600 dark:text-red-400">*</span>
+              </label>
+              {remainingCampaigns.length === 0 ? (
+                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                  No other campaigns available to switch to.
+                </p>
+              ) : (
+                <select
+                  value={selectedTargetCampaignId}
+                  onChange={(e) => setSelectedTargetCampaignId(e.target.value)}
+                  disabled={isSwitching}
+                  className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-black shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
+                >
+                  <option value="">Select a campaign...</option>
+                  {remainingCampaigns.map((c) => (
+                    <option key={c.campaign_id} value={c.campaign_id}>
+                      {c.campaign_name} ({c.campaign_status})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {activeCampaign && (
+              <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <strong>Warning:</strong> This will atomically switch campaigns. The current active campaign will be paused and the selected campaign will become active. The project URL will remain unchanged.
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <button
+              onClick={() => {
+                setIsSwitchModalOpen(false);
+                setSelectedTargetCampaignId("");
+                setError(null);
+              }}
+              disabled={isSwitching}
+              className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                if (!selectedTargetCampaignId) {
+                  setError("Please select a campaign to switch to");
+                  return;
+                }
+
+                setIsSwitching(true);
+                setError(null);
+
+                try {
+                  const res = await fetch(`/api/campaigns/switch`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      projectId: project.project_id,
+                      targetCampaignId: selectedTargetCampaignId,
+                    }),
+                  });
+
+                  const data = await res.json();
+
+                  if (!res.ok) {
+                    setError(data.error || "Failed to switch campaign");
+                    setIsSwitching(false);
+                    return;
+                  }
+
+                  setIsSwitchModalOpen(false);
+                  setSelectedTargetCampaignId("");
+                  
+                  // Refresh campaigns list
+                  await fetchCampaigns();
+                } catch (error: any) {
+                  setError(error.message || "An unexpected error occurred");
+                  setIsSwitching(false);
+                }
+              }}
+              disabled={isSwitching || !selectedTargetCampaignId || remainingCampaigns.length === 0}
+              className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+            >
+              {isSwitching ? "Switching..." : "Confirm Switch"}
             </button>
           </DialogFooter>
         </DialogContent>
