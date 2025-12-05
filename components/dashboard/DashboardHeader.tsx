@@ -69,9 +69,12 @@ export default function DashboardHeader() {
               </svg>
             </button>
           )}
-          <h1 className="text-lg font-semibold text-black dark:text-zinc-50">
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="text-lg font-semibold text-black transition-colors hover:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:text-zinc-50 dark:hover:text-zinc-300"
+          >
             Dashboard
-          </h1>
+          </button>
         </div>
         <button
           onClick={handleLogout}
