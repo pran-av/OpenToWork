@@ -1,10 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { getCookieOptions } from "@/lib/utils/cookies";
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
+
+  const cookieOptions = getCookieOptions();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,9 +28,18 @@ export async function middleware(request: NextRequest) {
           supabaseResponse = NextResponse.next({
             request,
           });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
+          // Merge environment-specific cookie options
+          cookiesToSet.forEach(({ name, value, options }) => {
+            const mergedOptions = {
+              ...cookieOptions,
+              ...options,
+              // Ensure our security settings are applied
+              httpOnly: cookieOptions.httpOnly,
+              secure: cookieOptions.secure,
+              sameSite: cookieOptions.sameSite,
+            };
+            supabaseResponse.cookies.set(name, value, mergedOptions);
+          });
         },
       },
     }
@@ -68,7 +80,7 @@ export const config = {
      * - public folder
      * - /auth/callback path (Supabase magic link callback) 
      */
-    //"/((?!_next/static|_next/image|favicon.ico|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|auth/callback)$).*)",
   ],
 

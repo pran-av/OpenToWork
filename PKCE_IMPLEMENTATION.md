@@ -68,7 +68,23 @@ This document outlines how PKCE (Proof Key for Code Exchange) flow is implemente
 
 4. **Session Management** → Middleware refreshes sessions automatically
    - Uses PKCE flow type for all session operations
-   - Cookies are HttpOnly and Secure
+   - Cookies are HttpOnly and Secure (environment-aware)
+
+## Cookie Security Configuration
+
+Cookies are configured based on environment via `lib/utils/cookies.ts`:
+
+### Production (`ENVIRONMENT=production` or `NODE_ENV=production`)
+- `httpOnly: true` - Prevents JavaScript access
+- `secure: true` - Only sent over HTTPS
+- `sameSite: "strict"` - CSRF protection
+
+### Development (`ENVIRONMENT=development`)
+- `httpOnly: true` - Still secure (prevents XSS)
+- `secure: false` - Allows localhost (no HTTPS)
+- `sameSite: "lax"` - More permissive for development
+
+This ensures security in production while maintaining usability in development.
 
 ## Critical Requirements Met
 
