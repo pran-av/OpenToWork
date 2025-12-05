@@ -102,6 +102,23 @@ Note: Since we are using Supabase for authentication, a lot of points below migh
     - The next section lists all client services related to the campaign, and for each service there is a case study configuration. This can be implemented in dropdown format.
     - All mandatory fields should have an astrick symbol and should display red when empty. Use the draft campaign flag 'publishable', display red when draft campaign is not publishable.  
 
+### Campaign Overview: Client Services and Case Studies - P3
+- The Client Services container should have a CTA to saying 'Add Service', on click a modal opens requesting Service Name with 50 Character Limit
+- User can click Close the exit the modal, otherwise enter the name and click 'Add' CTA. Show error if service name is empty. There are no unique checks on service name, two services can have same name.
+- Add an accordian for each service added. If there is only one service the accordian can be default open, as more services are added the latest added service has the accordian open while the other accordians are in closed state. If user opens a particular accordian, keep the other accordian open unless user closes it.
+- The Order Index for services will be based on sequence of addition. Meaning the first added will have index 1 and show at top followed by the sequence.
+- Each accordian mentions the service name and has a delete CTA on Top right within the accordian card. Clicking delete, deletes the service along with other case study information within the service.
+- On opening each accordian, the user can click another CTA to 'Add Case Study'. Below the CTA it should mention atleast one case study is required.
+- On click populate all fields requiring user input for case study. This includes Case Name, Case Summary, Case Duration, Case Highlights, and Case Study URL. Name and Highlights are mandatory, the rest is optional.
+- Case Name should have a 50 Character limit. Error if empty. Does not have to be unique.
+- Case Summary should have a Character limit of 100.
+- Case Duration can be a simple string and limit of 50 characters
+- Case Highlights should be collected as multiple pointers. User can see a field by default, atleast one highlight is mandatory per case study. Besides this highlight the user can click a square button with plus icon to add another highlight.
+- If muliple highlights are received, they should be stored separated by a semicolon
+- Clicking the 'Save Campaign' button should save all the entered/updated fields at that instant of the campaign
+- When the campaign is in draft stage, it will be editable and hence these sections will be editable. However in any other stages - these sections would be in view only mode
+
+
 ### Switch Campaign - P4
 - A switch campaign allows user to pause and old campaign to activate a new campaign in the same project without the project URL changing. This is done in a atomic fashion reducing any chances of reace conditions.
 - The switch CTAs are available on the Project Overview page as well as individual Campaign Pages, this tasks describes what happens when the user intiates switching.
