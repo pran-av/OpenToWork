@@ -13,19 +13,19 @@ export async function GET(request: NextRequest) {
 
   // Log full request details for debugging
   console.log("=== Auth Callback Debug ===");
-  console.log("Full request URL:", request.url);
-  console.log("Parsed URL:", requestUrl.toString());
-  console.log("All search params:", Object.fromEntries(requestUrl.searchParams));
-  console.log("Headers:", {
-    referer: request.headers.get("referer"),
-    userAgent: request.headers.get("user-agent"),
-    host: request.headers.get("host"),
-  });
+  //console.log("Full request URL:", request.url);
+  //console.log("Parsed URL:", requestUrl.toString());
+  //console.log("All search params:", Object.fromEntries(requestUrl.searchParams));
+  //console.log("Headers:", {
+  //  referer: request.headers.get("referer"),
+  //  userAgent: request.headers.get("user-agent"),
+  //  host: request.headers.get("host"),
+  //});
   console.log("Parameters:", {
     hasCode: !!code,
-    code: code ? `${code.substring(0, 10)}...` : null,
+    //code: code ? `${code.substring(0, 10)}...` : null,
     hasToken: !!token,
-    token: token ? `${token.substring(0, 10)}...` : null,
+    //token: token ? `${token.substring(0, 10)}...` : null,
     type,
     errorParam,
     errorDescription,
