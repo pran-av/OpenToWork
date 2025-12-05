@@ -12,12 +12,17 @@
 ## Database Tables Created
 
 ### 1. users
-- Primary Key: `user_id` (UUID)
+- Primary Key: `user_id` (UUID) - **Foreign Key from `auth.users.id`**
 - Fields: user_first_name (nullable), user_last_name (nullable), user_email, is_email_verified, user_location (nullable), created_at, last_login_at, current_payment_plan (nullable, defaults to 'free' via trigger)
 - Note: Using Supabase Auth (no password_hash stored)
 - **Phase 2 Changes**:
+  - `user_id` is a **Foreign Key from `auth.users.id`** - ensures 1:1 mapping
   - `user_first_name`, `user_last_name`, `user_location`, and `current_payment_plan` are now nullable
-  - Auto-sync from `auth.users` via trigger `on_auth_user_created`
+  - Auto-sync from `auth.users` via triggers:
+    - `on_auth_user_created` - Handles new user creation and email-based duplicate detection
+    - `on_auth_user_updated` - Syncs login events and email verification status
+  - **Duplicate Prevention**: Checks by `user_email` first - if exists, updates instead of inserting
+  - **Data Sync**: Automatically syncs `is_email_verified` and `last_login_at` from `auth.users`
   - Trigger sets `current_payment_plan = 'free'` for new users
 
 ### 2. projects
@@ -81,6 +86,8 @@
 5. `phase2_create_campaign_functions` - Created publish_campaign, switch_campaign, archive_project, and is_campaign_publishable functions
 6. `phase2_enable_rls_policies` - Enabled RLS and created policies for all tables
 7. `phase2_prevent_unarchive_and_unique_project_name` - Added trigger to prevent unarchiving and unique constraint on project name per user
+8. `phase2_auth_user_sync` - Created trigger to sync auth.users to public.users on INSERT
+9. `phase2_improve_auth_user_sync` - Improved auth user sync with email-based duplicate detection and UPDATE trigger for login events
 
 ## Indexes Created
 
@@ -138,7 +145,13 @@
 **Status**: Enabled on all tables (Phase 2)
 
 ### Policy Strategy
-- **Ownership Chain**: `auth.uid()` → `users.user_id` → `projects.user_id` → `campaigns.project_id` → related tables
+- **Ownership Chain**: `auth.uid()` → `users.user_id` (FK from `auth.users.id`) → `projects.user_id` → `campaigns.project_id` → related tables
+- **FK Mapping**: `public.users.user_id` is a Foreign Key from `auth.users.id`, ensuring 1:1 relationship
+- **RLS Chain**: RLS policies use `auth.uid() = user_id`, which works because:
+  - `auth.uid()` returns the authenticated user's ID from `auth.users.id`
+  - `public.users.user_id` is the FK from `auth.users.id` (synced via trigger)
+  - This creates a secure ownership chain from authentication to application data
+  - **Verified**: RLS policies on `users` table use `auth.uid() = user_id`, correctly mapping authenticated user to public user record
 - **Authenticated Users**: Can only see/manage their own data through the ownership chain
 - **Public Access**: 
   - Anonymous users can SELECT ACTIVE campaigns for non-archived projects
@@ -146,7 +159,7 @@
   - Anonymous users can SELECT related data (services, case studies, widgets) for ACTIVE campaigns
 
 ### Tables with RLS Enabled
-- users (select/update own)
+- users (select/update own) - Uses `auth.uid() = user_id` where `user_id` is FK from `auth.users.id`
 - projects (select/insert/update/delete own)
 - campaigns (select own + public active, insert/update/delete own)
 - client_services (select own + public, insert/update/delete own)
@@ -159,6 +172,23 @@
 1. **trigger_prevent_unarchive** on projects
    - Prevents changing `is_archived` from TRUE to FALSE
    - Raises exception if unarchive attempt is made
+
+2. **on_auth_user_created** on auth.users (AFTER INSERT)
+   - Executes: `handle_new_auth_user()`
+   - Syncs new auth users to `public.users` table
+   - **FK Mapping**: `public.users.user_id` = `auth.users.id` (1:1 relationship)
+   - **Duplicate Prevention**: 
+     - Checks by `user_email` first - if exists, updates the record
+     - Updates `user_id` to match `auth.users.id` (ensures FK consistency)
+     - **Note**: If user exists by email with different `user_id`, the FK is updated to match `auth.users.id`
+   - **Data Sync**: Sets `user_email`, `is_email_verified`, `last_login_at`, `current_payment_plan`
+   - **RLS Integration**: RLS policies use `auth.uid() = user_id`, which works because `user_id` is FK from `auth.users.id`
+
+3. **on_auth_user_updated** on auth.users (AFTER UPDATE)
+   - Executes: `handle_auth_user_update()`
+   - Syncs updates from auth.users (login events, email verification)
+   - Updates: `user_email`, `is_email_verified`, `last_login_at`
+   - Only triggers when email, email_confirmed_at, or last_sign_in_at changes
 
 ## Notes
 
