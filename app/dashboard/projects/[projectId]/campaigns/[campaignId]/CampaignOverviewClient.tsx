@@ -140,7 +140,7 @@ export default function CampaignOverviewClient({
       return "Switch Campaign";
     }
     if (campaign.campaign_status === "DRAFT") {
-      return hasActiveCampaign ? "Switch to Current" : "Publish";
+      return hasActiveCampaign ? "Switch to Current" : "Publish Campaign";
     }
     return "Switch Campaign";
   };
@@ -166,6 +166,32 @@ export default function CampaignOverviewClient({
 
   return (
     <div className="space-y-6">
+      {/* Action Buttons - Above Header */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        {shouldShowPrimaryCTA() && (
+          <button
+            onClick={campaign.campaign_status === "ACTIVE" ? handleSwitchCampaign : handlePublish}
+            disabled={
+              (campaign.campaign_status === "DRAFT" && !isPublishable) ||
+              isPublishing ||
+              project.is_archived
+            }
+            className="w-full rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+          >
+            {isPublishing ? "Processing..." : getPrimaryCTALabel()}
+          </button>
+        )}
+        {isEditMode && (
+          <button
+            onClick={handleSave}
+            disabled={isSaving || project.is_archived}
+            className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+          >
+            {isSaving ? "Saving..." : "Save Campaign"}
+          </button>
+        )}
+      </div>
+
       {/* Header Section */}
       <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="flex items-start justify-between">
@@ -184,7 +210,7 @@ export default function CampaignOverviewClient({
                 {campaign.campaign_name}
               </h2>
             )}
-            <div className="mt-2 flex items-center gap-4">
+            <div className="mt-2 flex flex-wrap items-center gap-4">
               <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeColor()}`}>
                 {campaign.campaign_status}
               </span>
@@ -197,30 +223,6 @@ export default function CampaignOverviewClient({
                 </span>
               )}
             </div>
-          </div>
-          <div className="flex gap-2">
-            {shouldShowPrimaryCTA() && (
-              <button
-                onClick={campaign.campaign_status === "ACTIVE" ? handleSwitchCampaign : handlePublish}
-                disabled={
-                  (campaign.campaign_status === "DRAFT" && !isPublishable) ||
-                  isPublishing ||
-                  project.is_archived
-                }
-                className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
-              >
-                {isPublishing ? "Processing..." : getPrimaryCTALabel()}
-              </button>
-            )}
-            {isEditMode && (
-              <button
-                onClick={handleSave}
-                disabled={isSaving || project.is_archived}
-                className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-              >
-                {isSaving ? "Saving..." : "Save"}
-              </button>
-            )}
           </div>
         </div>
         {error && (

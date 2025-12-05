@@ -16,8 +16,8 @@ export default function DashboardHeader() {
       // Already on dashboard home, do nothing or could navigate to a different default
       return;
     }
-    // Navigate back to dashboard
-    router.push("/dashboard");
+    // Navigate back to previous page
+    router.back();
   };
 
   const handleLogout = async () => {
