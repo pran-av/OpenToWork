@@ -2,6 +2,7 @@ import { createServerClient } from "@/lib/supabase/server";
 
 export interface CampaignData {
   campaign_id: string;
+  project_id: string;
   campaign_name: string;
   campaign_status: 'DRAFT' | 'ACTIVE' | 'PAUSED';
   campaign_structure: {
@@ -15,6 +16,7 @@ export interface CampaignData {
     linkedin?: string;
     phone?: string;
   };
+  created_at: string;
 }
 
 export interface ClientService {
@@ -39,11 +41,69 @@ export async function getCampaignById(campaignId: string): Promise<CampaignData 
     .from("campaigns")
     .select("*")
     .eq("campaign_id", campaignId)
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data as CampaignData;
+}
+
+export async function getCampaignsByProjectId(projectId: string): Promise<CampaignData[]> {
+  const supabase = await createServerClient();
+  
+  const { data, error } = await supabase
+    .from("campaigns")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false });
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data as CampaignData[];
+}
+
+export async function getActiveCampaignByProjectId(projectId: string): Promise<CampaignData | null> {
+  const supabase = await createServerClient();
+  
+  const { data, error } = await supabase
+    .from("campaigns")
+    .select("*")
+    .eq("project_id", projectId)
     .eq("campaign_status", "ACTIVE")
     .single();
 
   if (error || !data) {
     return null;
+  }
+
+  return data as CampaignData;
+}
+
+export async function createCampaign(projectId: string, campaignName: string): Promise<CampaignData | null> {
+  const supabase = await createServerClient();
+  
+  const { data, error } = await supabase
+    .from("campaigns")
+    .insert({
+      project_id: projectId,
+      campaign_name: campaignName,
+      campaign_status: 'DRAFT',
+      campaign_structure: {
+        client_name: '',
+        client_summary: '',
+      },
+      cta_config: {},
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    console.error("Error creating campaign:", error);
+    throw new Error(error.message);
   }
 
   return data as CampaignData;
