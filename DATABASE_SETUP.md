@@ -54,7 +54,7 @@
 ### 5. case_studies
 - Primary Key: `case_id` (UUID)
 - Foreign Key: `client_service_id` → client_services.client_service_id
-- Fields: case_name (75 char), case_summary (150 char), case_duration, case_highlights (TEXT), case_study_url, created_at
+- Fields: case_name (75 char, required), case_summary (150 char, nullable), case_duration (nullable), case_highlights (TEXT, required), case_study_url (nullable), created_at
 
 ### 6. leads
 - Primary Key: `lead_id` (UUID)
@@ -88,6 +88,7 @@
 7. `phase2_prevent_unarchive_and_unique_project_name` - Added trigger to prevent unarchiving and unique constraint on project name per user
 8. `phase2_auth_user_sync` - Created trigger to sync auth.users to public.users on INSERT
 9. `phase2_improve_auth_user_sync` - Improved auth user sync with email-based duplicate detection and UPDATE trigger for login events
+10. `phase2_make_case_study_fields_nullable` - Made case_summary, case_duration, and case_study_url nullable in case_studies table
 
 ## Indexes Created
 

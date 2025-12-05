@@ -21,17 +21,21 @@ export interface CampaignData {
 
 export interface ClientService {
   client_service_id: string;
+  campaign_id: string;
   client_service_name: string;
   order_index: number;
+  created_at?: string;
 }
 
 export interface CaseStudy {
   case_id: string;
+  client_service_id: string;
   case_name: string;
   case_summary: string;
   case_duration: string;
   case_highlights: string;
   case_study_url: string;
+  created_at?: string;
 }
 
 export async function getCampaignById(campaignId: string): Promise<CampaignData | null> {
@@ -183,6 +187,156 @@ export async function updateCampaign(
   }
 
   return data as CampaignData;
+}
+
+// Client Services functions
+export async function createClientService(
+  campaignId: string,
+  serviceName: string,
+  orderIndex: number
+): Promise<ClientService> {
+  const supabase = await createServerClient();
+  
+  const { data, error } = await supabase
+    .from("client_services")
+    .insert({
+      campaign_id: campaignId,
+      client_service_name: serviceName,
+      order_index: orderIndex,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to create service: ${error.message}`);
+  }
+
+  return data as ClientService;
+}
+
+export async function updateClientService(
+  serviceId: string,
+  updates: {
+    client_service_name?: string;
+    order_index?: number;
+  }
+): Promise<ClientService> {
+  const supabase = await createServerClient();
+  
+  const { data, error } = await supabase
+    .from("client_services")
+    .update(updates)
+    .eq("client_service_id", serviceId)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to update service: ${error.message}`);
+  }
+
+  return data as ClientService;
+}
+
+export async function deleteClientService(serviceId: string): Promise<void> {
+  const supabase = await createServerClient();
+  
+  const { error } = await supabase
+    .from("client_services")
+    .delete()
+    .eq("client_service_id", serviceId);
+
+  if (error) {
+    throw new Error(`Failed to delete service: ${error.message}`);
+  }
+}
+
+// Case Studies functions
+export async function createCaseStudy(
+  clientServiceId: string,
+  caseData: {
+    case_name: string;
+    case_summary?: string;
+    case_duration?: string;
+    case_highlights: string;
+    case_study_url?: string;
+  }
+): Promise<CaseStudy> {
+  const supabase = await createServerClient();
+  
+  // Convert empty strings to null for nullable fields
+  const insertData: any = {
+    client_service_id: clientServiceId,
+    case_name: caseData.case_name,
+    case_highlights: caseData.case_highlights,
+    case_summary: caseData.case_summary?.trim() || null,
+    case_duration: caseData.case_duration?.trim() || null,
+    case_study_url: caseData.case_study_url?.trim() || null,
+  };
+  
+  const { data, error } = await supabase
+    .from("case_studies")
+    .insert(insertData)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to create case study: ${error.message}`);
+  }
+
+  return data as CaseStudy;
+}
+
+export async function updateCaseStudy(
+  caseId: string,
+  updates: {
+    case_name?: string;
+    case_summary?: string;
+    case_duration?: string;
+    case_highlights?: string;
+    case_study_url?: string;
+  }
+): Promise<CaseStudy> {
+  const supabase = await createServerClient();
+  
+  // Convert empty strings to null for nullable fields
+  const updateData: any = {};
+  if (updates.case_name !== undefined) updateData.case_name = updates.case_name;
+  if (updates.case_highlights !== undefined) updateData.case_highlights = updates.case_highlights;
+  if (updates.case_summary !== undefined) {
+    updateData.case_summary = updates.case_summary?.trim() || null;
+  }
+  if (updates.case_duration !== undefined) {
+    updateData.case_duration = updates.case_duration?.trim() || null;
+  }
+  if (updates.case_study_url !== undefined) {
+    updateData.case_study_url = updates.case_study_url?.trim() || null;
+  }
+  
+  const { data, error } = await supabase
+    .from("case_studies")
+    .update(updateData)
+    .eq("case_id", caseId)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to update case study: ${error.message}`);
+  }
+
+  return data as CaseStudy;
+}
+
+export async function deleteCaseStudy(caseId: string): Promise<void> {
+  const supabase = await createServerClient();
+  
+  const { error } = await supabase
+    .from("case_studies")
+    .delete()
+    .eq("case_id", caseId);
+
+  if (error) {
+    throw new Error(`Failed to delete case study: ${error.message}`);
+  }
 }
 
 export async function createLead(leadData: {
