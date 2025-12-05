@@ -184,7 +184,10 @@ export default function ProjectOverviewClient({
 
       {/* Active Campaign Section */}
       {hasActiveCampaign ? (
-        <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+        <Link
+          href={`/dashboard/projects/${project.project_id}/campaigns/${activeCampaign.campaign_id}`}
+          className="block rounded-lg border border-zinc-200 bg-white p-6 transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
+        >
           <h3 className="mb-4 text-lg font-semibold text-black dark:text-zinc-50">
             Currently Active Campaign
           </h3>
@@ -203,10 +206,12 @@ export default function ProjectOverviewClient({
               </span>
               {campaigns.length > 1 && (
                 <button
-                  onClick={async () => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setIsSwitchModalOpen(true);
                     // Fetch campaigns to populate dropdown
-                    await fetchCampaigns();
+                    fetchCampaigns();
                     setSelectedTargetCampaignId("");
                   }}
                   disabled={project.is_archived}
@@ -217,7 +222,7 @@ export default function ProjectOverviewClient({
               )}
             </div>
           </div>
-        </div>
+        </Link>
       ) : (
         <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
