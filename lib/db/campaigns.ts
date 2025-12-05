@@ -145,6 +145,46 @@ export async function getCaseStudiesByServiceId(
   return data as CaseStudy[];
 }
 
+export async function isCampaignPublishable(campaignId: string): Promise<boolean> {
+  const supabase = await createServerClient();
+  
+  const { data, error } = await supabase.rpc("is_campaign_publishable", {
+    p_campaign_id: campaignId,
+  });
+
+  if (error) {
+    console.error("Error checking campaign publishability:", error);
+    return false;
+  }
+
+  return data === true;
+}
+
+export async function updateCampaign(
+  campaignId: string,
+  updates: {
+    campaign_name?: string;
+    campaign_structure?: CampaignData["campaign_structure"];
+    cta_config?: CampaignData["cta_config"];
+  }
+): Promise<CampaignData | null> {
+  const supabase = await createServerClient();
+  
+  const { data, error } = await supabase
+    .from("campaigns")
+    .update(updates)
+    .eq("campaign_id", campaignId)
+    .select("*")
+    .single();
+
+  if (error) {
+    console.error("Error updating campaign:", error);
+    throw new Error(error.message);
+  }
+
+  return data as CampaignData;
+}
+
 export async function createLead(leadData: {
   campaign_id: string;
   lead_name: string;
