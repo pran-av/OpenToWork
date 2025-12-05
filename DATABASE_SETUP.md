@@ -161,7 +161,7 @@
 
 ### Tables with RLS Enabled
 - users (select/update own) - Uses `auth.uid() = user_id` where `user_id` is FK from `auth.users.id`
-- projects (select/insert/update/delete own)
+- projects (select/insert/update/delete own) - **NOT publicly accessible**
 - campaigns (select own + public active, insert/update/delete own)
 - client_services (select own + public, insert/update/delete own)
 - case_studies (select own + public, insert/update/delete own)
@@ -201,4 +201,5 @@
 - Project URL format: `/project/<project_id>` (stored in projects.project_url)
 - Only one ACTIVE campaign per project (enforced by partial unique index)
 - Project names must be unique per user (enforced by unique index)
+- **Public Project URLs**: `/project/[projectId]` routes directly render the active campaign flow (projects table is NOT publicly accessible, only ACTIVE campaigns are)
 

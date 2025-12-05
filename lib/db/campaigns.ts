@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/server";
 
 export interface CampaignData {
   campaign_id: string;
@@ -87,6 +88,27 @@ export async function getActiveCampaignByProjectId(projectId: string): Promise<C
   return data as CampaignData;
 }
 
+/**
+ * Get active campaign by project ID (public, no auth required)
+ * Used for public project URLs
+ */
+export async function getActiveCampaignByProjectIdPublic(projectId: string): Promise<CampaignData | null> {
+  const supabase = createPublicClient();
+  
+  const { data, error } = await supabase
+    .from("campaigns")
+    .select("*")
+    .eq("project_id", projectId)
+    .eq("campaign_status", "ACTIVE")
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data as CampaignData;
+}
+
 export async function createCampaign(projectId: string, campaignName: string): Promise<CampaignData | null> {
   const supabase = await createServerClient();
   
@@ -131,10 +153,54 @@ export async function getClientServicesByCampaignId(
   return data as ClientService[];
 }
 
+/**
+ * Get client services by campaign ID (public, no auth required)
+ * Used for public campaign pages
+ */
+export async function getClientServicesByCampaignIdPublic(
+  campaignId: string
+): Promise<ClientService[]> {
+  const supabase = createPublicClient();
+  
+  const { data, error } = await supabase
+    .from("client_services")
+    .select("*")
+    .eq("campaign_id", campaignId)
+    .order("order_index", { ascending: true });
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data as ClientService[];
+}
+
 export async function getCaseStudiesByServiceId(
   clientServiceId: string
 ): Promise<CaseStudy[]> {
   const supabase = await createServerClient();
+  
+  const { data, error } = await supabase
+    .from("case_studies")
+    .select("*")
+    .eq("client_service_id", clientServiceId)
+    .order("created_at", { ascending: false });
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data as CaseStudy[];
+}
+
+/**
+ * Get case studies by service ID (public, no auth required)
+ * Used for public campaign pages
+ */
+export async function getCaseStudiesByServiceIdPublic(
+  clientServiceId: string
+): Promise<CaseStudy[]> {
+  const supabase = createPublicClient();
   
   const { data, error } = await supabase
     .from("case_studies")
