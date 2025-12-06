@@ -89,6 +89,20 @@
 8. `phase2_auth_user_sync` - Created trigger to sync auth.users to public.users on INSERT
 9. `phase2_improve_auth_user_sync` - Improved auth user sync with email-based duplicate detection and UPDATE trigger for login events
 10. `phase2_make_case_study_fields_nullable` - Made case_summary, case_duration, and case_study_url nullable in case_studies table
+11. `fix_leads_public_insert_rls` - Fixed RLS policy for public INSERT on leads table by creating security definer function `is_campaign_available_for_leads()` that can check project status
+12. `recreate_leads_rls_policies` - Recreated all RLS policies for leads table:
+    - INSERT: Both authenticated and unauthenticated users can insert leads for ACTIVE campaigns (uses `is_campaign_available_for_leads()` function)
+    - SELECT/UPDATE/DELETE: Only authenticated users can access their own leads through ownership chain (users -> projects -> campaigns -> leads)
+13. `recreate_leads_table_simple` - Recreated leads table with simplified RLS policies:
+    - INSERT: Public users can insert leads if campaign exists (simple existence check, no ACTIVE status or archive check)
+    - SELECT/UPDATE/DELETE: Authenticated users can access their own leads through ownership chain
+    - Removed function dependencies for debugging
+14. `add_campaigns_select_for_leads_check` - Added public SELECT policy on campaigns table to allow checking campaign existence for leads INSERT policy
+15. `update_leads_rls_for_anonymous_auth` - Updated RLS policies to use anonymous sign-in approach:
+    - INSERT: Authenticated users with `is_anonymous` claim can insert leads if campaign exists
+    - SELECT/UPDATE/DELETE: Permanent authenticated users (non-anonymous) can access their own leads
+    - Uses `auth.jwt()->>'is_anonymous'` to distinguish anonymous from permanent users
+16. `add_campaigns_select_for_authenticated` - Added SELECT policy for authenticated role (including anonymous users) to check campaign existence
 
 ## Indexes Created
 
@@ -141,6 +155,13 @@
    - Pauses all ACTIVE campaigns in the project
    - Once archived, project cannot be unarchived (enforced by trigger)
 
+5. **is_campaign_available_for_leads(p_campaign_id UUID)**
+   - Returns BOOLEAN
+   - Security definer function that checks if a campaign is available for lead submission
+   - Returns TRUE if campaign is ACTIVE and project is not archived
+   - Used by RLS policy on leads table to allow public INSERT
+   - Bypasses RLS on projects table to check is_archived status
+
 ## Row Level Security (RLS)
 
 **Status**: Enabled on all tables (Phase 2)
@@ -166,7 +187,7 @@
 - client_services (select own + public, insert/update/delete own)
 - case_studies (select own + public, insert/update/delete own)
 - widgets (select own + public, insert/update/delete own)
-- leads (select own, insert public, update/delete own)
+- leads (select/update/delete own, insert public for active campaigns)
 
 ## Triggers
 
@@ -178,6 +199,10 @@
    - Executes: `handle_new_auth_user()`
    - Syncs new auth users to `public.users` table
    - **FK Mapping**: `public.users.user_id` = `auth.users.id` (1:1 relationship)
+   - **Anonymous User Support**: 
+     - Checks `is_anonymous` field or NULL email to identify anonymous users
+     - Uses placeholder email format: `anonymous-{user_id}@anonymous.local` for anonymous users
+     - Ensures `user_email` NOT NULL constraint is satisfied
    - **Duplicate Prevention**: 
      - Checks by `user_email` first - if exists, updates the record
      - Updates `user_id` to match `auth.users.id` (ensures FK consistency)

@@ -39,6 +39,19 @@ export interface CaseStudy {
   created_at?: string;
 }
 
+export interface LeadData {
+  lead_id: string;
+  campaign_id: string;
+  lead_name: string;
+  lead_company: string;
+  lead_email: string;
+  lead_phone_isd?: string | null;
+  lead_phone?: string | null;
+  meeting_scheduled: boolean;
+  created_at: string;
+  campaign_name?: string; // Added when joining with campaigns
+}
+
 export async function getCampaignById(campaignId: string): Promise<CampaignData | null> {
   const supabase = await createServerClient();
   
@@ -405,17 +418,35 @@ export async function deleteCaseStudy(caseId: string): Promise<void> {
   }
 }
 
-export async function createLead(leadData: {
-  campaign_id: string;
-  lead_name: string;
-  lead_company: string;
-  lead_email: string;
-  lead_phone_isd?: string;
-  lead_phone?: string;
-  meeting_scheduled?: boolean;
-}) {
-  const supabase = await createServerClient();
+export async function createLead(
+  leadData: {
+    campaign_id: string;
+    lead_name: string;
+    lead_company: string;
+    lead_email: string;
+    lead_phone_isd?: string;
+    lead_phone?: string;
+    meeting_scheduled?: boolean;
+  },
+  supabaseClient?: Awaited<ReturnType<typeof createServerClient>>
+) {
+  // Use provided client (with session) or create server client
+  // This allows anonymous users (with session) to insert leads
+  const supabase = supabaseClient || await createServerClient();
   
+  // Verify the campaign exists (RLS policy will check if user can see it)
+  const { data: campaign, error: campaignError } = await supabase
+    .from("campaigns")
+    .select("campaign_id")
+    .eq("campaign_id", leadData.campaign_id)
+    .single();
+
+  if (campaignError || !campaign) {
+    console.error("Campaign validation error:", campaignError);
+    throw new Error(`Campaign not found: ${campaignError?.message || "Campaign does not exist"}`);
+  }
+  
+  // Insert lead - RLS policy will check if user is anonymous and campaign exists
   const { data, error } = await supabase
     .from("leads")
     .insert([leadData])
@@ -423,6 +454,8 @@ export async function createLead(leadData: {
     .single();
 
   if (error) {
+    console.error("Supabase error creating lead:", error);
+    console.error("Lead data being inserted:", leadData);
     throw new Error(`Failed to create lead: ${error.message}`);
   }
 
@@ -466,5 +499,83 @@ export async function switchCampaign(
   }
 
   return data as { success: boolean; message?: string };
+}
+
+/**
+ * Get all leads for a project (across all campaigns)
+ * Returns leads with campaign names for display
+ * Uses join to ensure RLS policies are properly applied
+ */
+export async function getLeadsByProjectId(
+  projectId: string,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<{ leads: LeadData[]; total: number; page: number; pageSize: number }> {
+  const supabase = await createServerClient();
+  
+  // First, verify project exists and get campaigns
+  // This ensures RLS policies are applied correctly
+  const { data: campaigns, error: campaignsError } = await supabase
+    .from("campaigns")
+    .select("campaign_id, campaign_name")
+    .eq("project_id", projectId);
+
+  if (campaignsError) {
+    console.error("Error fetching campaigns:", campaignsError);
+    throw new Error(`Failed to fetch campaigns: ${campaignsError.message}`);
+  }
+
+  if (!campaigns || campaigns.length === 0) {
+    return { leads: [], total: 0, page, pageSize };
+  }
+
+  const campaignIds = campaigns.map((c) => c.campaign_id);
+  const campaignNameMap = new Map(campaigns.map((c) => [c.campaign_id, c.campaign_name]));
+
+  // Get total count
+  const { count, error: countError } = await supabase
+    .from("leads")
+    .select("*", { count: "exact", head: true })
+    .in("campaign_id", campaignIds);
+
+  if (countError) {
+    console.error("Error counting leads:", countError);
+    throw new Error(`Failed to count leads: ${countError.message}`);
+  }
+
+  const total = count || 0;
+
+  // Get paginated leads
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data: leads, error: leadsError } = await supabase
+    .from("leads")
+    .select("*")
+    .in("campaign_id", campaignIds)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (leadsError) {
+    console.error("Error fetching leads:", leadsError);
+    throw new Error(`Failed to fetch leads: ${leadsError.message}`);
+  }
+
+  if (!leads) {
+    return { leads: [], total, page, pageSize };
+  }
+
+  // Add campaign names to leads
+  const leadsWithCampaignNames: LeadData[] = leads.map((lead) => ({
+    ...lead,
+    campaign_name: campaignNameMap.get(lead.campaign_id) || "Unknown Campaign",
+  })) as LeadData[];
+
+  return {
+    leads: leadsWithCampaignNames,
+    total,
+    page,
+    pageSize,
+  };
 }
 

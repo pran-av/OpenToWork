@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { ProjectData } from "@/lib/db/projects";
-import type { CampaignData } from "@/lib/db/campaigns";
+import type { CampaignData, LeadData } from "@/lib/db/campaigns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Copy, Settings } from "lucide-react";
@@ -34,6 +34,16 @@ export default function ProjectOverviewClient({
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
   const [selectedTargetCampaignId, setSelectedTargetCampaignId] = useState<string>("");
+  
+  // Tab state
+  const [activeTab, setActiveTab] = useState<"overview" | "leads">("overview");
+  
+  // Leads state
+  const [leads, setLeads] = useState<LeadData[]>([]);
+  const [isLoadingLeads, setIsLoadingLeads] = useState(false);
+  const [leadsPage, setLeadsPage] = useState(1);
+  const [leadsTotal, setLeadsTotal] = useState(0);
+  const [leadsPageSize] = useState(20);
 
   const fetchCampaigns = async () => {
     setIsLoading(true);
@@ -116,9 +126,80 @@ export default function ProjectOverviewClient({
 
   const hasActiveCampaign = activeCampaign !== null;
 
+  // Fetch leads when Leads tab is active
+  const fetchLeads = useCallback(async (page: number = 1) => {
+    setIsLoadingLeads(true);
+    try {
+      const res = await fetch(`/api/projects/${project.project_id}/leads?page=${page}&pageSize=${leadsPageSize}`);
+      const data = await res.json();
+      if (res.ok) {
+        setLeads(data.leads || []);
+        setLeadsTotal(data.total || 0);
+        setLeadsPage(data.page || 1);
+      }
+    } catch (error) {
+      console.error("Error fetching leads:", error);
+    } finally {
+      setIsLoadingLeads(false);
+    }
+  }, [project.project_id, leadsPageSize]);
+
+  // Fetch leads when Leads tab is selected
+  useEffect(() => {
+    if (activeTab === "leads") {
+      fetchLeads(1); // Always start from page 1 when switching to Leads tab
+      setLeadsPage(1);
+    }
+  }, [activeTab, fetchLeads]);
+
+  // Format contact info (email or phone)
+  const formatContact = (lead: LeadData): string => {
+    if (lead.lead_email) {
+      return lead.lead_email;
+    }
+    if (lead.lead_phone_isd && lead.lead_phone) {
+      return `${lead.lead_phone_isd} ${lead.lead_phone}`;
+    }
+    if (lead.lead_phone) {
+      return lead.lead_phone;
+    }
+    return "N/A";
+  };
+
+  const totalPages = Math.ceil(leadsTotal / leadsPageSize);
+
   return (
     <div className="space-y-6">
-      {/* Project Details Section */}
+      {/* Tabs */}
+      <div className="border-b border-zinc-200 dark:border-zinc-800">
+        <nav className="flex gap-4" aria-label="Tabs">
+          <button
+            onClick={() => setActiveTab("overview")}
+            className={`border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === "overview"
+                ? "border-black text-black dark:border-zinc-50 dark:text-zinc-50"
+                : "border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab("leads")}
+            className={`border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === "leads"
+                ? "border-black text-black dark:border-zinc-50 dark:text-zinc-50"
+                : "border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+            }`}
+          >
+            Leads
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === "overview" ? (
+        <>
+          {/* Project Details Section */}
       <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -484,6 +565,106 @@ export default function ProjectOverviewClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </>
+      ) : (
+        <>
+          {/* Leads Tab */}
+          <div className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="p-6">
+              <h3 className="mb-4 text-lg font-semibold text-black dark:text-zinc-50">
+                Leads
+              </h3>
+              
+              {isLoadingLeads ? (
+                <div className="flex items-center justify-center py-8">
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading leads...</p>
+                </div>
+              ) : leads.length === 0 ? (
+                <div className="flex items-center justify-center py-8">
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">No leads found for this project.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b border-zinc-200 dark:border-zinc-800">
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                            Lead Name
+                          </th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                            Company Name
+                          </th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                            Contact
+                          </th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                            Campaign Name
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {leads.map((lead) => (
+                          <tr
+                            key={lead.lead_id}
+                            className="border-b border-zinc-100 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800"
+                          >
+                            <td className="px-4 py-3 text-sm text-zinc-900 dark:text-zinc-50">
+                              {lead.lead_name}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-zinc-900 dark:text-zinc-50">
+                              {lead.lead_company}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
+                              {formatContact(lead)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
+                              {lead.campaign_name || "Unknown"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="mt-4 flex items-center justify-between">
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                        Showing {(leadsPage - 1) * leadsPageSize + 1} to {Math.min(leadsPage * leadsPageSize, leadsTotal)} of {leadsTotal} leads
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            const newPage = leadsPage - 1;
+                            setLeadsPage(newPage);
+                            fetchLeads(newPage);
+                          }}
+                          disabled={leadsPage === 1 || isLoadingLeads}
+                          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                        >
+                          Previous
+                        </button>
+                        <button
+                          onClick={() => {
+                            const newPage = leadsPage + 1;
+                            setLeadsPage(newPage);
+                            fetchLeads(newPage);
+                          }}
+                          disabled={leadsPage >= totalPages || isLoadingLeads}
+                          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

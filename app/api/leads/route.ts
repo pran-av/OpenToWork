@@ -1,8 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@/lib/supabase/server";
 import { createLead } from "@/lib/db/campaigns";
 
 export async function POST(request: NextRequest) {
   try {
+    // Get the session from the request (will include anonymous users)
+    const supabase = await createServerClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    // Verify user is authenticated (either anonymous or permanent)
+    if (!session) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const {
       campaign_id,
@@ -33,13 +46,17 @@ export async function POST(request: NextRequest) {
       meeting_scheduled: Boolean(meeting_scheduled),
     };
 
-    const lead = await createLead(sanitizedData);
+    // Use server client (with session) instead of public client
+    const lead = await createLead(sanitizedData, supabase);
 
     return NextResponse.json({ success: true, lead }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating lead:", error);
     return NextResponse.json(
-      { error: "Failed to create lead" },
+      { 
+        error: "Failed to create lead",
+        details: error?.message || String(error)
+      },
       { status: 500 }
     );
   }

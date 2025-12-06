@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar, Mail, Linkedin, MessageCircle } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import type { CampaignData } from "@/lib/db/campaigns";
 
 interface CallToActionPageProps {
@@ -15,10 +16,37 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
     name: "",
     company: "",
     email: "",
+    phone_isd: "",
     phone: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const supabase = createClient();
+
+  // Sign in anonymously on component mount if not already authenticated
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        // If no session, sign in anonymously
+        if (!session) {
+          const { error } = await supabase.auth.signInAnonymously();
+          if (error) {
+            console.error("Error signing in anonymously:", error);
+          }
+        }
+      } catch (error) {
+        console.error("Error initializing auth:", error);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+
+    initializeAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Sanitize input to prevent XSS and script injections
   const sanitizeInput = (input: string): string => {
@@ -73,10 +101,14 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
     setIsSubmitting(true);
 
     try {
-      // Parse phone number if provided
-      const phoneParts = formData.phone.match(/^(\+\d{1,3})?\s*(.+)$/);
-      const leadPhoneIsd = phoneParts ? phoneParts[1] || "" : "";
-      const leadPhone = phoneParts ? phoneParts[2].replace(/\s/g, "") : formData.phone;
+      // Ensure we have an anonymous session before submitting
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        const { error: signInError } = await supabase.auth.signInAnonymously();
+        if (signInError) {
+          throw new Error(`Failed to authenticate: ${signInError.message}`);
+        }
+      }
 
       // Save lead to database via API route
       const response = await fetch("/api/leads", {
@@ -89,18 +121,21 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
           lead_name: formData.name,
           lead_company: formData.company,
           lead_email: formData.email,
-          lead_phone_isd: leadPhoneIsd || undefined,
-          lead_phone: leadPhone || undefined,
+          lead_phone_isd: formData.phone_isd.trim() || undefined,
+          lead_phone: formData.phone.trim() || undefined,
           meeting_scheduled: false,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to submit lead");
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.details || errorData.error || "Failed to submit lead";
+        console.error("API error:", errorMessage);
+        throw new Error(errorMessage);
       }
 
       alert("Thank you! We'll be in touch soon.");
-      setFormData({ name: "", company: "", email: "", phone: "" });
+      setFormData({ name: "", company: "", email: "", phone_isd: "", phone: "" });
     } catch (error) {
       console.error("Failed to submit lead:", error);
       alert("There was an error submitting your information. Please try again.");
@@ -255,20 +290,40 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
             )}
           </div>
 
-          <div>
-            <label
-              htmlFor="phone"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
-              Phone
-            </label>
-            <input
-              type="tel"
-              id="phone"
-              value={formData.phone}
-              onChange={(e) => handleInputChange("phone", e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-            />
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label
+                htmlFor="phone_isd"
+                className="mb-1 block text-sm font-medium text-gray-700"
+              >
+                ISD Code
+              </label>
+              <input
+                type="text"
+                id="phone_isd"
+                value={formData.phone_isd}
+                onChange={(e) => handleInputChange("phone_isd", e.target.value)}
+                placeholder="+91"
+                maxLength={5}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              />
+            </div>
+            <div className="col-span-2">
+              <label
+                htmlFor="phone"
+                className="mb-1 block text-sm font-medium text-gray-700"
+              >
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                id="phone"
+                value={formData.phone}
+                onChange={(e) => handleInputChange("phone", e.target.value)}
+                placeholder="97623123123"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              />
+            </div>
           </div>
 
           <button
