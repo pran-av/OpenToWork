@@ -132,13 +132,27 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
     setIsSubmitting(true);
 
     try {
-      // Ensure we have an anonymous session before submitting
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        const { error: signInError } = await supabase.auth.signInAnonymously();
+      // Verify authentication before submitting (more secure than getSession)
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        // If no authenticated user, try to sign in anonymously
+        console.log("[CallToAction] No authenticated user, signing in anonymously...");
+        const { data: signInData, error: signInError } = await supabase.auth.signInAnonymously();
         if (signInError) {
           throw new Error(`Failed to authenticate: ${signInError.message}`);
         }
+        if (!signInData?.user) {
+          throw new Error("Failed to create anonymous user");
+        }
+        console.log("[CallToAction] Anonymous user created:", {
+          user_id: signInData.user.id,
+          is_anonymous: signInData.user.is_anonymous,
+        });
+      } else {
+        console.log("[CallToAction] Authenticated user verified:", {
+          user_id: user.id,
+          is_anonymous: user.is_anonymous,
+        });
       }
 
       // Save lead to database via API route
