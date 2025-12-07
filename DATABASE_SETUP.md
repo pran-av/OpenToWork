@@ -199,10 +199,10 @@
    - Executes: `handle_new_auth_user()`
    - Syncs new auth users to `public.users` table
    - **FK Mapping**: `public.users.user_id` = `auth.users.id` (1:1 relationship)
-   - **Anonymous User Support**: 
-     - Checks `is_anonymous` field or NULL email to identify anonymous users
-     - Uses placeholder email format: `anonymous-{user_id}@anonymous.local` for anonymous users
-     - Ensures `user_email` NOT NULL constraint is satisfied
+   - **Anonymous User Handling**: 
+     - **Skips syncing anonymous users** - they don't need to be in `public.users`
+     - Anonymous users only exist in `auth.users` and are used for RLS via JWT `is_anonymous` claim
+     - Only email-authenticated users are synced to `public.users` for ownership chains
    - **Duplicate Prevention**: 
      - Checks by `user_email` first - if exists, updates the record
      - Updates `user_id` to match `auth.users.id` (ensures FK consistency)

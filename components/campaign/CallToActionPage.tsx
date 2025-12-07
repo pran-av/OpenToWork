@@ -24,27 +24,53 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
   const [isInitializing, setIsInitializing] = useState(true);
   const supabase = createClient();
 
-  // Sign in anonymously on component mount if not already authenticated
+  // Check if auth is ready (should already be initialized in CampaignFlowClient)
+  // This is a fallback check in case CampaignFlowClient didn't initialize
   useEffect(() => {
-    const initializeAuth = async () => {
+    const checkAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        console.log("[CallToAction] Checking auth status...");
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        // If no session, sign in anonymously
-        if (!session) {
-          const { error } = await supabase.auth.signInAnonymously();
-          if (error) {
-            console.error("Error signing in anonymously:", error);
+        if (sessionError) {
+          console.error("[CallToAction] Error getting session:", sessionError);
+        }
+        
+        if (session) {
+          console.log("[CallToAction] Session found:", {
+            user_id: session.user?.id,
+            is_anonymous: session.user?.is_anonymous,
+            access_token: session.access_token ? "present" : "missing",
+          });
+          
+          // Decode JWT to verify is_anonymous
+          try {
+            const jwtPayload = JSON.parse(atob(session.access_token.split('.')[1]));
+            console.log("[CallToAction] JWT payload:", {
+              is_anonymous: jwtPayload.is_anonymous,
+              role: jwtPayload.role,
+            });
+          } catch (jwtError) {
+            console.error("[CallToAction] Error decoding JWT:", jwtError);
+          }
+        } else {
+          console.warn("[CallToAction] No session found - attempting fallback anonymous sign-in...");
+          // Fallback: try to sign in if no session (shouldn't happen if CampaignFlowClient worked)
+          const { data: signInData, error: signInError } = await supabase.auth.signInAnonymously();
+          if (signInError) {
+            console.error("[CallToAction] Fallback anonymous sign-in failed:", signInError);
+          } else if (signInData?.session) {
+            console.log("[CallToAction] Fallback anonymous sign-in successful");
           }
         }
       } catch (error) {
-        console.error("Error initializing auth:", error);
+        console.error("[CallToAction] Error checking auth:", error);
       } finally {
         setIsInitializing(false);
       }
     };
 
-    initializeAuth();
+    checkAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -93,6 +119,11 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevent submission if auth is still initializing
+    if (isInitializing) {
+      return;
+    }
 
     if (!validateForm()) {
       return;
@@ -328,10 +359,10 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isInitializing || isSubmitting}
             className="w-full rounded-lg bg-gray-800 px-6 py-3 font-semibold text-white transition-colors hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSubmitting ? "SUBMITTING..." : "SUBMIT"}
+            {isInitializing ? "INITIALIZING..." : isSubmitting ? "SUBMITTING..." : "SUBMIT"}
           </button>
         </form>
       </div>

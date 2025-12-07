@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import ClientSummaryPage from "@/components/campaign/ClientSummaryPage";
 import RelevantWorkPage from "@/components/campaign/RelevantWorkPage";
 import CallToActionPage from "@/components/campaign/CallToActionPage";
@@ -29,9 +30,103 @@ export default function CampaignFlowClient({
     campaign.campaign_id
   );
   const [isClient, setIsClient] = useState(false);
+  const supabase = createClient();
 
+  // Initialize anonymous authentication on component mount
   useEffect(() => {
-    setIsClient(true);
+    const initializeAuth = async () => {
+      try {
+        console.log("[CampaignFlow] Starting anonymous auth initialization...");
+        
+        // Check existing session
+        const { data: { session: existingSession }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error("[CampaignFlow] Error getting session:", sessionError);
+        }
+        
+        if (existingSession) {
+          console.log("[CampaignFlow] Existing session found:", {
+            user_id: existingSession.user?.id,
+            email: existingSession.user?.email,
+            is_anonymous: existingSession.user?.is_anonymous,
+            access_token: existingSession.access_token ? "present" : "missing",
+            expires_at: existingSession.expires_at,
+          });
+          
+          // Decode JWT to check is_anonymous claim
+          try {
+            const jwtPayload = JSON.parse(atob(existingSession.access_token.split('.')[1]));
+            console.log("[CampaignFlow] JWT payload:", {
+              sub: jwtPayload.sub,
+              email: jwtPayload.email,
+              is_anonymous: jwtPayload.is_anonymous,
+              role: jwtPayload.role,
+              exp: jwtPayload.exp,
+            });
+          } catch (jwtError) {
+            console.error("[CampaignFlow] Error decoding JWT:", jwtError);
+          }
+          
+          setIsClient(true);
+          return;
+        }
+        
+        console.log("[CampaignFlow] No existing session, signing in anonymously...");
+        
+        // Sign in anonymously
+        const { data: signInData, error: signInError } = await supabase.auth.signInAnonymously();
+        
+        if (signInError) {
+          console.error("[CampaignFlow] Error signing in anonymously:", {
+            message: signInError.message,
+            status: signInError.status,
+            name: signInError.name,
+            fullError: signInError,
+          });
+          setIsClient(true); // Still render the page even if auth fails
+          return;
+        }
+        
+        if (signInData?.session) {
+          console.log("[CampaignFlow] Anonymous sign-in successful:", {
+            user_id: signInData.session.user?.id,
+            email: signInData.session.user?.email,
+            is_anonymous: signInData.session.user?.is_anonymous,
+            access_token: signInData.session.access_token ? "present" : "missing",
+            expires_at: signInData.session.expires_at,
+          });
+          
+          // Decode JWT to verify is_anonymous claim
+          try {
+            const jwtPayload = JSON.parse(atob(signInData.session.access_token.split('.')[1]));
+            console.log("[CampaignFlow] JWT payload after anonymous sign-in:", {
+              sub: jwtPayload.sub,
+              email: jwtPayload.email,
+              is_anonymous: jwtPayload.is_anonymous,
+              role: jwtPayload.role,
+              exp: jwtPayload.exp,
+            });
+            
+            if (jwtPayload.is_anonymous !== true) {
+              console.warn("[CampaignFlow] WARNING: is_anonymous claim is not true in JWT!");
+            }
+          } catch (jwtError) {
+            console.error("[CampaignFlow] Error decoding JWT after sign-in:", jwtError);
+          }
+        } else {
+          console.warn("[CampaignFlow] Sign-in returned no session data");
+        }
+        
+        setIsClient(true);
+      } catch (error) {
+        console.error("[CampaignFlow] Unexpected error during auth initialization:", error);
+        setIsClient(true); // Still render the page even if auth fails
+      }
+    };
+
+    initializeAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!isClient) {

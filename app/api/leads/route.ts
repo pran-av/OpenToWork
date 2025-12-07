@@ -6,7 +6,42 @@ export async function POST(request: NextRequest) {
   try {
     // Get the session from the request (will include anonymous users)
     const supabase = await createServerClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    // Log session details for debugging
+    if (sessionError) {
+      console.error("[API /leads] Error getting session:", sessionError);
+    }
+    
+    if (session) {
+      console.log("[API /leads] Session found:", {
+        user_id: session.user?.id,
+        email: session.user?.email,
+        is_anonymous: session.user?.is_anonymous,
+        access_token: session.access_token ? "present" : "missing",
+        expires_at: session.expires_at,
+      });
+      
+      // Decode JWT to check is_anonymous claim
+      try {
+        const jwtPayload = JSON.parse(Buffer.from(session.access_token.split('.')[1], 'base64').toString());
+        console.log("[API /leads] JWT payload:", {
+          sub: jwtPayload.sub,
+          email: jwtPayload.email,
+          is_anonymous: jwtPayload.is_anonymous,
+          role: jwtPayload.role,
+          exp: jwtPayload.exp,
+        });
+        
+        if (jwtPayload.is_anonymous !== true) {
+          console.warn("[API /leads] WARNING: is_anonymous claim is not true in JWT!");
+        }
+      } catch (jwtError) {
+        console.error("[API /leads] Error decoding JWT:", jwtError);
+      }
+    } else {
+      console.warn("[API /leads] No session found");
+    }
     
     // Verify user is authenticated (either anonymous or permanent)
     if (!session) {
