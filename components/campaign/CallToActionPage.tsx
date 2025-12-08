@@ -82,14 +82,14 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
       // If user exists, directly submit
       const userExists = await checkUserExists(supabase);
       if (!userExists) {
-        console.log("[CallToAction] No user found - creating anonymous user before submit...");
+        // console.log("[CallToAction] No user found - creating anonymous user before submit...");
         const authSuccess = await ensureAnonymousAuth(supabase, "CallToAction");
         if (!authSuccess) {
           throw new Error("Failed to authenticate user");
         }
-        console.log("[CallToAction] Anonymous user created - proceeding with submission");
+        // console.log("[CallToAction] Anonymous user created - proceeding with submission");
       } else {
-        console.log("[CallToAction] User exists - proceeding with submission");
+        // console.log("[CallToAction] User exists - proceeding with submission");
       }
 
       // Save lead to database via API route
@@ -112,14 +112,14 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.details || errorData.error || "Failed to submit lead";
-        console.error("API error:", errorMessage);
+        // console.error("API error:", errorMessage);
         throw new Error(errorMessage);
       }
 
       alert("Thank you! We'll be in touch soon.");
       setFormData({ name: "", company: "", email: "", phone_isd: "", phone: "" });
     } catch (error) {
-      console.error("Failed to submit lead:", error);
+      // console.error("Failed to submit lead:", error);
       alert("There was an error submitting your information. Please try again.");
     } finally {
       setIsSubmitting(false);

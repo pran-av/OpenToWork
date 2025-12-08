@@ -8,17 +8,17 @@ export async function POST(request: NextRequest) {
     const supabase = await createServerClient();
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    // Log user details for debugging
-    if (userError) {
-      console.error("[API /leads] Error getting user:", userError);
-    }
+    // Log user details for debugging (commented for production)
+    // if (userError) {
+    //   console.error("[API /leads] Error getting user:", userError);
+    // }
     
     if (user) {
-      console.log("[API /leads] Authenticated user found:", {
-        user_id: user.id,
-        email: user.email,
-        is_anonymous: user.is_anonymous,
-      });
+      // console.log("[API /leads] Authenticated user found:", {
+      //   user_id: user.id,
+      //   email: user.email,
+      //   is_anonymous: user.is_anonymous,
+      // });
       
       // Get session for JWT decoding (after verifying user is authentic)
       const { data: { session } } = await supabase.auth.getSession();
@@ -26,23 +26,23 @@ export async function POST(request: NextRequest) {
         // Decode JWT to check is_anonymous claim
         try {
           const jwtPayload = JSON.parse(Buffer.from(session.access_token.split('.')[1], 'base64').toString());
-          console.log("[API /leads] JWT payload:", {
-            sub: jwtPayload.sub,
-            email: jwtPayload.email,
-            is_anonymous: jwtPayload.is_anonymous,
-            role: jwtPayload.role,
-            exp: jwtPayload.exp,
-          });
+          // console.log("[API /leads] JWT payload:", {
+          //   sub: jwtPayload.sub,
+          //   email: jwtPayload.email,
+          //   is_anonymous: jwtPayload.is_anonymous,
+          //   role: jwtPayload.role,
+          //   exp: jwtPayload.exp,
+          // });
           
-          if (jwtPayload.is_anonymous !== true) {
-            console.warn("[API /leads] WARNING: is_anonymous claim is not true in JWT!");
-          }
+          // if (jwtPayload.is_anonymous !== true) {
+          //   console.warn("[API /leads] WARNING: is_anonymous claim is not true in JWT!");
+          // }
         } catch (jwtError) {
-          console.error("[API /leads] Error decoding JWT:", jwtError);
+          // console.error("[API /leads] Error decoding JWT:", jwtError);
         }
       }
     } else {
-      console.warn("[API /leads] No authenticated user found");
+      // console.warn("[API /leads] No authenticated user found");
     }
     
     // Verify user is authenticated (either anonymous or permanent)
