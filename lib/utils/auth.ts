@@ -52,11 +52,18 @@ export async function ensureAnonymousAuth(
         }
       } catch (jwtError) {
         console.error(`[${context}] Error decoding JWT:`, jwtError);
-        // If we can't decode JWT, check user object
+        // If we can't decode JWT, fall back to user object flags to avoid duplicate anonymous sign-in
         if (existingSession.user?.is_anonymous === false) {
           console.log(`[${context}] Permanent user detected from user object - skipping anonymous sign-in`);
           return true;
         }
+        if (existingSession.user?.is_anonymous === true) {
+          console.log(`[${context}] Anonymous user detected from user object - reusing session`);
+          return true;
+        }
+        // Unknown state: assume session is valid and reuse to avoid creating duplicates
+        console.warn(`[${context}] JWT decode failed and user anonymity unknown - reusing existing session to avoid duplicate anon sign-in`);
+        return true;
       }
     }
     
