@@ -244,7 +244,7 @@
             shadowRoot.appendChild(container);
           } catch (e) {
             // Shadow root already exists or other error, skip error display
-            console.warn('OpenToWork Widget: Could not display error state', e);
+            // console.warn('OpenToWork Widget: Could not display error state', e);
           }
         }
         // Remove initialization flag on error so it can retry if needed

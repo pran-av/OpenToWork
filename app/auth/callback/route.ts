@@ -11,8 +11,8 @@ export async function GET(request: NextRequest) {
   const errorDescription = requestUrl.searchParams.get("error_description");
   const errorCode = requestUrl.searchParams.get("error_code");
 
-  // Log full request details for debugging
-  console.log("=== Auth Callback Debug ===");
+  // Log full request details for debugging (commented for production)
+  // console.log("=== Auth Callback Debug ===");
   //console.log("Full request URL:", request.url);
   //console.log("Parsed URL:", requestUrl.toString());
   //console.log("All search params:", Object.fromEntries(requestUrl.searchParams));
@@ -21,17 +21,17 @@ export async function GET(request: NextRequest) {
   //  userAgent: request.headers.get("user-agent"),
   //  host: request.headers.get("host"),
   //});
-  console.log("Parameters:", {
-    hasCode: !!code,
-    //code: code ? `${code.substring(0, 10)}...` : null,
-    hasToken: !!token,
-    //token: token ? `${token.substring(0, 10)}...` : null,
-    type,
-    errorParam,
-    errorDescription,
-    errorCode,
-  });
-  console.log("========================");
+  // console.log("Parameters:", {
+  //   hasCode: !!code,
+  //   //code: code ? `${code.substring(0, 10)}...` : null,
+  //   hasToken: !!token,
+  //   //token: token ? `${token.substring(0, 10)}...` : null,
+  //   type,
+  //   errorParam,
+  //   errorDescription,
+  //   errorCode,
+  // });
+  // console.log("========================");
 
   // If Supabase returns an error in the callback
   if (errorParam) {
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
   // Handle direct token (if Supabase redirects with token instead of code)
   // This shouldn't normally happen, but we'll handle it as a fallback
   if (token && type === "magiclink" && !code) {
-    console.log("Received token directly, attempting to verify...");
+    // console.log("Received token directly, attempting to verify...");
     try {
       const supabase = await createServerClient();
       // Try to verify the token - Supabase should handle this via their verify endpoint
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
       }
 
       if (data.session) {
-        console.log("Session created successfully for user:", data.session.user.id);
+        // console.log("Session created successfully for user:", data.session.user.id);
         const forwardedHost = request.headers.get("x-forwarded-host");
         const protocol = request.headers.get("x-forwarded-proto") || "http";
         const baseUrl = forwardedHost
@@ -110,12 +110,12 @@ export async function GET(request: NextRequest) {
   // 3. Redirect URL mismatch
   // 4. Token was already used
   // 5. Supabase verify endpoint failed silently
-  console.warn("Auth callback called without code or token parameter");
-  console.warn("This usually means:");
-  console.warn("  - The magic link expired (5 minute limit)");
-  console.warn("  - The token was already used");
-  console.warn("  - Supabase verify endpoint failed before redirecting");
-  console.warn("  - Redirect URL mismatch in Supabase config");
+  // console.warn("Auth callback called without code or token parameter");
+  // console.warn("This usually means:");
+  // console.warn("  - The magic link expired (5 minute limit)");
+  // console.warn("  - The token was already used");
+  // console.warn("  - Supabase verify endpoint failed before redirecting");
+  // console.warn("  - Redirect URL mismatch in Supabase config");
   
   // Check if we have any error indicators
   if (errorCode || errorParam) {
