@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Calendar, Mail, Linkedin, MessageCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { checkUserExists, ensureAnonymousAuth } from "@/lib/utils/auth";
 import type { CampaignData } from "@/lib/db/campaigns";
 
 interface CallToActionPageProps {
@@ -21,58 +22,7 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(true);
   const supabase = createClient();
-
-  // Check if auth is ready (should already be initialized in CampaignFlowClient)
-  // This is a fallback check in case CampaignFlowClient didn't initialize
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        console.log("[CallToAction] Checking auth status...");
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error("[CallToAction] Error getting session:", sessionError);
-        }
-        
-        if (session) {
-          console.log("[CallToAction] Session found:", {
-            user_id: session.user?.id,
-            is_anonymous: session.user?.is_anonymous,
-            access_token: session.access_token ? "present" : "missing",
-          });
-          
-          // Decode JWT to verify is_anonymous
-          try {
-            const jwtPayload = JSON.parse(atob(session.access_token.split('.')[1]));
-            console.log("[CallToAction] JWT payload:", {
-              is_anonymous: jwtPayload.is_anonymous,
-              role: jwtPayload.role,
-            });
-          } catch (jwtError) {
-            console.error("[CallToAction] Error decoding JWT:", jwtError);
-          }
-        } else {
-          console.warn("[CallToAction] No session found - attempting fallback anonymous sign-in...");
-          // Fallback: try to sign in if no session (shouldn't happen if CampaignFlowClient worked)
-          const { data: signInData, error: signInError } = await supabase.auth.signInAnonymously();
-          if (signInError) {
-            console.error("[CallToAction] Fallback anonymous sign-in failed:", signInError);
-          } else if (signInData?.session) {
-            console.log("[CallToAction] Fallback anonymous sign-in successful");
-          }
-        }
-      } catch (error) {
-        console.error("[CallToAction] Error checking auth:", error);
-      } finally {
-        setIsInitializing(false);
-      }
-    };
-
-    checkAuth();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Sanitize input to prevent XSS and script injections
   const sanitizeInput = (input: string): string => {
@@ -120,11 +70,6 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Prevent submission if auth is still initializing
-    if (isInitializing) {
-      return;
-    }
-
     if (!validateForm()) {
       return;
     }
@@ -132,27 +77,19 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
     setIsSubmitting(true);
 
     try {
-      // Verify authentication before submitting (more secure than getSession)
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        // If no authenticated user, try to sign in anonymously
-        console.log("[CallToAction] No authenticated user, signing in anonymously...");
-        const { data: signInData, error: signInError } = await supabase.auth.signInAnonymously();
-        if (signInError) {
-          throw new Error(`Failed to authenticate: ${signInError.message}`);
+      // Critical operation: Verify user exists before submitting lead data
+      // If user doesn't exist, create anonymous user, then submit
+      // If user exists, directly submit
+      const userExists = await checkUserExists(supabase);
+      if (!userExists) {
+        console.log("[CallToAction] No user found - creating anonymous user before submit...");
+        const authSuccess = await ensureAnonymousAuth(supabase, "CallToAction");
+        if (!authSuccess) {
+          throw new Error("Failed to authenticate user");
         }
-        if (!signInData?.user) {
-          throw new Error("Failed to create anonymous user");
-        }
-        console.log("[CallToAction] Anonymous user created:", {
-          user_id: signInData.user.id,
-          is_anonymous: signInData.user.is_anonymous,
-        });
+        console.log("[CallToAction] Anonymous user created - proceeding with submission");
       } else {
-        console.log("[CallToAction] Authenticated user verified:", {
-          user_id: user.id,
-          is_anonymous: user.is_anonymous,
-        });
+        console.log("[CallToAction] User exists - proceeding with submission");
       }
 
       // Save lead to database via API route
@@ -373,10 +310,10 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
 
           <button
             type="submit"
-            disabled={isInitializing || isSubmitting}
+            disabled={isSubmitting}
             className="w-full rounded-lg bg-gray-800 px-6 py-3 font-semibold text-white transition-colors hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isInitializing ? "INITIALIZING..." : isSubmitting ? "SUBMITTING..." : "SUBMIT"}
+            {isSubmitting ? "SUBMITTING..." : "SUBMIT"}
           </button>
         </form>
       </div>
