@@ -14,8 +14,8 @@ Note: Both the above types are treated as `authenticated` in our databases (supa
 4. If cookies for neither guest or permanent user exist - then only we should run the anonymous user Sign In to have a User ID alloted to this new guest user and share the access token as response (is_anonymous = true coded). This token again gets stored for persistence and to avoid multiple anonymous users on each refresh.
 
 Possible flaw in current flow:
-1. In the current implementation of anonymous Sign in, I am observing the server returning a set cookie parameter in response header. This cookie when set in the browser is not the same as the anonymous user token but is a permanent user cookie under name 'sb-auclxctmtyzosafbyxff-auth-token'
-2. Consider we are logging in as different permanent users with separate UserIDs, its observed that the cookie under name 'sb-auclxctmtyzosafbyxff-auth-token' stored post successful signup is exactly the same for both users, however the magic-link sends a different 'sb-auclxctmtyzosafbyxff-auth-token-code-verifier' for each request
+1. In the current implementation of anonymous Sign in, I am observing the server returning a set cookie parameter in response header. This cookie when set in the browser is not the same as the anonymous user token but is a permanent user cookie under name 'sb-{project-ref}-auth-token'
+2. Consider we are logging in as different permanent users with separate UserIDs, its observed that the cookie under name 'sb-{project-ref}-auth-token' stored post successful signup is exactly the same for both users, however the magic-link sends a different 'sb-{project-ref}-auth-token-code-verifier' for each request
 3. We need to recheck our cookie logics based on above two points. Note that for permanent user sign in we are using the PKCE method.
 
 
