@@ -2,8 +2,6 @@
 
 ## Supabase Project Details
 
-- **Project Name**: OpenToWork
-- **Region**: ap-south-1
 - **Status**: ACTIVE_HEALTHY
 - **PostgreSQL Version**: 17.6.1.054
 

@@ -1,0 +1,18 @@
+[build]
+  command = "pnpm build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Omit these environment variables from secrets scanning
+# These are intentionally public (NEXT_PUBLIC_*) or non-sensitive configuration
+[context.production.environment]
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_PROJECT_NAME,ENVIRONMENT,SUPABASE_REGION,NEXT_PUBLIC_SUPABASE_ANON_KEY,NEXT_PUBLIC_SUPABASE_URL,SUPABASE_PROJECT_ID"
+
+[context.deploy-preview.environment]
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_PROJECT_NAME,ENVIRONMENT,SUPABASE_REGION,NEXT_PUBLIC_SUPABASE_ANON_KEY,NEXT_PUBLIC_SUPABASE_URL,SUPABASE_PROJECT_ID"
+
+[context.branch-deploy.environment]
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_PROJECT_NAME,ENVIRONMENT,SUPABASE_REGION,NEXT_PUBLIC_SUPABASE_ANON_KEY,NEXT_PUBLIC_SUPABASE_URL,SUPABASE_PROJECT_ID"
+
