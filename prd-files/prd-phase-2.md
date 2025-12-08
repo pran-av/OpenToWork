@@ -141,7 +141,7 @@ Note: Since we are using Supabase for authentication, a lot of points below migh
 - When a project is archived the user should still be able to access all Overview Pages for the project and campaigns within the project. However New campaign creation or publish/switch or pause CTAs will be disable. User cannot edit any Draft campaigns within this project either.
 
 ### Footer
-- Copyright statement 'cpyright symbol 2025 Pranav Mandhare'. Link Pranav Mandhare to 'https://x.com/pranavdotexe'
+- Copyright statement 'copyright symbol 2025 Pranav Mandhare'. Link Pranav Mandhare to 'https://x.com/pranavdotexe'
 
 ### Header
 - Top left of header mentions 'Dashboard'

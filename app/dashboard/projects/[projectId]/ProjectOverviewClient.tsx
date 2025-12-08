@@ -44,6 +44,9 @@ export default function ProjectOverviewClient({
   const [leadsPage, setLeadsPage] = useState(1);
   const [leadsTotal, setLeadsTotal] = useState(0);
   const [leadsPageSize] = useState(20);
+  const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [isArchived, setIsArchived] = useState(project.is_archived);
 
   const fetchCampaigns = async () => {
     setIsLoading(true);
@@ -58,6 +61,39 @@ export default function ProjectOverviewClient({
       console.error("Error fetching campaigns:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const markActiveCampaignPaused = () => {
+    if (!activeCampaign) return;
+    setActiveCampaign({ ...activeCampaign, campaign_status: "PAUSED" });
+    setCampaigns((prev) =>
+      prev.map((c) =>
+        c.campaign_id === activeCampaign.campaign_id
+          ? { ...c, campaign_status: "PAUSED" }
+          : c
+      )
+    );
+  };
+
+  const handleArchiveProject = async () => {
+    setIsArchiving(true);
+    try {
+      const res = await fetch(`/api/projects/${project.project_id}/archive`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || data?.message || "Failed to archive project");
+      }
+      setIsArchived(true);
+      markActiveCampaignPaused();
+      setIsArchiveModalOpen(false);
+    } catch (error) {
+      console.error("Failed to archive project:", error);
+      alert("Failed to archive project. Please try again.");
+    } finally {
+      setIsArchiving(false);
     }
   };
 
@@ -170,6 +206,11 @@ export default function ProjectOverviewClient({
 
   return (
     <div className="space-y-6">
+      {isArchived && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          This project is archived. You can view details, but creating, switching, or publishing campaigns is disabled.
+        </div>
+      )}
       {/* Tabs */}
       <div className="border-b border-zinc-200 dark:border-zinc-800">
         <nav className="flex gap-4" aria-label="Tabs">
@@ -238,24 +279,28 @@ export default function ProjectOverviewClient({
               </div>
             }
           >
-            <DropdownMenuItem
-              onClick={() => {
-                // Archive functionality will be implemented in P6
-                console.log("Archive project");
-              }}
-            >
-              Archive Project
-            </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => setIsArchiveModalOpen(true)}
+            disabled={isArchiving || isArchived}
+          >
+            Archive Project
+          </DropdownMenuItem>
           </DropdownMenu>
         </div>
       </div>
+
+      {isArchived && (
+        <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500 dark:bg-amber-900/20 dark:text-amber-100">
+          This project is archived. Creation, publish, switch, and pause actions are disabled. Public link shows an end-of-life message.
+        </div>
+      )}
 
       {/* Create Campaign Button - Top Right (if campaigns exist) */}
       {campaigns.length > 0 && (
         <div className="flex justify-end">
           <button
             onClick={() => setIsDialogOpen(true)}
-            disabled={project.is_archived}
+            disabled={isArchived}
             className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
           >
             Create New Campaign
@@ -290,12 +335,13 @@ export default function ProjectOverviewClient({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    if (isArchived) return;
                     setIsSwitchModalOpen(true);
                     // Fetch campaigns to populate dropdown
                     fetchCampaigns();
                     setSelectedTargetCampaignId("");
                   }}
-                  disabled={project.is_archived}
+                  disabled={isArchived}
                   className="ml-auto rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                 >
                   Switch Campaign
@@ -358,7 +404,7 @@ export default function ProjectOverviewClient({
           </p>
           <button
             onClick={() => setIsDialogOpen(true)}
-            disabled={project.is_archived}
+            disabled={isArchived}
             className="rounded-md bg-black px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
           >
             Create a campaign
@@ -438,6 +484,41 @@ export default function ProjectOverviewClient({
               className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
             >
               {isCreating ? "Creating..." : "Create Campaign"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Archive Project Modal */}
+      <Dialog open={isArchiveModalOpen} onOpenChange={setIsArchiveModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Archive Project</DialogTitle>
+            <DialogDescription>
+              Once archived, a project cannot be activated again. Public links will show: "owner has archieved this campaign".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-zinc-700 dark:text-zinc-300">
+            {hasActiveCampaign && (
+              <p className="text-amber-700 dark:text-amber-300">
+                Active campaign "{activeCampaign?.campaign_name}" will be paused.
+              </p>
+            )}
+            <p>All publish/switch/pause and creation actions will be disabled.</p>
+          </div>
+          <DialogFooter className="flex justify-end gap-2">
+            <button
+              onClick={() => setIsArchiveModalOpen(false)}
+              className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleArchiveProject}
+              disabled={isArchiving}
+              className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isArchiving ? "Archiving..." : "Archive Project"}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -561,6 +642,71 @@ export default function ProjectOverviewClient({
               className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
             >
               {isSwitching ? "Switching..." : "Confirm Switch"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Archive Project Modal */}
+      <Dialog open={isArchiveModalOpen} onOpenChange={(open) => {
+        if (!isArchiving) {
+          setIsArchiveModalOpen(open);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive Project</DialogTitle>
+            <DialogDescription>
+              Once archived, a project cannot be activated again. All users visiting shared links will see an end-of-life message.
+              {" "}
+              {hasActiveCampaign
+                ? "There is currently an active campaign that will be paused."
+                : "There is no active campaign."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2">
+            <button
+              onClick={() => setIsArchiveModalOpen(false)}
+              disabled={isArchiving}
+              className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                setIsArchiving(true);
+                try {
+                  const res = await fetch(`/api/projects/${project.project_id}/archive`, {
+                    method: "POST",
+                  });
+                  const data = await res.json();
+                  if (!res.ok) {
+                    alert(data.error || "Failed to archive project");
+                    return;
+                  }
+                  setIsArchived(true);
+                  setIsArchiveModalOpen(false);
+                  if (activeCampaign) {
+                    setActiveCampaign(null);
+                    setCampaigns((prev) =>
+                      prev.map((c) =>
+                        c.campaign_id === activeCampaign.campaign_id
+                          ? { ...c, campaign_status: "PAUSED" }
+                          : c
+                      )
+                    );
+                  }
+                } catch (err) {
+                  console.error("Archive project failed:", err);
+                  alert("Failed to archive project");
+                } finally {
+                  setIsArchiving(false);
+                }
+              }}
+              disabled={isArchiving}
+              className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isArchiving ? "Archiving..." : "Archive Project"}
             </button>
           </DialogFooter>
         </DialogContent>

@@ -420,13 +420,13 @@ export async function deleteCaseStudy(caseId: string): Promise<void> {
 
 export async function createLead(
   leadData: {
-    campaign_id: string;
-    lead_name: string;
-    lead_company: string;
-    lead_email: string;
-    lead_phone_isd?: string;
-    lead_phone?: string;
-    meeting_scheduled?: boolean;
+  campaign_id: string;
+  lead_name: string;
+  lead_company: string;
+  lead_email: string;
+  lead_phone_isd?: string;
+  lead_phone?: string;
+  meeting_scheduled?: boolean;
   },
   supabaseClient?: Awaited<ReturnType<typeof createServerClient>>
 ) {

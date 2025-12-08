@@ -19,17 +19,16 @@ export default async function ProjectPage({ params }: PageProps) {
     // Get active campaign for this project (public access - campaigns have public RLS for ACTIVE status)
     const activeCampaign = await getActiveCampaignByProjectIdPublic(projectId);
     
-    // If no active campaign, show message
-    // This could mean: project doesn't exist, project is archived, or no active campaign
+    // If no active campaign, show end-of-life message (covers archived projects)
     if (!activeCampaign) {
       return (
         <div className="flex min-h-screen items-center justify-center bg-white">
           <div className="text-center">
             <h1 className="mb-4 text-2xl font-semibold text-zinc-900">
-              Campaign Not Available
+              Owner has archieved this campaign
             </h1>
             <p className="text-zinc-600">
-              This project does not have an active campaign available.
+              This project is not serving an active campaign at the moment.
             </p>
           </div>
         </div>

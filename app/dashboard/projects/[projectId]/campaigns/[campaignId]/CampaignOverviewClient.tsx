@@ -521,7 +521,7 @@ export default function CampaignOverviewClient({
 }: CampaignOverviewClientProps) {
   const router = useRouter();
   const isDraft = initialCampaign.campaign_status === "DRAFT";
-  const isEditMode = isDraft;
+  const isEditMode = isDraft && !project.is_archived;
 
   const [campaign, setCampaign] = useState(initialCampaign);
   const [isSaving, setIsSaving] = useState(false);

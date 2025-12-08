@@ -14,6 +14,29 @@ export interface ProjectWithStats extends ProjectData {
 }
 
 /**
+ * Archive a project (calls DB function archive_project)
+ */
+export async function archiveProject(projectId: string): Promise<{ success: boolean; message?: string }> {
+  const supabase = await createServerClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+
+  const { data, error } = await supabase.rpc("archive_project", { p_project_id: projectId });
+
+  if (error) {
+    throw new Error(error.message || "Failed to archive project");
+  }
+
+  return data as { success: boolean; message?: string };
+}
+
+/**
  * Get all projects for the authenticated user
  * Ordered by latest first (created_at DESC)
  */

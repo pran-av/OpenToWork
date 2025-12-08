@@ -40,7 +40,7 @@ export default function CampaignFlowClient({
       // Use shared utility function for auth initialization
       await ensureAnonymousAuth(supabase, "CampaignFlow");
       // Always render the page, even if auth fails (graceful degradation)
-      setIsClient(true);
+    setIsClient(true);
     };
 
     initializeAuth();
