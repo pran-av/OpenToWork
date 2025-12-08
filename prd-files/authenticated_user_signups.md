@@ -17,3 +17,8 @@ Possible flaw in current flow:
 1. In the current implementation of anonymous Sign in, I am observing the server returning a set cookie parameter in response header. This cookie when set in the browser is not the same as the anonymous user token but is a permanent user cookie under name 'sb-auclxctmtyzosafbyxff-auth-token'
 2. Consider we are logging in as different permanent users with separate UserIDs, its observed that the cookie under name 'sb-auclxctmtyzosafbyxff-auth-token' stored post successful signup is exactly the same for both users, however the magic-link sends a different 'sb-auclxctmtyzosafbyxff-auth-token-code-verifier' for each request
 3. We need to recheck our cookie logics based on above two points. Note that for permanent user sign in we are using the PKCE method.
+
+
+NOTE: RESULTS
+1. Refactored Anonymous Sign In Auth Flow
+2. Verified that cookies are changing for every different user in both Anonymous Sign In and Permanent Sign In Flows
