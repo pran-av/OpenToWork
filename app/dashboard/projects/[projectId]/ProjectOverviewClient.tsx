@@ -172,9 +172,15 @@ export default function ProjectOverviewClient({
         setLeads(data.leads || []);
         setLeadsTotal(data.total || 0);
         setLeadsPage(data.page || 1);
+      } else {
+        // API call failed - show error and keep current page state
+        setError(data.error || "Failed to fetch leads");
+        console.error("Error fetching leads:", data.error);
       }
     } catch (error) {
       console.error("Error fetching leads:", error);
+      setError("An unexpected error occurred while fetching leads");
+      // Keep current page state on error - don't update leadsPage
     } finally {
       setIsLoadingLeads(false);
     }
@@ -783,7 +789,7 @@ export default function ProjectOverviewClient({
                         <button
                           onClick={() => {
                             const newPage = leadsPage - 1;
-                            setLeadsPage(newPage);
+                            // Only update page state after successful API response
                             fetchLeads(newPage);
                           }}
                           disabled={leadsPage === 1 || isLoadingLeads}
@@ -794,7 +800,7 @@ export default function ProjectOverviewClient({
                         <button
                           onClick={() => {
                             const newPage = leadsPage + 1;
-                            setLeadsPage(newPage);
+                            // Only update page state after successful API response
                             fetchLeads(newPage);
                           }}
                           disabled={leadsPage >= totalPages || isLoadingLeads}
