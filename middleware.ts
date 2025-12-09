@@ -1,13 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { getCookieOptions } from "@/lib/utils/cookies";
+import { getCookieOptionsForName } from "@/lib/utils/cookies";
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
-
-  const cookieOptions = getCookieOptions();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,8 +26,10 @@ export async function middleware(request: NextRequest) {
           supabaseResponse = NextResponse.next({
             request,
           });
-          // Merge environment-specific cookie options
+          // Get cookie-specific options (code verifier uses "lax", auth tokens use "strict" in production)
           cookiesToSet.forEach(({ name, value, options }) => {
+            const cookieOptions = getCookieOptionsForName(name);
+            // Merge environment-specific cookie options
             const mergedOptions = {
               ...cookieOptions,
               ...options,

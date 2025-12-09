@@ -1,6 +1,6 @@
 import { createServerClient as createSupabaseServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { getCookieOptions } from "@/lib/utils/cookies";
+import { getCookieOptionsForName } from "@/lib/utils/cookies";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -15,7 +15,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
  */
 export async function createServerClient() {
   const cookieStore = await cookies();
-  const cookieOptions = getCookieOptions();
 
   return createSupabaseServerClient(supabaseUrl, supabaseAnonKey, {
     auth: {
@@ -29,6 +28,8 @@ export async function createServerClient() {
       setAll(cookiesToSet) {
         try {
           cookiesToSet.forEach(({ name, value, options }) => {
+            // Get cookie-specific options (code verifier uses "lax", auth tokens use "strict" in production)
+            const cookieOptions = getCookieOptionsForName(name);
             // Merge environment-specific cookie options
             const mergedOptions = {
               ...cookieOptions,
