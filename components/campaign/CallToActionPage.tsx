@@ -23,16 +23,24 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const supabase = createClient();
 
   // Sanitize input to prevent XSS and script injections
-  const sanitizeInput = (input: string): string => {
+  // Note: Preserve spaces in the middle of text (only trim on submit, not during typing)
+  const sanitizeInput = (input: string, preserveSpaces: boolean = true): string => {
     // Remove HTML tags and encode special characters
-    return input
+    let sanitized = input
       .replace(/[<>]/g, "") // Remove angle brackets
       .replace(/javascript:/gi, "") // Remove javascript: protocol
-      .replace(/on\w+=/gi, "") // Remove event handlers
-      .trim();
+      .replace(/on\w+=/gi, ""); // Remove event handlers
+    
+    // Only trim if not preserving spaces (for final submission)
+    if (!preserveSpaces) {
+      sanitized = sanitized.trim();
+    }
+    
+    return sanitized;
   };
 
   const validateForm = (): boolean => {
@@ -55,8 +63,9 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
   };
 
   const handleInputChange = (field: string, value: string) => {
-    // Sanitize input to prevent XSS
-    const sanitized = sanitizeInput(value);
+    // Sanitize input to prevent XSS, but preserve spaces during typing
+    // Only sanitize dangerous content, allow spaces in name and company fields
+    const sanitized = sanitizeInput(value, true);
     setFormData((prev) => ({ ...prev, [field]: sanitized }));
     // Clear error when user starts typing
     if (errors[field]) {
@@ -101,9 +110,9 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
         },
         body: JSON.stringify({
           campaign_id: campaign.campaign_id,
-          lead_name: formData.name,
-          lead_company: formData.company,
-          lead_email: formData.email,
+          lead_name: sanitizeInput(formData.name, false), // Trim on submit
+          lead_company: sanitizeInput(formData.company, false), // Trim on submit
+          lead_email: formData.email.trim(),
           lead_phone_isd: formData.phone_isd.trim() || undefined,
           lead_phone: formData.phone.trim() || undefined,
           meeting_scheduled: false,
@@ -117,11 +126,17 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
         throw new Error(errorMessage);
       }
 
-      alert("Thank you! We'll be in touch soon.");
+      // Show success toast
+      setToast({ message: "Thank you! We'll be in touch soon.", type: "success" });
       setFormData({ name: "", company: "", email: "", phone_isd: "", phone: "" });
+      // Auto-hide toast after 5 seconds
+      setTimeout(() => setToast(null), 5000);
     } catch (error) {
       // console.error("Failed to submit lead:", error);
-      alert("There was an error submitting your information. Please try again.");
+      // Show error toast
+      setToast({ message: "There was an error submitting your information. Please try again.", type: "error" });
+      // Auto-hide toast after 5 seconds
+      setTimeout(() => setToast(null), 5000);
     } finally {
       setIsSubmitting(false);
     }
@@ -360,6 +375,29 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
           </button>
         </form>
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          className={`fixed top-4 right-4 z-50 rounded-lg px-6 py-4 shadow-lg transition-all ${
+            toast.type === "success"
+              ? "bg-green-400 text-white"
+              : "bg-red-400 text-white"
+          }`}
+          role="alert"
+        >
+          <div className="flex items-center gap-2">
+            <span>{toast.message}</span>
+            <button
+              onClick={() => setToast(null)}
+              className="ml-2 text-white hover:text-gray-200"
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

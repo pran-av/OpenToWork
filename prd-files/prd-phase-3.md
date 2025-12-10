@@ -24,7 +24,12 @@ Apart from bug and performance fixes, the core feature will include
 5. P3: The Name and Company input fields are not allowing user to add a space - allow the user to add a space
 6. P3: When a lead is successfully submitted or their is a submission error. Show a red or green toast message instead of the browser based dialogue that is there right now.
 
+## Link Usability Improvements
+1. When a link for a particular project is shared, that link should have a preview where it displays the title of summary page "Hire abc", and a partial summary is displayed first few lines.
+2. The project link browser tab title says "OpenToWork" change it to "Elevator Pitch"
+
 ## Batch 2 Bug Fixes
 1. When the user clicks on magic link and is redirected to /auth/callback - add a loading screen until the dashboard opens or signup failure screen is populated
+
 
 
