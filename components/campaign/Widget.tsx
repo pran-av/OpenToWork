@@ -13,7 +13,7 @@ export default function Widget({ widgetId }: WidgetProps) {
   useEffect(() => {
     if (!containerRef.current || !widgetId || initializedRef.current) return;
 
-    // Load widget script if not already loaded
+    // Defer widget script loading to improve LCP - load after initial render
     const scriptId = "otw-widget-loader";
     const loadScript = () => {
       if (window.OpenToWorkWidget && containerRef.current) {
@@ -29,16 +29,27 @@ export default function Widget({ widgetId }: WidgetProps) {
       }
     };
 
-    if (!document.getElementById(scriptId)) {
-      const script = document.createElement("script");
-      script.id = scriptId;
-      script.src = "/widget-loader.js";
-      script.async = true;
-      script.onload = loadScript;
-      document.head.appendChild(script);
+    // Defer widget loading to avoid blocking LCP
+    const loadWidget = () => {
+      if (!document.getElementById(scriptId)) {
+        const script = document.createElement("script");
+        script.id = scriptId;
+        script.src = "/widget-loader.js";
+        script.async = true;
+        script.defer = true;
+        script.onload = loadScript;
+        document.head.appendChild(script);
+      } else {
+        // Script already loaded, initialize directly
+        loadScript();
+      }
+    };
+
+    // Use requestIdleCallback to defer widget loading, fallback to setTimeout
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      requestIdleCallback(loadWidget, { timeout: 3000 });
     } else {
-      // Script already loaded, initialize directly
-      loadScript();
+      setTimeout(loadWidget, 100);
     }
   }, [widgetId]);
 

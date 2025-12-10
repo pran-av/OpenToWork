@@ -1,0 +1,30 @@
+# Phase 3
+
+## Objective
+The product has to be regorously tested in the market to identify a niche where we could later layout monetization. So the primary goals would be,
+1. Make the product modular to resolve as many pain points
+2. Create marketing collaterals like website, etc
+3. Improve User Experience - Fix Bugs
+
+## Features
+Apart from bug and performance fixes, the core feature will include
+1. Modularity for Campaign Flows
+2. Website that can improve Signup Conversions
+3. Analytics for Dashboard to track churn
+4. Count Page Views and Events for Campaign Pages
+
+## Batch 1 Bug Fixes
+
+1. P0: Campaign Flow Pages: The LCP score for campaigns pages is high, between 2 to 5 seconds.
+- Some elements in the page are causing delay. Example: 3 Years as a Product Manager for Infinity Learn - driving Monetisation Roadmap `<p class="text-base leading-relaxed text-gray-700">` in https://elevateyourpitch.netlify.app/project/1afa893f-68ed-41e2-87e7-907f9278b68d
+- Reduce unused JavaScript and defer loading scripts until they are required to decrease bytes consumed by network activity. 
+2. P1: Campaign Flow CTA Page: On click phone or email CTAs should copy the field value to clipboard with a cursor message saying "copied to clipboard"
+3. P1: Campaign Flow Case Study Page: The Case Study Cards with no url attached should not be clickable
+4. P2: Remove the "close" button on the first page of Campaign Flow
+5. P3: The Name and Company input fields are not allowing user to add a space - allow the user to add a space
+6. P3: When a lead is successfully submitted or their is a submission error. Show a red or green toast message instead of the browser based dialogue that is there right now.
+
+## Batch 2 Bug Fixes
+1. When the user clicks on magic link and is redirected to /auth/callback - add a loading screen until the dashboard opens or signup failure screen is populated
+
+

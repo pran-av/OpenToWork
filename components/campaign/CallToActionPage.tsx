@@ -22,6 +22,7 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const supabase = createClient();
 
   // Sanitize input to prevent XSS and script injections
@@ -126,12 +127,44 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
     }
   };
 
-  const handleCtaClick = (type: "schedule_meeting" | "mailto" | "linkedin" | "phone") => {
+  const copyToClipboard = async (text: string, fieldType: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldType);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy to clipboard:", err);
+    }
+  };
+
+  const extractEmailFromUrl = (url: string): string => {
+    // Handle mailto:email@example.com or just email@example.com
+    if (url.startsWith("mailto:")) {
+      return url.replace("mailto:", "").trim();
+    }
+    return url.trim();
+  };
+
+  const extractPhoneFromUrl = (url: string): string => {
+    // Handle tel:+1234567890 or just +1234567890 or phone number
+    if (url.startsWith("tel:")) {
+      return url.replace("tel:", "").trim();
+    }
+    return url.trim();
+  };
+
+  const handleCtaClick = async (type: "schedule_meeting" | "mailto" | "linkedin" | "phone") => {
     const url = ctaConfig[type];
     if (url) {
       if (type === "mailto") {
-        window.location.href = url;
-      } else {
+        // Extract email and copy to clipboard
+        const email = extractEmailFromUrl(url);
+        await copyToClipboard(email, "email");
+      } else if (type === "phone") {
+        // Extract phone and copy to clipboard
+        const phone = extractPhoneFromUrl(url);
+        await copyToClipboard(phone, "phone");
+      } else if (type === "schedule_meeting" || type === "linkedin") {
         window.open(url, "_blank", "noopener,noreferrer");
       }
     }
@@ -171,12 +204,17 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
           {ctaConfig.mailto && (
             <button
               onClick={() => handleCtaClick("mailto")}
-              className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-6 transition-all hover:border-blue-400 hover:bg-blue-50"
+              className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-6 transition-all hover:border-blue-400 hover:bg-blue-50 relative"
             >
               <Mail className="h-6 w-6 text-gray-700" />
               <span className="text-sm font-medium text-gray-900">
                 Send an Email
               </span>
+              {copiedField === "email" && (
+                <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                  Copied to clipboard
+                </span>
+              )}
             </button>
           )}
 
@@ -195,12 +233,17 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
           {ctaConfig.phone && (
             <button
               onClick={() => handleCtaClick("phone")}
-              className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-6 transition-all hover:border-blue-400 hover:bg-blue-50"
+              className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-6 transition-all hover:border-blue-400 hover:bg-blue-50 relative"
             >
               <MessageCircle className="h-6 w-6 text-gray-700" />
               <span className="text-sm font-medium text-gray-900">
                 Connect on Chat/Phone Call
               </span>
+              {copiedField === "phone" && (
+                <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                  Copied to clipboard
+                </span>
+              )}
             </button>
           )}
         </div>

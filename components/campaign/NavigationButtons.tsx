@@ -41,13 +41,15 @@ export default function NavigationButtons({
             <span>previous</span>
           </button>
         )}
-        <button
-          onClick={onClose}
-          className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-        >
-          <X className="h-4 w-4" />
-          <span>close</span>
-        </button>
+        {stage !== "summary" && (
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <X className="h-4 w-4" />
+            <span>close</span>
+          </button>
+        )}
       </div>
     </div>
   );

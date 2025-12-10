@@ -1,16 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { ensureAnonymousAuth } from "@/lib/utils/auth";
 import ClientSummaryPage from "@/components/campaign/ClientSummaryPage";
-import RelevantWorkPage from "@/components/campaign/RelevantWorkPage";
-import CallToActionPage from "@/components/campaign/CallToActionPage";
-import ProgressBar from "@/components/campaign/ProgressBar";
-import NavigationButtons from "@/components/campaign/NavigationButtons";
 import { useCampaignFlow } from "@/hooks/useCampaignFlow";
 import type { CampaignData, ClientService, CaseStudy } from "@/lib/db/campaigns";
 import type { WidgetData } from "@/lib/db/widgets";
+
+// Dynamically import non-critical components to reduce initial bundle size and improve LCP
+const RelevantWorkPage = dynamic(() => import("@/components/campaign/RelevantWorkPage"), {
+  loading: () => <div className="mx-auto max-w-4xl">Loading...</div>,
+});
+const CallToActionPage = dynamic(() => import("@/components/campaign/CallToActionPage"), {
+  loading: () => <div className="mx-auto max-w-2xl">Loading...</div>,
+});
+const ProgressBar = dynamic(() => import("@/components/campaign/ProgressBar"));
+const NavigationButtons = dynamic(() => import("@/components/campaign/NavigationButtons"));
 
 type FlowStage = "summary" | "relevant-work" | "cta";
 
@@ -35,15 +42,24 @@ export default function CampaignFlowClient({
 
   // Initialize anonymous authentication on component mount
   // PRD Requirement: Check if permanent user exists first, then check for anonymous user, then sign in anonymously
+  // Defer auth initialization to avoid blocking initial render and LCP
   useEffect(() => {
+    // Set client to true immediately to render content (improves LCP)
+    setIsClient(true);
+    
+    // Defer auth initialization to after initial render
     const initializeAuth = async () => {
       // Use shared utility function for auth initialization
       await ensureAnonymousAuth(supabase, "CampaignFlow");
       // Always render the page, even if auth fails (graceful degradation)
-    setIsClient(true);
     };
 
-    initializeAuth();
+    // Use requestIdleCallback or setTimeout to defer non-critical auth
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      requestIdleCallback(initializeAuth, { timeout: 2000 });
+    } else {
+      setTimeout(initializeAuth, 0);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

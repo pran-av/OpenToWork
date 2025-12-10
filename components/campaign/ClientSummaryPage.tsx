@@ -24,14 +24,14 @@ export default function ClientSummaryPage({
   return (
     <div className="mx-auto max-w-2xl">
       {/* Greeting */}
-      <p className="mb-2 text-sm text-gray-500">Hello! I am Nora - your guide to</p>
+      <p className="mb-2 text-sm text-gray-500">Hello! Here is your guide to</p>
 
       {/* Main Title */}
       <h1 className="mb-6 text-4xl font-bold text-gray-900 md:text-5xl">
         Hire {clientName}!
       </h1>
 
-      {/* Client Summary */}
+      {/* Client Summary - Optimized for LCP: first paragraph renders immediately */}
       <div className="mb-8 space-y-4">
         {summaryParagraphs.length > 0 ? (
           summaryParagraphs.map((paragraph, index) => (

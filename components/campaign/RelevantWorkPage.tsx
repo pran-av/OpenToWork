@@ -24,8 +24,10 @@ export default function RelevantWorkPage({
     ? caseStudiesMap[selectedServiceId] || []
     : [];
 
-  const handleCardClick = (url: string) => {
-    window.open(url, "_blank", "noopener,noreferrer");
+  const handleCardClick = (url: string | null) => {
+    if (url && url.trim()) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
   };
 
   // Parse highlights from semicolon-separated string
@@ -66,11 +68,16 @@ export default function RelevantWorkPage({
         <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2">
           {caseStudies.map((study) => {
             const highlights = parseHighlights(study.case_highlights);
+            const hasUrl = study.case_study_url && study.case_study_url.trim();
             return (
               <div
                 key={study.case_id}
                 onClick={() => handleCardClick(study.case_study_url)}
-                className="cursor-pointer rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-all hover:border-blue-400 hover:shadow-md"
+                className={`rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-all ${
+                  hasUrl
+                    ? "cursor-pointer hover:border-blue-400 hover:shadow-md"
+                    : "cursor-default"
+                }`}
               >
                 <h3 className="mb-2 text-xl font-bold text-gray-900">
                   {study.case_name}
