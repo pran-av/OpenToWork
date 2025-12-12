@@ -28,15 +28,17 @@ export function Accordion({
     <div className="border-b border-zinc-200 dark:border-zinc-800">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center justify-between py-4 text-left focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2"
+        className="flex w-full items-center justify-between px-4 py-4 text-left focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2"
       >
-        {typeof title === "string" ? (
-          <span className="font-medium text-black dark:text-zinc-50">{title}</span>
-        ) : (
-          title
-        )}
+        <div className="flex-1">
+          {typeof title === "string" ? (
+            <span className="font-medium text-black dark:text-zinc-50">{title}</span>
+          ) : (
+            title
+          )}
+        </div>
         <ChevronDown
-          className={`h-5 w-5 text-zinc-500 transition-transform dark:text-zinc-400 ${
+          className={`ml-2 h-5 w-5 shrink-0 text-zinc-500 transition-transform dark:text-zinc-400 ${
             isOpen ? "rotate-180" : ""
           }`}
         />

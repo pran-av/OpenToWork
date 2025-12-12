@@ -89,7 +89,24 @@ function ClientServicesSection({
             <div key={service.client_service_id} className="rounded-lg border border-zinc-200 dark:border-zinc-800">
               <div className="relative">
                 <Accordion
-                  title={service.client_service_name}
+                  title={
+                    <div className="flex items-center justify-between pr-8">
+                      <span className="font-medium text-black dark:text-zinc-50">{service.client_service_name}</span>
+                      {isEditMode && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteService(service.client_service_id);
+                          }}
+                          className="flex items-center justify-center rounded-md p-2 text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:text-red-400 dark:hover:bg-red-900/20"
+                          title="Delete Service"
+                          type="button"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  }
                   isOpen={openAccordions.has(service.client_service_id)}
                   onToggle={() => onToggleAccordion(service.client_service_id)}
                 >
@@ -228,16 +245,6 @@ function ClientServicesSection({
                   )}
                 </div>
               </Accordion>
-              {isEditMode && (
-                <button
-                  onClick={() => onDeleteService(service.client_service_id)}
-                  className="absolute right-2 top-4 flex items-center justify-center rounded-md p-2 text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:text-red-400 dark:hover:bg-red-900/20"
-                  title="Delete Service"
-                  type="button"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
             </div>
             </div>
           ))}
@@ -618,18 +625,8 @@ export default function CampaignOverviewClient({
     initialCampaign,
   ]);
 
-  // Handle back navigation with unsaved changes warning
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasUnsavedChanges]);
+  // Note: Removed beforeunload handler to prevent browser reload warning
+  // Instead, we use toast notifications to communicate save status
 
   // Service management functions
   const handleAddService = () => {
@@ -864,11 +861,38 @@ export default function CampaignOverviewClient({
         }
       }
 
-      // Refresh the page to get updated data
-      window.location.reload();
-    } catch (error) {
-      setError("An unexpected error occurred");
+      // Update state instead of reloading page
+      // Clear pending operations
+      setPendingServiceOps([]);
+      setPendingCaseStudyOps([]);
+      
+      // Update campaign state with saved data
+      setCampaign({
+        ...campaign,
+        campaign_name: campaignName.trim(),
+        campaign_structure: {
+          client_name: clientName.trim(),
+          client_summary: clientSummary.trim(),
+        },
+        cta_config: {
+          ...(ctaScheduleMeeting.trim() && { schedule_meeting: ctaScheduleMeeting.trim() }),
+          ...(ctaMailto.trim() && { mailto: ctaMailto.trim() }),
+          ...(ctaLinkedin.trim() && { linkedin: ctaLinkedin.trim() }),
+          ...(ctaPhone.trim() && { phone: ctaPhone.trim() }),
+        },
+      });
+      
+      // Show success toast
+      setSuccess("Campaign saved successfully!");
       setIsSaving(false);
+      
+      // Auto-hide success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error) {
+      setError("An unexpected error occurred. Please try again.");
+      setIsSaving(false);
+      // Auto-hide error message after 5 seconds
+      setTimeout(() => setError(null), 5000);
     }
   };
 
@@ -1213,16 +1237,7 @@ export default function CampaignOverviewClient({
             </div>
           </div>
         </div>
-        {error && (
-          <div className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-            {error}
-          </div>
-        )}
-        {success && (
-          <div className="mt-4 rounded-md bg-green-50 p-3 text-sm text-green-600 dark:bg-green-900/20 dark:text-green-400">
-            {success}
-          </div>
-        )}
+        {/* Toast notifications moved to fixed position */}
       </div>
 
       {/* Campaign Structure Section */}
@@ -1701,6 +1716,36 @@ export default function CampaignOverviewClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Toast Notifications */}
+      {error && (
+        <div className="fixed top-4 right-4 z-50 rounded-lg bg-red-500 px-6 py-4 text-white shadow-lg transition-all">
+          <div className="flex items-center gap-2">
+            <span>{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="ml-2 text-white hover:text-gray-200"
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+      {success && (
+        <div className="fixed top-4 right-4 z-50 rounded-lg bg-green-500 px-6 py-4 text-white shadow-lg transition-all">
+          <div className="flex items-center gap-2">
+            <span>{success}</span>
+            <button
+              onClick={() => setSuccess(null)}
+              className="ml-2 text-white hover:text-gray-200"
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -59,6 +59,7 @@ export async function GET(request: NextRequest) {
         `/auth/v1/verify?token=${token}&type=${type}&redirect_to=${encodeURIComponent(requestUrl.origin + "/auth/callback")}`,
         process.env.NEXT_PUBLIC_SUPABASE_URL
       );
+      //console.log("verifyUrl", verifyUrl.toString());
       return NextResponse.redirect(verifyUrl.toString());
     } catch (err) {
       console.error("Error handling token:", err);

@@ -13,7 +13,7 @@ Apart from bug and performance fixes, the core feature will include
 3. Analytics for Dashboard to track churn
 4. Count Page Views and Events for Campaign Pages
 
-## Batch 1 Bug Fixes
+## Batch 1 Bug Fixes - Done
 
 1. P0: Campaign Flow Pages: The LCP score for campaigns pages is high, between 2 to 5 seconds.
 - Some elements in the page are causing delay. Example: 3 Years as a Product Manager for Infinity Learn - driving Monetisation Roadmap `<p class="text-base leading-relaxed text-gray-700">` in https://elevateyourpitch.netlify.app/project/1afa893f-68ed-41e2-87e7-907f9278b68d
@@ -24,12 +24,17 @@ Apart from bug and performance fixes, the core feature will include
 5. P3: The Name and Company input fields are not allowing user to add a space - allow the user to add a space
 6. P3: When a lead is successfully submitted or their is a submission error. Show a red or green toast message instead of the browser based dialogue that is there right now.
 
+## Batch 2 Bug Fixes
+1. Dashboard: When the user clicks on magic link and is redirected to /auth/callback - add a loader until the dashboard opens or signup failure screen is populated
+2. Dashboard: When user creates a new campaign, add a loader screen until the newly created campaign opnes
+3. Dashboard: When the user clicks "Save Campaign" post adding some campaign data - the browser shares a message saying "Reload site? Changes that you made may not be saved." This message is only sent by browser when atleast some campaign data is added before saving. Desired UX: The campaign should successfully save and a toast message should communicate about successful save operation. In case of failure, the toast message shall mention the failure reason. No dialogues from Browser should be received.
+4. Dashboard UI: Post adding service, the Service Name, Delete Button, and Chevron should have padding and margins to fit it orderly in the same line within the service container. Currently they crammed.
+
 ## Link Usability Improvements
 1. When a link for a particular project is shared, that link should have a preview where it displays the title of summary page "Hire abc", and a partial summary is displayed first few lines.
 2. The project link browser tab title says "OpenToWork" change it to "Elevator Pitch"
 
-## Batch 2 Bug Fixes
-1. When the user clicks on magic link and is redirected to /auth/callback - add a loading screen until the dashboard opens or signup failure screen is populated
+
 
 
 

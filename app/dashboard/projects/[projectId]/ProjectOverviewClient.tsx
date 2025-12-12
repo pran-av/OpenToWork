@@ -27,6 +27,7 @@ export default function ProjectOverviewClient({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [campaignName, setCampaignName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string>("");
   
@@ -134,7 +135,9 @@ export default function ProjectOverviewClient({
       setCampaignName("");
       setError(null);
       
-      // Navigate to the new campaign
+      // Show loading state and navigate to the new campaign
+      setIsCreating(false);
+      setIsNavigating(true);
       router.push(`/dashboard/projects/${project.project_id}/campaigns/${data.campaign.campaign_id}`);
     } catch (error) {
       setError("An unexpected error occurred");
@@ -243,8 +246,16 @@ export default function ProjectOverviewClient({
         </nav>
       </div>
 
+      {/* Loading State for Campaign Navigation */}
+      {isNavigating && (
+        <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-black dark:border-zinc-700 dark:border-t-zinc-50"></div>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">Opening campaign...</p>
+        </div>
+      )}
+
       {/* Tab Content */}
-      {activeTab === "overview" ? (
+      {!isNavigating && activeTab === "overview" ? (
         <>
           {/* Project Details Section */}
       <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
