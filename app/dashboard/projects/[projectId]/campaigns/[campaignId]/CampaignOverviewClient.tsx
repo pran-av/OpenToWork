@@ -89,24 +89,7 @@ function ClientServicesSection({
             <div key={service.client_service_id} className="rounded-lg border border-zinc-200 dark:border-zinc-800">
               <div className="relative">
                 <Accordion
-                  title={
-                    <div className="flex items-center justify-between pr-8">
-                      <span className="font-medium text-black dark:text-zinc-50">{service.client_service_name}</span>
-                      {isEditMode && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteService(service.client_service_id);
-                          }}
-                          className="flex items-center justify-center rounded-md p-2 text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:text-red-400 dark:hover:bg-red-900/20"
-                          title="Delete Service"
-                          type="button"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  }
+                  title={service.client_service_name}
                   isOpen={openAccordions.has(service.client_service_id)}
                   onToggle={() => onToggleAccordion(service.client_service_id)}
                 >
@@ -245,6 +228,16 @@ function ClientServicesSection({
                   )}
                 </div>
               </Accordion>
+              {isEditMode && (
+                <button
+                  onClick={() => onDeleteService(service.client_service_id)}
+                  className="absolute right-2 top-4 z-10 flex items-center justify-center rounded-md p-2 text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:text-red-400 dark:hover:bg-red-900/20"
+                  title="Delete Service"
+                  type="button"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
             </div>
           ))}

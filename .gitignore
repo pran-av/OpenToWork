@@ -42,3 +42,7 @@ next-env.d.ts
 
 # workspace
 OpenToWork.code-workspace
+
+# Supabase
+.branches
+.temp

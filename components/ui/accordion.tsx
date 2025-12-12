@@ -28,7 +28,7 @@ export function Accordion({
     <div className="border-b border-zinc-200 dark:border-zinc-800">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center justify-between px-4 py-4 text-left focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2"
+        className="flex w-full items-center justify-between px-4 py-4 pr-12 text-left focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2"
       >
         <div className="flex-1">
           {typeof title === "string" ? (
