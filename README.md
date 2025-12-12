@@ -1,3 +1,34 @@
+# Elevator Pitch App
+
+Elevator Pitch is a web application that allows individuals or organisations to create shareable links to communicate their skills and close opportunities.
+
+The product is for,
+- Graduates seeking for job and looking for unique ways to pitch their skills
+- Students seeking internships by sharing their portfolios
+- Agencies looking to close clients by pitching them specific case studies
+
+## Tech Stack
+- Typescript and Tailwind
+- Next JS for application framework
+- Postgres via Supabase, dev server on Docker using Supabase CLI
+- Deployed via Netlify
+- Github for remote repository
+
+## Other Tools
+- Cursor for development
+- Cursor rules specified to preserve sensitive variables
+- DATABASE_SETUP and SUPABASE_SETUP defines database schema and migrations in detail
+- DEPLOYMENT_CHECKLIST_STATUS has pointers to crosscheck security before major deployments
+- PKCE_IMPLEMENTATION clarifies auth details
+- WIDGET_README defines how to use widgets
+- /prd-files holds PRD for each development phases and other docuements related to design and UI copy
+
+## Licenses
+- The code is opensourced as AGPL 3.0 LICENSE.txt attached to the main codebase, all subsequent code falls under AGPL 3.0 license unless the file clearly specfies otherwise
+- The widget embed codebase has a MIT License allowing free use for embeds in third party websites
+
+## Installation
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
