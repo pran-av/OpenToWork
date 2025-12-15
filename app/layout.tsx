@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Poppins, Inter } from "next/font/google";
+import { Poppins, Inter, Comic_Neue } from "next/font/google";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -16,8 +16,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "OpenToWork",
-  description: "Lead conversion platform",
+  title: "Elevator Pitch App",
+  description: "create shareable link for your pitch",
 };
 
 export default function RootLayout({

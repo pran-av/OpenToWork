@@ -1,65 +1,433 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import { ChevronUp, Music, Music2 } from "lucide-react";
+import Link from "next/link";
+
+// Floor data
+const floors = [
+  { id: "ground", label: "G", title: "Introduction", name: "Ground Floor" },
+  { id: "first", label: "1", title: "Under Construction", name: "First Floor" },
+  { id: "second", label: "2", title: "Under Construction", name: "Second Floor" },
+  { id: "third", label: "3", title: "Under Construction", name: "Third Floor" },
+  { id: "fourth", label: "4", title: "Under Construction", name: "Fourth Floor" },
+  { id: "fifth", label: "5", title: "Under Construction", name: "Fifth Floor" },
+  { id: "sixth", label: "6", title: "Under Construction", name: "Sixth Floor" },
+  { id: "seventh", label: "7", title: "Under Construction", name: "Seventh Floor" },
+];
 
 export default function Home() {
+  const [currentFloor, setCurrentFloor] = useState("ground");
+  const [isMusicOn, setIsMusicOn] = useState(false);
+  const [expandedButton, setExpandedButton] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const sectionsRef = useRef<{ [key: string]: HTMLElement | null }>({});
+
+  // Initialize scroll position to bottom (Ground Floor)
+  useEffect(() => {
+    if (containerRef.current) {
+      // Scroll to bottom on mount to show Ground Floor first
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+  }, []);
+
+  // Handle scroll to update current floor
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!containerRef.current) return;
+
+      const scrollTop = containerRef.current.scrollTop;
+      const windowHeight = window.innerHeight;
+      const scrollBottom = containerRef.current.scrollHeight - windowHeight;
+      const scrollPosition = scrollBottom - scrollTop;
+      const currentSection = Math.floor(scrollPosition / windowHeight);
+      
+      // Reverse order: ground is at bottom (index 0), seventh is at top (index 7)
+      const floorKeys = ["ground", "first", "second", "third", "fourth", "fifth", "sixth", "seventh"];
+      if (floorKeys[currentSection] !== undefined) {
+        setCurrentFloor(floorKeys[currentSection]);
+      }
+    };
+
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener("scroll", handleScroll);
+      handleScroll(); // Initial check
+      return () => container.removeEventListener("scroll", handleScroll);
+    }
+  }, []);
+
+  const scrollToFloor = (floorId: string) => {
+    const section = sectionsRef.current[floorId];
+    if (section && containerRef.current) {
+      section.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const getCurrentFloorName = () => {
+    const floor = floors.find((f) => f.id === currentFloor);
+    return floor ? floor.name : "Ground Floor";
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
+    <div className="relative h-screen w-screen overflow-hidden">
+      {/* Fixed Background Image with Overlay */}
+      <div className="fixed inset-0 z-0">
         <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
+          src="/elevator-background.png"
+          alt="Elevator background"
+          fill
+          className="object-cover object-center"
           priority
+          quality={90}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+        <div 
+          className="absolute inset-0"
+          style={{ backgroundColor: "#FFE4B9", opacity: 0.64 }}
+        />
+      </div>
+
+      {/* Fixed Elements */}
+      <div className="fixed inset-0 z-10 pointer-events-none">
+        {/* Elevator Music Toggle - Top Right */}
+        <button
+          onClick={() => setIsMusicOn(!isMusicOn)}
+          className="absolute top-6 right-6 z-20 pointer-events-auto w-6 h-6 flex items-center justify-center"
+          aria-label={isMusicOn ? "Turn off music" : "Turn on music"}
+        >
+          {isMusicOn ? (
+            <Music className="w-6 h-6 text-black" />
+          ) : (
+            <Music2 className="w-6 h-6 text-black" />
+          )}
+        </button>
+
+        {/* Floor Indicator - Center Bottom */}
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[203px] h-[45px] bg-[#FFFED3] border-2 border-black rounded-t-[25px] flex items-center justify-center pointer-events-none z-50">
+          <span className="font-inter text-base text-black">{getCurrentFloorName()}</span>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        
+
+        {/* Elevator Buttons - Left Side */}
+        <div className="absolute left-0 bottom-[20%] flex flex-col-reverse gap-[35px] pointer-events-auto">
+          {floors.map((floor, index) => (
+            <div key={floor.id} className="relative">
+              <button
+                onClick={() => scrollToFloor(floor.id)}
+                onMouseEnter={() => setExpandedButton(floor.id)}
+                onMouseLeave={() => setExpandedButton(null)}
+                className={`relative bg-[#FFFED3] border-2 border-black rounded-r-[15px] transition-all duration-300 ${
+                  expandedButton === floor.id
+                    ? "pr-[25px] pl-[25px]"
+                    : "w-12"
+                } h-12 flex items-center justify-center font-inter font-bold text-base text-black`}
+              >
+                <span>{floor.label}</span>
+                {expandedButton === floor.id && (
+                  <span className="ml-2 whitespace-nowrap">{floor.title}</span>
+                )}
+              </button>
+            </div>
+          ))}
         </div>
-      </main>
-    </div>
+      </div>
+
+      {/* Scrollable Content Container */}
+      <div
+        ref={containerRef}
+        className="relative h-full w-full overflow-y-auto"
+        style={{
+          WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black calc(100% - 80px), transparent 95%)',
+          maskImage: 'linear-gradient(to bottom, black 0%, black calc(100% - 80px), transparent 95%)',
+        }}
+      >
+        {/* Sections in reverse order: Ground at bottom, Seventh at top */}
+        {/* Seventh Floor - Dummy content for testing */}
+        <section
+          ref={(el: HTMLElement | null) => {
+            sectionsRef.current.seventh = el;
+          }}
+          className="min-h-screen flex items-center justify-center p-4"
+        >
+          <div className="text-center">
+            <h2 className="text-4xl font-bold mb-4 text-black">Seventh Floor</h2>
+            <p className="text-lg text-black">Dummy content for testing upward scroll</p>
+          </div>
+        </section>
+
+        {/* Sixth Floor - Placeholder */}
+        <section
+          ref={(el: HTMLElement | null) => {
+            sectionsRef.current.sixth = el;
+          }}
+          className="min-h-screen flex items-center justify-center p-4"
+        >
+          <div className="text-center">
+            <h2 className="text-4xl font-bold mb-4 text-black">Sixth Floor</h2>
+            <p className="text-lg text-black">Under Construction</p>
+          </div>
+        </section>
+
+        {/* Fifth Floor - Placeholder */}
+        <section
+          ref={(el: HTMLElement | null) => {
+            sectionsRef.current.fifth = el;
+          }}
+          className="min-h-screen flex items-center justify-center p-4"
+        >
+          <div className="text-center">
+            <h2 className="text-4xl font-bold mb-4 text-black">Fifth Floor</h2>
+            <p className="text-lg text-black">Under Construction</p>
+          </div>
+        </section>
+
+        {/* Fourth Floor - Placeholder */}
+        <section
+          ref={(el: HTMLElement | null) => {
+            sectionsRef.current.fourth = el;
+          }}
+          className="min-h-screen flex items-center justify-center p-4"
+        >
+          <div className="text-center">
+            <h2 className="text-4xl font-bold mb-4 text-black">Fourth Floor</h2>
+            <p className="text-lg text-black">Under Construction</p>
+          </div>
+        </section>
+
+        {/* Third Floor - Placeholder */}
+        <section
+          ref={(el: HTMLElement | null) => {
+            sectionsRef.current.third = el;
+          }}
+          className="min-h-screen flex items-center justify-center p-4"
+        >
+          <div className="text-center">
+            <h2 className="text-4xl font-bold mb-4 text-black">Third Floor</h2>
+            <p className="text-lg text-black">Under Construction</p>
+          </div>
+        </section>
+
+        {/* Second Floor - Placeholder */}
+        <section
+          ref={(el: HTMLElement | null) => {
+            sectionsRef.current.second = el;
+          }}
+          className="min-h-screen flex items-center justify-center p-4"
+        >
+          <div className="text-center">
+            <h2 className="text-4xl font-bold mb-4 text-black">Second Floor</h2>
+            <p className="text-lg text-black">Under Construction</p>
+          </div>
+        </section>
+
+        {/* First Floor - Dummy content for testing */}
+        <section
+          ref={(el: HTMLElement | null) => {
+            sectionsRef.current.first = el;
+          }}
+          className="min-h-screen flex items-center justify-center p-4"
+        >
+          <div className="text-center">
+            <h2 className="text-4xl font-bold mb-4 text-black">First Floor</h2>
+            <p className="text-lg text-black">Dummy content for testing upward scroll</p>
+          </div>
+        </section>
+
+        {/* Ground Floor - Hero Section */}
+        <section
+          ref={(el: HTMLElement | null) => {
+            sectionsRef.current.ground = el;
+          }}
+          className="min-h-screen flex flex-col items-center p-4 relative"
+          style={{ paddingBottom: '0x', justifyContent: 'flex-start', paddingTop: '2rem' }}
+        >
+            {/* Hero Content - Ordered: Title, How to Cards, CTA, Scroll Up indicator */}
+            <div className="flex flex-col items-center text-center w-full max-w-4xl">
+              {/* Title Section - 277px width, Pitch on new line, Beta after Pitch */}
+              <div className="flex flex-col items-center space-y-2 mb-8" style={{ width: '277px' }}>
+                <span className="font-inter font-bold text-xl text-black">
+                  create your own
+                </span>
+                <div className="relative flex flex-col items-center gap-2">
+                  <h1 className="font-comic-neue font-bold text-[64px] text-[#2F0057] leading-tight text-center">
+                    Elevator<br />Pitch
+                  </h1>
+                  <span className="absolute top-[80%] right-[-13%] -translate-y-1/2 bg-[#FFF6AC] px-3 py-1 rounded-[10px] font-inter font-bold text-xl text-black">
+                    BETA
+                  </span>
+                </div>
+                <span className="font-inter font-bold text-xl text-black">
+                  in minutes
+                </span>
+              </div>
+
+              <div>
+                
+              </div>
+
+              {/* How to Use Cards - Horizontal Autoscroll with gradient mask + blur */}
+              <div 
+                className="absolute bottom-[325px] overflow-hidden mb-8" 
+                style={{ 
+                  left: "50px", 
+                  height: '207px', 
+                  width: 'calc(100% - 50px)',
+                }}
+              >
+                {/* Mask wrapper with blur effect - matches .gradient-mask pattern */}
+                <div 
+                  className="h-full w-full"
+                  style={{
+                    position: 'relative',
+                    backdropFilter: 'blur(16px)',
+                    WebkitBackdropFilter: 'blur(16px)',
+                    WebkitMaskImage: 'linear-gradient(to left, black 0%, black 90%, transparent 98%)',
+                    maskImage: 'linear-gradient(to left, black 0%, black 90%, transparent 98%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                
+                  <div className="flex gap-4 animate-scroll">
+                  {/* Card 1 */}
+                  <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
+                    <div className="p-4 relative z-10">
+                      <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
+                        Create a<br />Pitch
+                      </h3>
+                    </div>
+                    <div className="absolute inset-x-0 bottom-4 h-[120px]">
+                      <Image
+                        src="/case_study_cta_modified_3d.png"
+                        alt="Create a Pitch"
+                        fill
+                        className="object-cover w-full h-full"
+                        sizes="177px"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Card 2 */}
+                  <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
+                    <div className="p-4 relative z-10">
+                      <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
+                        Publish the Pitch
+                      </h3>
+                    </div>
+                    <div className="absolute inset-x-0 bottom-4 h-[120px]">
+                      <Image
+                        src="/publish_cta_3d.png"
+                        alt="Publish the Pitch"
+                        fill
+                        className="object-cover w-full h-full"
+                        sizes="177px"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Card 3 */}
+                  <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
+                    <div className="p-4 relative z-10">
+                      <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
+                        Copy and Share Pitch
+                      </h3>
+                    </div>
+                    <div className="absolute inset-x-0 bottom-4 h-[120px]">
+                      <Image
+                        src="/copy_share_url_3d.png"
+                        alt="Copy and Share Pitch"
+                        fill
+                        className="object-cover w-full h-full"
+                        sizes="177px"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Duplicate cards for infinite scroll */}
+                  <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
+                    <div className="p-4 relative z-10">
+                      <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
+                        Create a<br /> Pitch
+                      </h3>
+                    </div>
+                    <div className="absolute inset-x-0 bottom-4 h-[120px]">
+                      <Image
+                        src="/case_study_cta_modified_3d.png"
+                        alt="Create a Pitch"
+                        fill
+                        className="object-cover w-full h-full"
+                        sizes="177px"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
+                    <div className="p-4 relative z-10">
+                      <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
+                        Publish the Pitch
+                      </h3>
+                    </div>
+                    <div className="absolute inset-x-0 bottom-4 h-[120px]">
+                      <Image
+                        src="/publish_cta_3d.png"
+                        alt="Publish the Pitch"
+                        fill
+                        className="object-cover w-full h-full"
+                        sizes="177px"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
+                    <div className="p-4 relative z-10">
+                      <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
+                        Copy and Share Pitch
+                      </h3>
+                    </div>
+                    <div className="absolute inset-x-0 bottom-4 h-[120px]">
+                      <Image
+                        src="/copy_share_url_3d.png"
+                        alt="Copy and Share Pitch"
+                        fill
+                        className="object-cover w-full h-full"
+                        sizes="177px"
+                      />
+                    </div>
+                  </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scroll Up Indicator - Chevrons stacked vertically, text below */}
+              <div className="bottom-[100px] absolute flex flex-col items-center">
+                {[0, 1, 2].map((index) => (
+                  <ChevronUp
+                    key={index}
+                    className={`w-12 h-12 text-black/60 animate-bounce ${
+                      index !== 0 ? "-mt-[27px]" : ""
+                    }`}
+                    style={{
+                      animationDelay: `${index * 0.1}s`,
+                      animationDuration: "2.5s",
+                    }}
+                  />
+                ))}
+                <span className="font-inter text-xs text-black -mt-[10px]">scroll up</span>
+              </div>
+            </div>
+            
+            {/* CTA Button - Aligned with Ground button level (bottom 20% of viewport) */}
+            <Link
+              href="https://elevateyourpitch.netlify.app/auth"
+              className="uppercase font-inter font-semibold text-lg text-black bg-white border-2 border-black rounded-[5px] px-6 py-3 hover:bg-gray-100 transition-colors mb-8"
+              style={{ position: 'absolute', bottom: '20%', left: '50%', transform: 'translateX(-50%)' }}
+            >
+              Create Pitch
+            </Link>
+          </section>
+        </div>
+      </div>
+
   );
 }
