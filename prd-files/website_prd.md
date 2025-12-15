@@ -62,6 +62,35 @@ Wireframe: ![Hero Section](../../../Downloads/otw-wireframes/Elevator%20Pitch%20
     - Card 3: Title "Copy and Share Pitch". ![copy share pitch image](../../../Downloads/otw-wireframes/copy_share_url_3d%201.png)
 
 
+## Desktop ViewPort - P1
+
+Wireframe: ![Desktop Site](/public/elevator-pitch-desktop.png)
+
+Changes compared to mobile viewport:
+1. The fixed element sizes and positioning remain the same: this includes floor indicator, floor buttons, music and switch.
+2. The hero section elements change scale their sizes for desktop viewport
+    - The How to Cards are not autoscrolling horizontally. Instead they are static to the center. The dimensions of the cards have increased - h265 w208. The images within the cards also scale proportionally.
+    - "Elevator Pitch" font size is 96 and center aligned to the desktop screen. The "create your own" and "in minutes" font size becomes 32.
+    - CREATE PITCH cta is center aligned with w277 and h67. Font size 24.
+    - Scroll Up indicator has moved towards the bottom right corner
+
+Anything not mentioned here remains the same.
+
+
+## Tablet ViewPort - P1
+
+Wireframe:  ![Tablet Site](/public/elevator-app-tablet.png)
+
+Changes compared to mobile viewport:
+1. The fixed elements remain of the exact same sizes and positioning
+2. The title fonts are same as Desktop viewport which is 96 and 32
+3. The How to Cards sizes are also exactly same as the desktop version
+4. The CREATE PITCH CTA size is also exactly same as the desktop version
+5. The scroll up indicator is center aligned to the tablet screen - this property remains similar to mobile.
+
+Anything not mentioned here remains the same.
+
+
 ## Other Floors - P0
 As part of P0 do not create other sections of the website. If the user hovers on the floor buttons the text will say "Under Construction". On click the user stays on the hero section.
 

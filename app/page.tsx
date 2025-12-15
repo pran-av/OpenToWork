@@ -136,14 +136,17 @@ export default function Home() {
       {/* Scrollable Content Container */}
       <div
         ref={containerRef}
-        className="relative h-full w-full overflow-y-auto"
+        className="relative h-full w-full pl-4 pb-4 overflow-y-auto"
         style={{
-          WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black calc(100% - 80px), transparent 95%)',
-          maskImage: 'linear-gradient(to bottom, black 0%, black calc(100% - 80px), transparent 95%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black calc(100% - 85px), transparent 98%)',
+          maskImage: 'linear-gradient(to bottom, black 0%, black calc(100% - 85px), transparent 98%)',
         }}
       >
         {/* Sections in reverse order: Ground at bottom, Seventh at top */}
-        {/* Seventh Floor - Dummy content for testing */}
+        
+        {/* Other Floors - P2
+
+        // Seventh Floor
         <section
           ref={(el: HTMLElement | null) => {
             sectionsRef.current.seventh = el;
@@ -156,7 +159,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Sixth Floor - Placeholder */}
+        // Sixth Floor - Placeholder
         <section
           ref={(el: HTMLElement | null) => {
             sectionsRef.current.sixth = el;
@@ -169,7 +172,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Fifth Floor - Placeholder */}
+        // Fifth Floor - Placeholder
         <section
           ref={(el: HTMLElement | null) => {
             sectionsRef.current.fifth = el;
@@ -182,7 +185,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Fourth Floor - Placeholder */}
+        // Fourth Floor - Placeholder
         <section
           ref={(el: HTMLElement | null) => {
             sectionsRef.current.fourth = el;
@@ -195,7 +198,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Third Floor - Placeholder */}
+        // Third Floor - Placeholder
         <section
           ref={(el: HTMLElement | null) => {
             sectionsRef.current.third = el;
@@ -208,7 +211,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Second Floor - Placeholder */}
+        // Second Floor - Placeholder
         <section
           ref={(el: HTMLElement | null) => {
             sectionsRef.current.second = el;
@@ -220,6 +223,8 @@ export default function Home() {
             <p className="text-lg text-black">Under Construction</p>
           </div>
         </section>
+        
+        */}
 
         {/* First Floor - Dummy content for testing */}
         <section
@@ -240,7 +245,7 @@ export default function Home() {
             sectionsRef.current.ground = el;
           }}
           className="min-h-screen flex flex-col items-center p-4 relative"
-          style={{ paddingBottom: '0x', justifyContent: 'flex-start', paddingTop: '2rem' }}
+          style={{ paddingBottom: '0x', justifyContent: 'flex-start', paddingTop: '5rem' }}
         >
             {/* Hero Content - Ordered: Title, How to Cards, CTA, Scroll Up indicator */}
             <div className="flex flex-col items-center text-center w-full max-w-4xl">
@@ -262,17 +267,70 @@ export default function Home() {
                 </span>
               </div>
 
-              <div>
-                
+              {/* How to Use Cards - Tablet + Desktop: static, only original 3 cards centered without diffusion effect*/}
+              <div className="hidden sm:flex gap-4 justify-center">
+                {/* Card 1 */}
+                <div className="shrink-0 w-[177px] h-[207px] md:w-[208px] md:h-[265px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
+                  <div className="p-4 relative z-10">
+                    <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
+                      Create a<br />Pitch
+                    </h3>
+                  </div>
+                  <div className="absolute inset-x-0 bottom-4 h-[120px] md:h-[180px]">
+                    <Image
+                      src="/case_study_cta_modified_3d.png"
+                      alt="Create a Pitch"
+                      fill
+                      className="object-cover w-full h-full"
+                      sizes="177px"
+                    />
+                  </div>
+                </div>
+
+                {/* Card 2 */}
+                <div className="shrink-0 w-[177px] h-[207px] md:w-[208px] md:h-[265px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
+                  <div className="p-4 relative z-10">
+                    <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
+                      Publish the Pitch
+                    </h3>
+                  </div>
+                  <div className="absolute inset-x-0 bottom-4 h-[120px] md:h-[180px]">
+                    <Image
+                      src="/publish_cta_3d.png"
+                      alt="Publish the Pitch"
+                      fill
+                      className="object-cover w-full h-full"
+                      sizes="177px"
+                    />
+                  </div>
+                </div>
+
+                {/* Card 3 */}
+                <div className="shrink-0 w-[177px] h-[207px] md:w-[208px] md:h-[265px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
+                  <div className="p-4 relative z-10">
+                    <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
+                      Copy and Share Pitch
+                    </h3>
+                  </div>
+                  <div className="absolute inset-x-0 bottom-4 h-[120px] md:h-[180px]">
+                    <Image
+                      src="/copy_share_url_3d.png"
+                      alt="Copy and Share Pitch"
+                      fill
+                      className="object-cover w-full h-full"
+                      sizes="177px"
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* How to Use Cards - Horizontal Autoscroll with gradient mask + blur */}
+              {/* How to Use Cards - Mobile: Horizontal Autoscroll with gradient mask + blur */}
               <div 
-                className="absolute bottom-[325px] overflow-hidden mb-8" 
+                className="absolute bottom-[325px] overflow-hidden mb-8 sm:hidden" 
                 style={{ 
-                  left: "50px", 
+                  left: "15px", 
                   height: '207px', 
-                  width: 'calc(100% - 50px)',
+                  width: 'calc(100% - 10px)',
                 }}
               >
                 {/* Mask wrapper with blur effect - matches .gradient-mask pattern */}
@@ -280,127 +338,129 @@ export default function Home() {
                   className="h-full w-full"
                   style={{
                     position: 'relative',
-                    backdropFilter: 'blur(16px)',
-                    WebkitBackdropFilter: 'blur(16px)',
+                    backdropFilter: 'blur(5px)',
+                    WebkitBackdropFilter: 'blur(5px)',
                     WebkitMaskImage: 'linear-gradient(to left, black 0%, black 90%, transparent 98%)',
                     maskImage: 'linear-gradient(to left, black 0%, black 90%, transparent 98%)',
                     display: 'flex',
                     alignItems: 'center',
                   }}
                 >
-                
+                  {/* Mobile only: autoscroll with duplicates */}
                   <div className="flex gap-4 animate-scroll">
-                  {/* Card 1 */}
-                  <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
-                    <div className="p-4 relative z-10">
-                      <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
-                        Create a<br />Pitch
-                      </h3>
+                    {/* Card 1 */}
+                    <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
+                      <div className="p-4 relative z-10">
+                        <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
+                          Create a<br />Pitch
+                        </h3>
+                      </div>
+                      <div className="absolute inset-x-0 bottom-4 h-[120px]">
+                        <Image
+                          src="/case_study_cta_modified_3d.png"
+                          alt="Create a Pitch"
+                          fill
+                          className="object-cover w-full h-full"
+                          sizes="177px"
+                        />
+                      </div>
                     </div>
-                    <div className="absolute inset-x-0 bottom-4 h-[120px]">
-                      <Image
-                        src="/case_study_cta_modified_3d.png"
-                        alt="Create a Pitch"
-                        fill
-                        className="object-cover w-full h-full"
-                        sizes="177px"
-                      />
+
+                    {/* Card 2 */}
+                    <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
+                      <div className="p-4 relative z-10">
+                        <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
+                          Publish the Pitch
+                        </h3>
+                      </div>
+                      <div className="absolute inset-x-0 bottom-4 h-[120px]">
+                        <Image
+                          src="/publish_cta_3d.png"
+                          alt="Publish the Pitch"
+                          fill
+                          className="object-cover w-full h-full"
+                          sizes="177px"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Card 3 */}
+                    <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
+                      <div className="p-4 relative z-10">
+                        <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
+                          Copy and Share Pitch
+                        </h3>
+                      </div>
+                      <div className="absolute inset-x-0 bottom-4 h-[120px]">
+                        <Image
+                          src="/copy_share_url_3d.png"
+                          alt="Copy and Share Pitch"
+                          fill
+                          className="object-cover w-full h-full"
+                          sizes="177px"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Duplicate cards for infinite scroll */}
+                    <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
+                      <div className="p-4 relative z-10">
+                        <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
+                          Create a<br /> Pitch
+                        </h3>
+                      </div>
+                      <div className="absolute inset-x-0 bottom-4 h-[120px]">
+                        <Image
+                          src="/case_study_cta_modified_3d.png"
+                          alt="Create a Pitch"
+                          fill
+                          className="object-cover w-full h-full"
+                          sizes="177px"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
+                      <div className="p-4 relative z-10">
+                        <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
+                          Publish the Pitch
+                        </h3>
+                      </div>
+                      <div className="absolute inset-x-0 bottom-4 h-[120px]">
+                        <Image
+                          src="/publish_cta_3d.png"
+                          alt="Publish the Pitch"
+                          fill
+                          className="object-cover w-full h-full"
+                          sizes="177px"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
+                      <div className="p-4 relative z-10">
+                        <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
+                          Copy and Share Pitch
+                        </h3>
+                      </div>
+                      <div className="absolute inset-x-0 bottom-4 h-[120px]">
+                        <Image
+                          src="/copy_share_url_3d.png"
+                          alt="Copy and Share Pitch"
+                          fill
+                          className="object-cover w-full h-full"
+                          sizes="177px"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  {/* Card 2 */}
-                  <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
-                    <div className="p-4 relative z-10">
-                      <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
-                        Publish the Pitch
-                      </h3>
-                    </div>
-                    <div className="absolute inset-x-0 bottom-4 h-[120px]">
-                      <Image
-                        src="/publish_cta_3d.png"
-                        alt="Publish the Pitch"
-                        fill
-                        className="object-cover w-full h-full"
-                        sizes="177px"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Card 3 */}
-                  <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
-                    <div className="p-4 relative z-10">
-                      <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
-                        Copy and Share Pitch
-                      </h3>
-                    </div>
-                    <div className="absolute inset-x-0 bottom-4 h-[120px]">
-                      <Image
-                        src="/copy_share_url_3d.png"
-                        alt="Copy and Share Pitch"
-                        fill
-                        className="object-cover w-full h-full"
-                        sizes="177px"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Duplicate cards for infinite scroll */}
-                  <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
-                    <div className="p-4 relative z-10">
-                      <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
-                        Create a<br /> Pitch
-                      </h3>
-                    </div>
-                    <div className="absolute inset-x-0 bottom-4 h-[120px]">
-                      <Image
-                        src="/case_study_cta_modified_3d.png"
-                        alt="Create a Pitch"
-                        fill
-                        className="object-cover w-full h-full"
-                        sizes="177px"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
-                    <div className="p-4 relative z-10">
-                      <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
-                        Publish the Pitch
-                      </h3>
-                    </div>
-                    <div className="absolute inset-x-0 bottom-4 h-[120px]">
-                      <Image
-                        src="/publish_cta_3d.png"
-                        alt="Publish the Pitch"
-                        fill
-                        className="object-cover w-full h-full"
-                        sizes="177px"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="shrink-0 w-[177px] h-[207px] bg-[#FFE3E3] rounded-[10px] shadow-lg flex flex-col relative overflow-hidden">
-                    <div className="p-4 relative z-10">
-                      <h3 className="font-inter font-semibold text-xl text-black text-center mb-2">
-                        Copy and Share Pitch
-                      </h3>
-                    </div>
-                    <div className="absolute inset-x-0 bottom-4 h-[120px]">
-                      <Image
-                        src="/copy_share_url_3d.png"
-                        alt="Copy and Share Pitch"
-                        fill
-                        className="object-cover w-full h-full"
-                        sizes="177px"
-                      />
-                    </div>
-                  </div>
-                  </div>
+                  
                 </div>
               </div>
 
-              {/* Scroll Up Indicator - Chevrons stacked vertically, text below */}
-              <div className="bottom-[100px] absolute flex flex-col items-center">
+              {/* Scroll Up Indicator - Mobile/Tablet: center, Desktop: bottom right */}
+              <div className="absolute bottom-[40px] flex flex-col items-center left-1/2 -translate-x-1/2 lg:left-auto lg:right-8 lg:translate-x-0">
                 {[0, 1, 2].map((index) => (
                   <ChevronUp
                     key={index}
