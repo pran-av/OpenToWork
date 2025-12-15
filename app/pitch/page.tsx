@@ -397,7 +397,7 @@ export default function PitchPage() {
           <Link
             href="https://elevateyourpitch.netlify.app/auth"
             className="uppercase font-inter font-semibold text-lg text-black bg-white border-2 border-black rounded-[5px] px-6 py-3 hover:bg-gray-100 transition-colors mb-8"
-            style={{ position: "absolute", bottom: "20%", left: "50%", transform: "translateX(-50%)" }}
+            style={{ position: "absolute", bottom: "15%", left: "50%", transform: "translateX(-50%)" }}
           >
             Create Pitch
           </Link>
