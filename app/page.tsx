@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { Music, Music2 } from "lucide-react";
 import Link from "next/link";
@@ -8,6 +8,22 @@ import { useElevatorMusic } from "./useElevatorMusic";
 
 export default function PreludePage() {
   const { isMusicOn, toggleMusic } = useElevatorMusic();
+
+  // Preload card images for /pitch page
+  useEffect(() => {
+    const imageUrls = [
+      "/case_study_cta_modified_3d.png",
+      "/publish_cta_3d.png",
+      "/copy_share_url_3d.png",
+    ];
+    imageUrls.forEach((url) => {
+      const link = document.createElement("link");
+      link.rel = "prefetch";
+      link.as = "image";
+      link.href = url;
+      document.head.appendChild(link);
+    });
+  }, []);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden">
