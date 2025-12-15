@@ -108,7 +108,7 @@ export default function PitchPage() {
         </div>
 
         {/* Elevator Buttons - Left Side */}
-        <div className="absolute left-0 bottom-[20%] flex flex-col-reverse gap-[35px] pointer-events-auto">
+        <div className="absolute left-0 bottom-[15%] flex flex-col-reverse gap-[25px] pointer-events-auto">
           {floors.map((floor) => (
             <div key={floor.id} className="relative">
               <button
@@ -243,7 +243,7 @@ export default function PitchPage() {
 
             {/* How to Use Cards - Mobile: Horizontal Autoscroll with gradient mask + blur */}
             <div
-              className="absolute bottom-[325px] overflow-hidden mb-8 sm:hidden"
+              className="absolute bottom-[200px] overflow-hidden mb-4 sm:hidden"
               style={{
                 left: "15px",
                 height: "207px",
@@ -406,7 +406,7 @@ export default function PitchPage() {
           <Link
             href="https://elevateyourpitch.netlify.app/auth"
             className="uppercase font-inter font-semibold text-lg text-black bg-white border-2 border-black rounded-[5px] px-6 py-3 hover:bg-gray-100 transition-colors mb-8"
-            style={{ position: "absolute", bottom: "15%", left: "50%", transform: "translateX(-50%)" }}
+            style={{ position: "absolute", bottom: "10%", left: "50%", transform: "translateX(-50%)" }}
           >
             Create Pitch
           </Link>
