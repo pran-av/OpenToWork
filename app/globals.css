@@ -159,3 +159,26 @@ h6 {
 .animate-scroll:hover {
   animation-play-state: paused;
 }
+
+@keyframes prelude-diffuse {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.prelude-line {
+  opacity: 0;
+  animation: prelude-diffuse 1.2s ease-out forwards;
+}
+
+.prelude-tag {
+  opacity: 0;
+  animation: prelude-diffuse 1.2s ease-out forwards;
+}

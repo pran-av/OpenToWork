@@ -61,10 +61,33 @@ Wireframe: ![Hero Section](../../../Downloads/otw-wireframes/Elevator%20Pitch%20
     - Card 2: Title "Publish the Pitch". ![publish pitch image](../../../Downloads/otw-wireframes/publish_cta_3d%201.png)
     - Card 3: Title "Copy and Share Pitch". ![copy share pitch image](../../../Downloads/otw-wireframes/copy_share_url_3d%201.png)
 
+### Prelude Screen - P2
+
+Before the hero section loads, I want a loading screen that fills the page with following content as in the wireframe:
+
+Sentence 1: Imagine being in an elevator with someone who might hire you or be your future client.
+
+Sentence 2: What would you do to **convince them** before the elevator reaches its destination?
+
+Sentence 3: You would craft a story, add convincing pointers, be quick and be unique to  keep their attention.
+
+Sentence 4: **Elevator Pitch** is an app that helps you make that pitch!
+
+1. Each sentence appears on the screen through a slow outwards diffusion one by one - from top to the bottom. Based on its position.
+2. The jumbled tags storytelling, convincing, being unique, and time discipline appear at the very end in the postion meant for them.
+3. This prelude is should be responsive for mobile, tablet and desktop, refer the wireframes for each.
+4. Top right has the same music icon that can be muted or unmuted. Default mute.
+5. Once all the content involved in the prelude is loaded - we automatically move to the Hero section (aka ground floor). The prelude and the rest of the website can be the same page file, the prelude screen can act as preloader or opening animation while the main website loads.
+
+![wireframe-mobile](../../../Downloads/otw-wireframes/elevator%20pitch%20prelude.png)
+
+![wireframe-desktop](../../../Downloads/otw-wireframes/prelude-desktop.png)
+
+![wireframe-tablet](../../../Downloads/otw-wireframes/prelude%20tablet.png)
 
 ## Desktop ViewPort - P1
 
-Wireframe: ![Desktop Site](/public/elevator-pitch-desktop.png)
+Wireframe: ![Desktop Site](../../../Downloads/otw-wireframes/elevator-pitch-desktop.png)
 
 Changes compared to mobile viewport:
 1. The fixed element sizes and positioning remain the same: this includes floor indicator, floor buttons, music and switch.
@@ -79,7 +102,7 @@ Anything not mentioned here remains the same.
 
 ## Tablet ViewPort - P1
 
-Wireframe:  ![Tablet Site](/public/elevator-app-tablet.png)
+Wireframe:  ![Tablet Site](../../../Downloads/otw-wireframes/elevator-app-tablet.png)
 
 Changes compared to mobile viewport:
 1. The fixed elements remain of the exact same sizes and positioning
@@ -89,7 +112,6 @@ Changes compared to mobile viewport:
 5. The scroll up indicator is center aligned to the tablet screen - this property remains similar to mobile.
 
 Anything not mentioned here remains the same.
-
 
 ## Other Floors - P0
 As part of P0 do not create other sections of the website. If the user hovers on the floor buttons the text will say "Under Construction". On click the user stays on the hero section.
