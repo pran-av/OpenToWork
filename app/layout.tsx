@@ -18,6 +18,20 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Elevator Pitch App",
   description: "create shareable link for your pitch",
+  icons: {
+    icon: [
+      {
+        url: "/tardis_elevator_icon_refined_3d.webp",
+        type: "image/webp",
+      },
+      {
+        url: "/tardis_elevator_icon_refined_3d.png",
+        type: "image/png",
+      },
+    ],
+    shortcut: "/tardis_elevator_icon_refined_3d.png",
+    apple: "/tardis_elevator_icon_refined_3d.png",
+  },
 };
 
 export default function RootLayout({
