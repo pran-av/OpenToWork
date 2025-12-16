@@ -84,6 +84,14 @@ export default function AuthPageContent() {
     e.preventDefault();
     if (!email.trim()) return;
 
+    // Track Continue button click
+    if (typeof window !== "undefined" && (window as any).gtag) {
+      (window as any).gtag("event", "click", {
+        event_category: "CTA",
+        event_label: "Submit Email",
+      });
+    }
+
     setIsLoading(true);
     setMessage(null);
 

@@ -122,6 +122,14 @@ export default function PreludePage() {
               <div className="mt-8 flex justify-center">
                 <Link
                   href="/pitch"
+                  onClick={() => {
+                    if (typeof window !== "undefined" && (window as any).gtag) {
+                      (window as any).gtag("event", "click", {
+                        event_category: "CTA",
+                        event_label: "Explore Elevator Pitch",
+                      });
+                    }
+                  }}
                   className="inline-flex items-center justify-center rounded-[10px] border border-black bg-white px-6 py-3 font-inter font-semibold text-[16px] md:text-[18px] text-black hover:bg-gray-100 transition-colors"
                 >
                   Explore Elevator Pitch

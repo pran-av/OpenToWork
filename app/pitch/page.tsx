@@ -409,6 +409,14 @@ export default function PitchPage() {
           {/* CTA Button - Aligned with Ground button level (bottom 20% of viewport) */}
           <Link
             href="https://elevateyourpitch.netlify.app/auth"
+            onClick={() => {
+              if (typeof window !== "undefined" && (window as any).gtag) {
+                (window as any).gtag("event", "click", {
+                  event_category: "CTA",
+                  event_label: "Create Pitch",
+                });
+              }
+            }}
             className="uppercase font-inter font-semibold text-lg text-black bg-white border-2 border-black rounded-[5px] px-6 py-3 hover:bg-gray-100 transition-colors mb-8"
             style={{ position: "absolute", bottom: "10%", left: "50%", transform: "translateX(-50%)" }}
           >
