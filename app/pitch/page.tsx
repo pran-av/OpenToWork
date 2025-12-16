@@ -136,7 +136,7 @@ export default function PitchPage() {
       {/* Scrollable Content Container */}
       <div
         ref={containerRef}
-        className="relative h-full w-full pl-4 pb-4 overflow-y-auto"
+        className="relative h-full w-full overflow-y-auto"
         style={{
           WebkitMaskImage: "linear-gradient(to bottom, black 0%, black calc(100% - 85px), transparent 98%)",
           maskImage: "linear-gradient(to bottom, black 0%, black calc(100% - 85px), transparent 98%)",
@@ -162,7 +162,7 @@ export default function PitchPage() {
           ref={(el: HTMLElement | null) => {
             sectionsRef.current.ground = el;
           }}
-          className="min-h-screen flex flex-col items-center p-4 relative"
+          className="min-h-screen flex flex-col items-center px-4 pb-4 relative overflow-x-hidden"
           style={{ paddingBottom: "0x", justifyContent: "flex-start", paddingTop: "5rem" }}
         >
           {/* Hero Content - Ordered: Title, How to Cards, CTA, Scroll Up indicator */}
@@ -202,7 +202,6 @@ export default function PitchPage() {
                     className="object-cover w-full h-full"
                     sizes="(max-width: 768px) 177px, 208px"
                     quality={90}
-                    priority
                   />
                 </div>
               </div>
@@ -222,7 +221,6 @@ export default function PitchPage() {
                     className="object-cover w-full h-full"
                     sizes="(max-width: 768px) 177px, 208px"
                     quality={90}
-                    priority
                   />
                 </div>
               </div>
@@ -242,7 +240,6 @@ export default function PitchPage() {
                     className="object-cover w-full h-full"
                     sizes="(max-width: 768px) 177px, 208px"
                     quality={90}
-                    priority
                   />
                 </div>
               </div>
@@ -289,7 +286,6 @@ export default function PitchPage() {
                         className="object-cover w-full h-full"
                         sizes="177px"
                         quality={90}
-                        priority
                       />
                     </div>
                   </div>
@@ -309,7 +305,6 @@ export default function PitchPage() {
                         className="object-cover w-full h-full"
                         sizes="177px"
                         quality={90}
-                        priority
                       />
                     </div>
                   </div>
@@ -329,7 +324,6 @@ export default function PitchPage() {
                         className="object-cover w-full h-full"
                         sizes="177px"
                         quality={90}
-                        priority
                       />
                     </div>
                   </div>
@@ -351,7 +345,6 @@ export default function PitchPage() {
                         className="object-cover w-full h-full"
                         sizes="177px"
                         quality={90}
-                        priority
                       />
                     </div>
                   </div>
@@ -370,7 +363,6 @@ export default function PitchPage() {
                         className="object-cover w-full h-full"
                         sizes="177px"
                         quality={90}
-                        priority
                       />
                     </div>
                   </div>
@@ -389,7 +381,6 @@ export default function PitchPage() {
                         className="object-cover w-full h-full"
                         sizes="177px"
                         quality={90}
-                        priority
                       />
                     </div>
                   </div>

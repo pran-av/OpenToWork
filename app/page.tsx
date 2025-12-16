@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Music, Music2 } from "lucide-react";
 import Link from "next/link";
 import { useElevatorMusic } from "./useElevatorMusic";
@@ -31,13 +32,14 @@ export default function PreludePage() {
         <picture className="absolute inset-0">
           <source srcSet="/elevator-background-avif.avif" type="image/avif" />
           <source srcSet="/elevator-background-webp.webp" type="image/webp" />
-          <img
+          <Image
             src="/elevator-background-browser-jpeg.jpg"
             alt="Elevator background"
-            className="absolute inset-0 w-full h-full object-cover object-center"
-            onError={(e) => {
-              e.currentTarget.style.display = "none";
-            }}
+            fill
+            priority
+            className="object-cover object-center"
+            quality={75}
+            sizes="100vw"
           />
         </picture>
         <div

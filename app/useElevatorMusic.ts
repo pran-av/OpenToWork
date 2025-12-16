@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 let sharedAudioInstance: HTMLAudioElement | null = null;
 let sharedMusicState = false;
 
-// Initialize shared audio instance only when needed (lazy loading)
+// Initialize shared audio instance
 function getSharedAudio(): HTMLAudioElement {
   if (!sharedAudioInstance) {
     sharedAudioInstance = new Audio("/elevator-ride-compressed.mp3");
@@ -22,34 +22,26 @@ export function useElevatorMusic() {
   // Sync with shared state on mount
   useEffect(() => {
     setIsMusicOn(sharedMusicState);
-    
-    // If music was already on, ensure audio instance exists and is playing
-    if (sharedMusicState && sharedAudioInstance) {
-      sharedAudioInstance.play().catch((error) => {
+  }, []);
+
+  // Handle play/pause based on isMusicOn state
+  useEffect(() => {
+    const audio = getSharedAudio();
+    sharedMusicState = isMusicOn;
+
+    if (isMusicOn) {
+      audio.play().catch((error) => {
         console.error("Error playing audio:", error);
       });
+    } else {
+      audio.pause();
     }
-  }, []);
+  }, [isMusicOn]);
 
   const toggleMusic = () => {
     setIsMusicOn((prev) => {
       const newState = !prev;
       sharedMusicState = newState;
-
-      // Only fetch/create audio when user clicks to unmute
-      if (newState) {
-        // User is turning music ON - fetch audio dynamically
-        const audio = getSharedAudio();
-        audio.play().catch((error) => {
-          console.error("Error playing audio:", error);
-        });
-      } else {
-        // User is turning music OFF - pause if audio exists
-        if (sharedAudioInstance) {
-          sharedAudioInstance.pause();
-        }
-      }
-
       return newState;
     });
   };
