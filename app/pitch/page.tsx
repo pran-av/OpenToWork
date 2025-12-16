@@ -202,6 +202,7 @@ export default function PitchPage() {
                     className="object-cover w-full h-full"
                     sizes="(max-width: 768px) 177px, 208px"
                     quality={90}
+                    priority
                   />
                 </div>
               </div>
@@ -221,6 +222,7 @@ export default function PitchPage() {
                     className="object-cover w-full h-full"
                     sizes="(max-width: 768px) 177px, 208px"
                     quality={90}
+                    priority
                   />
                 </div>
               </div>
@@ -240,6 +242,7 @@ export default function PitchPage() {
                     className="object-cover w-full h-full"
                     sizes="(max-width: 768px) 177px, 208px"
                     quality={90}
+                    priority
                   />
                 </div>
               </div>
@@ -286,6 +289,7 @@ export default function PitchPage() {
                         className="object-cover w-full h-full"
                         sizes="177px"
                         quality={90}
+                        priority
                       />
                     </div>
                   </div>
@@ -305,6 +309,7 @@ export default function PitchPage() {
                         className="object-cover w-full h-full"
                         sizes="177px"
                         quality={90}
+                        priority
                       />
                     </div>
                   </div>
@@ -324,6 +329,7 @@ export default function PitchPage() {
                         className="object-cover w-full h-full"
                         sizes="177px"
                         quality={90}
+                        priority
                       />
                     </div>
                   </div>
@@ -345,6 +351,7 @@ export default function PitchPage() {
                         className="object-cover w-full h-full"
                         sizes="177px"
                         quality={90}
+                        priority
                       />
                     </div>
                   </div>
@@ -363,6 +370,7 @@ export default function PitchPage() {
                         className="object-cover w-full h-full"
                         sizes="177px"
                         quality={90}
+                        priority
                       />
                     </div>
                   </div>
@@ -381,6 +389,7 @@ export default function PitchPage() {
                         className="object-cover w-full h-full"
                         sizes="177px"
                         quality={90}
+                        priority
                       />
                     </div>
                   </div>
