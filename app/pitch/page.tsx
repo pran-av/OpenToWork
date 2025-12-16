@@ -73,14 +73,18 @@ export default function PitchPage() {
     <div className="relative h-screen w-screen overflow-hidden">
       {/* Fixed Background Image with Overlay */}
       <div className="fixed inset-0 z-0">
-        <Image
-          src="/elevator-background.png"
-          alt="Elevator background"
-          fill
-          className="object-cover object-center"
-          priority
-          quality={75}
-        />
+        <picture className="absolute inset-0">
+          <source srcSet="/elevator-background-avif.avif" type="image/avif" />
+          <source srcSet="/elevator-background-webp.webp" type="image/webp" />
+          <img
+            src="/elevator-background-browser-jpeg.jpg"
+            alt="Elevator background"
+            className="absolute inset-0 w-full h-full object-cover object-center"
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
+        </picture>
         <div
           className="absolute inset-0"
           style={{ backgroundColor: "#FFE4B9", opacity: 0.64 }}
