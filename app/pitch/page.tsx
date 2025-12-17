@@ -107,12 +107,12 @@ export default function PitchPage() {
         </button>
 
         {/* Floor Indicator - Center Bottom */}
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[203px] h-[45px] bg-[#FFFED3] border-2 border-black rounded-t-[25px] flex items-center justify-center pointer-events-none z-50">
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-[2px] w-[203px] h-[45px] bg-[#FFFED3] border-2 border-black rounded-t-[25px] flex items-center justify-center pointer-events-none z-50">
           <span className="font-inter text-base text-black">{getCurrentFloorName()}</span>
         </div>
 
         {/* Elevator Buttons - Left Side */}
-        <div className="absolute left-0 bottom-[15%] flex flex-col-reverse gap-[25px] pointer-events-auto">
+        <div className="absolute left-0 -translate-x-[3px] bottom-[15%] flex flex-col-reverse gap-[25px] pointer-events-auto">
           {floors.map((floor) => (
             <div key={floor.id} className="relative">
               <button
