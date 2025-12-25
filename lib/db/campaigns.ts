@@ -104,22 +104,20 @@ export async function getActiveCampaignByProjectId(projectId: string): Promise<C
 /**
  * Get active campaign by project ID (public, no auth required)
  * Used for public project URLs
+ * Uses RPC function to ensure project_id is mandatory
  */
 export async function getActiveCampaignByProjectIdPublic(projectId: string): Promise<CampaignData | null> {
   const supabase = createPublicClient();
   
-  const { data, error } = await supabase
-    .from("campaigns")
-    .select("*")
-    .eq("project_id", projectId)
-    .eq("campaign_status", "ACTIVE")
-    .single();
+  const { data, error } = await supabase.rpc("get_active_campaign_by_project", {
+    p_project_id: projectId,
+  });
 
-  if (error || !data) {
+  if (error || !data || data.length === 0) {
     return null;
   }
 
-  return data as CampaignData;
+  return data[0] as CampaignData;
 }
 
 export async function createCampaign(projectId: string, campaignName: string): Promise<CampaignData | null> {
@@ -167,19 +165,19 @@ export async function getClientServicesByCampaignId(
 }
 
 /**
- * Get client services by campaign ID (public, no auth required)
- * Used for public campaign pages
+ * Get client services by project ID (public, no auth required)
+ * Used for public project pages
+ * Uses RPC function to ensure project_id is mandatory
+ * Note: Changed from campaignId to projectId to match security requirements
  */
-export async function getClientServicesByCampaignIdPublic(
-  campaignId: string
+export async function getClientServicesByProjectIdPublic(
+  projectId: string
 ): Promise<ClientService[]> {
   const supabase = createPublicClient();
   
-  const { data, error } = await supabase
-    .from("client_services")
-    .select("*")
-    .eq("campaign_id", campaignId)
-    .order("order_index", { ascending: true });
+  const { data, error } = await supabase.rpc("get_client_services_by_project", {
+    p_project_id: projectId,
+  });
 
   if (error || !data) {
     return [];
@@ -207,19 +205,19 @@ export async function getCaseStudiesByServiceId(
 }
 
 /**
- * Get case studies by service ID (public, no auth required)
- * Used for public campaign pages
+ * Get case studies by project ID (public, no auth required)
+ * Used for public project pages
+ * Uses RPC function to ensure project_id is mandatory
+ * Note: Changed from serviceId to projectId to match security requirements
  */
-export async function getCaseStudiesByServiceIdPublic(
-  clientServiceId: string
+export async function getCaseStudiesByProjectIdPublic(
+  projectId: string
 ): Promise<CaseStudy[]> {
   const supabase = createPublicClient();
   
-  const { data, error } = await supabase
-    .from("case_studies")
-    .select("*")
-    .eq("client_service_id", clientServiceId)
-    .order("created_at", { ascending: false });
+  const { data, error } = await supabase.rpc("get_case_studies_by_project", {
+    p_project_id: projectId,
+  });
 
   if (error || !data) {
     return [];

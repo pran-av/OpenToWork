@@ -40,6 +40,7 @@ export async function getWidgetByCampaignId(
 /**
  * Get widget by campaign ID (public, no auth required)
  * Used for public campaign pages
+ * @deprecated Use getWidgetByProjectIdPublic instead for better security
  */
 export async function getWidgetByCampaignIdPublic(
   campaignId: string
@@ -60,5 +61,39 @@ export async function getWidgetByCampaignIdPublic(
   }
 
   return data as WidgetData;
+}
+
+/**
+ * Get widget by project ID (public, no auth required)
+ * Used for public project pages
+ * Uses RPC function to ensure project_id is mandatory
+ */
+export async function getWidgetByProjectIdPublic(
+  projectId: string
+): Promise<WidgetData | null> {
+  const supabase = createPublicClient();
+
+  const { data, error } = await supabase.rpc("get_widgets_by_project", {
+    p_project_id: projectId,
+  });
+
+  if (error || !data || data.length === 0) {
+    return null;
+  }
+
+  // Filter for active widgets and return the most recent one
+  const activeWidgets = data.filter((w: any) => w.is_active === true);
+  if (activeWidgets.length === 0) {
+    return null;
+  }
+
+  // Sort by created_at and return the most recent
+  activeWidgets.sort((a: any, b: any) => {
+    const dateA = new Date(a.created_at).getTime();
+    const dateB = new Date(b.created_at).getTime();
+    return dateB - dateA;
+  });
+
+  return activeWidgets[0] as WidgetData;
 }
 

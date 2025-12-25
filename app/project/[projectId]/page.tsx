@@ -2,10 +2,10 @@ import { notFound } from "next/navigation";
 import CampaignFlowClient from "@/app/campaign/[id]/CampaignFlowClient";
 import {
   getActiveCampaignByProjectIdPublic,
-  getClientServicesByCampaignIdPublic,
-  getCaseStudiesByServiceIdPublic,
+  getClientServicesByProjectIdPublic,
+  getCaseStudiesByProjectIdPublic,
 } from "@/lib/db/campaigns";
-import { getWidgetByCampaignIdPublic } from "@/lib/db/widgets";
+import { getWidgetByProjectIdPublic } from "@/lib/db/widgets";
 import type { CaseStudy } from "@/lib/db/campaigns";
 
 interface PageProps {
@@ -35,18 +35,23 @@ export default async function ProjectPage({ params }: PageProps) {
       );
     }
     
-    // Fetch services for this campaign
-    const services = await getClientServicesByCampaignIdPublic(activeCampaign.campaign_id);
+    // Fetch services for this project (using projectId for security)
+    const services = await getClientServicesByProjectIdPublic(projectId);
     
-    // Fetch case studies for all services
+    // Fetch case studies for this project (using projectId for security)
+    const allCaseStudies = await getCaseStudiesByProjectIdPublic(projectId);
+    
+    // Map case studies by service ID for component compatibility
     const caseStudiesMap: Record<string, CaseStudy[]> = {};
-    for (const service of services) {
-      const caseStudies = await getCaseStudiesByServiceIdPublic(service.client_service_id);
-      caseStudiesMap[service.client_service_id] = caseStudies;
+    for (const caseStudy of allCaseStudies) {
+      if (!caseStudiesMap[caseStudy.client_service_id]) {
+        caseStudiesMap[caseStudy.client_service_id] = [];
+      }
+      caseStudiesMap[caseStudy.client_service_id].push(caseStudy);
     }
     
-    // Fetch widget for this campaign
-    const widget = await getWidgetByCampaignIdPublic(activeCampaign.campaign_id);
+    // Fetch widget for this project (using projectId for security)
+    const widget = await getWidgetByProjectIdPublic(projectId);
     
     // Render the campaign flow directly (same as /campaign/[id])
     return (
