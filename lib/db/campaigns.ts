@@ -432,19 +432,11 @@ export async function createLead(
   // This allows anonymous users (with session) to insert leads
   const supabase = supabaseClient || await createServerClient();
   
-  // Verify the campaign exists (RLS policy will check if user can see it)
-  const { data: campaign, error: campaignError } = await supabase
-    .from("campaigns")
-    .select("campaign_id")
-    .eq("campaign_id", leadData.campaign_id)
-    .single();
-
-  if (campaignError || !campaign) {
-    console.error("Campaign validation error:", campaignError);
-    throw new Error(`Campaign not found: ${campaignError?.message || "Campaign does not exist"}`);
-  }
+  // Note: Campaign validation is handled by RLS policy on leads INSERT
+  // The policy checks if campaign is ACTIVE (for public access) or user owns the campaign
+  // We don't need to verify campaign existence here as RLS will reject invalid campaign_ids
   
-  // Insert lead - RLS policy will check if user is anonymous and campaign exists
+  // Insert lead - RLS policy will check if campaign is ACTIVE (for anonymous) or user owns it
   const { data, error } = await supabase
     .from("leads")
     .insert([leadData])

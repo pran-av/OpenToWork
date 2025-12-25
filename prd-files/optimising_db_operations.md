@@ -137,3 +137,19 @@ Improvements Required:
 1. The client side code is using `check_*_access_by_project` RPC functions to display campaign flow pages. What is the intended purpose of `check_*_row_access`? Both these are saying to use RPC functions for public access but have them returning either false or the check for public has been removed.
 2. Prefer keeping `check_*_access_by_project` and remove the recently added `check_*_row_access` if not useful. In `check_*_access_by_project` what is the reasoning behind checking the ownership if RLS policies are meant for that? If it is going to work as a simple OR check then its fine, but otherwise non owner users should be able to view campaigns, client services, case studies and widgets with project_id inputs
 3. Ensure that client is properly parsing and passing input parameters that are requested by RPC functions
+
+## Error List A
+1. Case Studies are not visible publicly for Active Campaigns in Campaign Flow Pages
+2. Failed to create lead. Role Anonymous Sign In
+details: 
+"Campaign not found: Cannot coerce the result to a single JSON object"
+error: 
+"Failed to create lead"
+curl 'http://localhost:3000/api/leads' \
+  -H 'Content-Type: application/json' \
+  -b '_ga=GA1.1.175708471.1766687582; sb-127-auth-token={token}' \
+  -H 'Origin: http://localhost:3000' \
+  -H 'Referer: http://localhost:3000/project/94cb2de5-c2e5-43ad-87e5-83b9c1266c1c' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  --data-raw '{"campaign_id":"c7044cd5-60de-4a49-ab29-da9becbb52e9","lead_name":"Testing with Anon User","lead_company":"Post Recent Migration","lead_email":"25thDec@email.com","meeting_scheduled":false}'
