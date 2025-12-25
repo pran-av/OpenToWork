@@ -34,7 +34,7 @@ SET search_path = ''
 STABLE
 AS $$
 DECLARE
-  v_campaign_status campaign_status_enum;
+  v_campaign_status public.campaign_status_enum;
   v_campaign_project_id uuid;
   v_user_id uuid;
 BEGIN
@@ -66,7 +66,7 @@ BEGIN
   END IF;
 
   -- Non-owners can view ACTIVE campaigns with project_id (ensures project_id is required)
-  IF v_campaign_status = 'ACTIVE'::campaign_status_enum THEN
+  IF v_campaign_status = 'ACTIVE'::public.campaign_status_enum THEN
     RETURN true;
   END IF;
 
@@ -87,7 +87,7 @@ STABLE
 AS $$
 DECLARE
   v_campaign_id uuid;
-  v_campaign_status campaign_status_enum;
+  v_campaign_status public.campaign_status_enum;
   v_user_id uuid;
 BEGIN
   -- Sanitize inputs
@@ -120,7 +120,7 @@ BEGIN
   END IF;
 
   -- Non-owners can view client_services for ACTIVE campaigns with project_id
-  IF v_campaign_status = 'ACTIVE'::campaign_status_enum THEN
+  IF v_campaign_status = 'ACTIVE'::public.campaign_status_enum THEN
     RETURN true;
   END IF;
 
@@ -141,7 +141,7 @@ STABLE
 AS $$
 DECLARE
   v_campaign_id uuid;
-  v_campaign_status campaign_status_enum;
+  v_campaign_status public.campaign_status_enum;
   v_user_id uuid;
 BEGIN
   -- Sanitize inputs
@@ -175,7 +175,7 @@ BEGIN
   END IF;
 
   -- Non-owners can view case_studies for ACTIVE campaigns with project_id
-  IF v_campaign_status = 'ACTIVE'::campaign_status_enum THEN
+  IF v_campaign_status = 'ACTIVE'::public.campaign_status_enum THEN
     RETURN true;
   END IF;
 
@@ -196,7 +196,7 @@ STABLE
 AS $$
 DECLARE
   v_campaign_id uuid;
-  v_campaign_status campaign_status_enum;
+  v_campaign_status public.campaign_status_enum;
   v_user_id uuid;
 BEGIN
   -- Sanitize inputs
@@ -229,7 +229,7 @@ BEGIN
   END IF;
 
   -- Non-owners can view widgets for ACTIVE campaigns with project_id
-  IF v_campaign_status = 'ACTIVE'::campaign_status_enum THEN
+  IF v_campaign_status = 'ACTIVE'::public.campaign_status_enum THEN
     RETURN true;
   END IF;
 
@@ -248,7 +248,7 @@ SET search_path = ''
 STABLE
 AS $$
 DECLARE
-  v_campaign_status campaign_status_enum;
+  v_campaign_status public.campaign_status_enum;
   v_campaign_project_id uuid;
   v_user_id uuid;
 BEGIN
@@ -259,7 +259,7 @@ BEGIN
 
   -- Get campaign details
   SELECT campaign_status, project_id INTO v_campaign_status, v_campaign_project_id
-  FROM campaigns
+  FROM public.campaigns
   WHERE campaign_id = p_campaign_id;
 
   -- Campaign must exist and belong to the specified project
@@ -272,7 +272,7 @@ BEGIN
   IF v_user_id IS NOT NULL THEN
     IF EXISTS (
       SELECT 1
-      FROM projects
+      FROM public.projects
       WHERE project_id = p_project_id AND user_id = v_user_id
     ) THEN
       RETURN true;
@@ -280,7 +280,7 @@ BEGIN
   END IF;
 
   -- Public access: only allow insert if campaign is ACTIVE
-  IF v_campaign_status = 'ACTIVE'::campaign_status_enum THEN
+  IF v_campaign_status = 'ACTIVE'::public.campaign_status_enum THEN
     RETURN true;
   END IF;
 
@@ -303,7 +303,7 @@ CREATE OR REPLACE FUNCTION public.get_active_campaign_by_project(
   campaign_id uuid,
   project_id uuid,
   campaign_name varchar(25),
-  campaign_status campaign_status_enum,
+  campaign_status public.campaign_status_enum,
   campaign_structure jsonb,
   cta_config jsonb,
   created_at timestamptz
@@ -330,9 +330,9 @@ BEGIN
     c.campaign_structure,
     c.cta_config,
     c.created_at
-  FROM campaigns c
+  FROM public.campaigns c
   WHERE c.project_id = p_project_id
-    AND c.campaign_status = 'ACTIVE'::campaign_status_enum
+    AND c.campaign_status = 'ACTIVE'::public.campaign_status_enum
   LIMIT 1;
 END;
 $$;
@@ -366,10 +366,10 @@ BEGIN
     cs.client_service_name,
     cs.order_index,
     cs.created_at
-  FROM client_services cs
-  JOIN campaigns c ON c.campaign_id = cs.campaign_id
+  FROM public.client_services cs
+  JOIN public.campaigns c ON c.campaign_id = cs.campaign_id
   WHERE c.project_id = p_project_id
-    AND c.campaign_status = 'ACTIVE'::campaign_status_enum
+    AND c.campaign_status = 'ACTIVE'::public.campaign_status_enum
   ORDER BY cs.order_index ASC;
 END;
 $$;
@@ -409,11 +409,11 @@ BEGIN
     cs.case_highlights,
     cs.case_study_url,
     cs.created_at
-  FROM case_studies cs
-  JOIN client_services clis ON clis.client_service_id = cs.client_service_id
-  JOIN campaigns c ON c.campaign_id = clis.campaign_id
+  FROM public.case_studies cs
+  JOIN public.client_services clis ON clis.client_service_id = cs.client_service_id
+  JOIN public.campaigns c ON c.campaign_id = clis.campaign_id
   WHERE c.project_id = p_project_id
-    AND c.campaign_status = 'ACTIVE'::campaign_status_enum
+    AND c.campaign_status = 'ACTIVE'::public.campaign_status_enum
   ORDER BY cs.created_at DESC;
 END;
 $$;
@@ -451,10 +451,10 @@ BEGIN
     w.widget_text,
     w.design_attributes,
     w.created_at
-  FROM widgets w
-  JOIN campaigns c ON c.campaign_id = w.campaign_id
+  FROM public.widgets w
+  JOIN public.campaigns c ON c.campaign_id = w.campaign_id
   WHERE c.project_id = p_project_id
-    AND c.campaign_status = 'ACTIVE'::campaign_status_enum;
+    AND c.campaign_status = 'ACTIVE'::public.campaign_status_enum;
 END;
 $$;
 
@@ -542,9 +542,9 @@ WITH CHECK (
   -- Public access: campaign must be ACTIVE
   (EXISTS (
     SELECT 1
-    FROM campaigns
+    FROM public.campaigns
     WHERE campaigns.campaign_id = leads.campaign_id
-      AND campaigns.campaign_status = 'ACTIVE'::campaign_status_enum
+      AND campaigns.campaign_status = 'ACTIVE'::public.campaign_status_enum
   ))
 );
 
