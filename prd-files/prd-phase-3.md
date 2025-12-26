@@ -30,8 +30,30 @@ Apart from bug and performance fixes, the core feature will include
 3. Dashboard: When the user clicks "Save Campaign" post adding some campaign data - the browser shares a message saying "Reload site? Changes that you made may not be saved." This message is only sent by browser when atleast some campaign data is added before saving. Desired UX: The campaign should successfully save and a toast message should communicate about successful save operation. In case of failure, the toast message shall mention the failure reason. No dialogues from Browser should be received.
 4. Dashboard UI: Post adding service, the Service Name, Delete Button, and Chevron should have padding and margins to fit it orderly in the same line within the service container. Currently they crammed.
 
-## Making Database Operation Faster
+## Optimising Database Performance and Security
 
+Performance
+1. Wrapped the RLS policy functions in a Select Operation to make caching feasible
+2. Limited RLS policies to ownership chains only
+3. Created RPC Functions to handle display of campaigns, client services, case studies and widgets with a mandatory input argument of project_id.
+4. Using RPC function for insert lead operation - core function in non exposed schema, and executor function in public schema with only authenticated user priviledge for execution (this works because anonymous signin users are authenticated users).
+5. Created additional helper functions in non exposed schema in case we need to simplify ownership RLS policies further 
+
+Security
+1. Added project_id as arguments to all anon accessible RPC functions
+2. Revoked access for functions that were created for switching, publishing, and archiving
+3. Added explicit search_path to all public schema functions
+4. Revoked Public Execute access for all functions in public schema
+5. Campaign ID as mandatory input to insert leads to avoid abuse.
+6. Created exclusive (false) RLS policy for non-owner requests to force use of RPC functions
+
+Observed Bugs:
+1. Recurring Hydration Issue
+2. Refresh Issue when Campaigns are created - they are not visible without refresh
+3. Switch to Current does not work as expected
+4. Token changes during dashboard use which leads to ungraceful handling and showing 404. Can implemnt autologout.
+
+Should first verify production speed improvments and security patches before fixing bugs.
 
 
 ## Link Usability Improvements
