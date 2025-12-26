@@ -153,3 +153,8 @@ curl 'http://localhost:3000/api/leads' \
   -H 'Sec-Fetch-Mode: cors' \
   -H 'Sec-Fetch-Site: same-origin' \
   --data-raw '{"campaign_id":"c7044cd5-60de-4a49-ab29-da9becbb52e9","lead_name":"Testing with Anon User","lead_company":"Post Recent Migration","lead_email":"25thDec@email.com","meeting_scheduled":false}'
+
+  ## Possible Solution to the Insert Leads returning RLS Restriction
+  1. The Campaign Flow pages authenticate users using JWT fingerprinting before they submit a link. So from database context, every user that attempts to Insert Link is 'authenticated'
+  2. Anonymous Sign Ins can be identified with is_anaonymous = true flag from their JWT payload. Refer @auth.ts file where functions are defined for this identification.
+  3. Modify the `check_lead_insert_allowed` RPC function to allow insert when user is_anonymous = true

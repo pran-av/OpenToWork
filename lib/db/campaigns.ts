@@ -432,16 +432,18 @@ export async function createLead(
   // This allows anonymous users (with session) to insert leads
   const supabase = supabaseClient || await createServerClient();
   
-  // Note: Campaign validation is handled by RLS policy on leads INSERT
-  // The policy checks if campaign is ACTIVE (for public access) or user owns the campaign
-  // We don't need to verify campaign existence here as RLS will reject invalid campaign_ids
-  
-  // Insert lead - RLS policy will check if campaign is ACTIVE (for anonymous) or user owns it
-  const { data, error } = await supabase
-    .from("leads")
-    .insert([leadData])
-    .select()
-    .single();
+  // Use RPC function for validated lead insertion
+  // The RPC function validates using internal.check_lead_insert_allowed() and inserts atomically
+  // This ensures validation cannot be bypassed (RLS policy is set to false for direct inserts)
+  const { data, error } = await supabase.rpc("insert_lead_validated", {
+    p_campaign_id: leadData.campaign_id,
+    p_lead_name: leadData.lead_name,
+    p_lead_company: leadData.lead_company,
+    p_lead_email: leadData.lead_email,
+    p_lead_phone_isd: leadData.lead_phone_isd || null,
+    p_lead_phone: leadData.lead_phone || null,
+    p_meeting_scheduled: leadData.meeting_scheduled || false,
+  });
 
   if (error) {
     console.error("Supabase error creating lead:", error);
@@ -449,7 +451,12 @@ export async function createLead(
     throw new Error(`Failed to create lead: ${error.message}`);
   }
 
-  return data;
+  // RPC function returns an array, get the first (and only) result
+  if (!data || data.length === 0) {
+    throw new Error("Failed to create lead: No data returned from RPC function");
+  }
+
+  return data[0];
 }
 
 // Publish and Switch Campaign functions
