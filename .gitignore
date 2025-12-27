@@ -46,3 +46,4 @@ OpenToWork.code-workspace
 # Supabase
 .branches
 .temp
+dump.sql

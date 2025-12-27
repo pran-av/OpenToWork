@@ -32,6 +32,8 @@ Apart from bug and performance fixes, the core feature will include
 
 ## Optimising Database Performance and Security
 
+Squash the new migrations before pushing db to prod. Reverify Link.
+
 Performance
 1. Wrapped the RLS policy functions in a Select Operation to make caching feasible
 2. Limited RLS policies to ownership chains only
