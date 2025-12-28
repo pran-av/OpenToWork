@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { updateCampaign, getCampaignById } from "@/lib/db/campaigns";
 import { getProjectById } from "@/lib/db/projects";
+import { cachedPrivateJsonResponse } from "@/lib/utils/api-cache";
+
+export const runtime = "edge";
 
 interface RouteParams {
   params: Promise<{ campaignId: string }>;
@@ -31,7 +34,7 @@ export async function GET(
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ campaign }, { status: 200 });
+    return cachedPrivateJsonResponse({ campaign });
   } catch (error) {
     console.error("Error fetching campaign:", error);
     return NextResponse.json(

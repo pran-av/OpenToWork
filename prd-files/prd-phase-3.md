@@ -49,6 +49,15 @@ Security
 5. Campaign ID as mandatory input to insert leads to avoid abuse.
 6. Created exclusive (false) RLS policy for non-owner requests to force use of RPC functions
 
+Optimize Headers:
+1. Headers for non authorized users GET requests `cache control = public, s-maxage=3600, stale-while-revalidate=86400`
+2. Headers for authroised users GET requests `private, s-maxage=0, max-age=60`
+3. Excluded auth related requests from having caches
+4. UPDATE, INSERT, and DELETE operations do not have any caching
+5. Added edge runtime for GET routes specific to authroized individual users
+
+
+
 Observed Bugs:
 1. Recurring Hydration Issue
 2. Refresh Issue when Campaigns are created - they are not visible without refresh

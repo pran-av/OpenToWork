@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { noStoreJsonResponse } from "@/lib/utils/api-cache";
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,10 +9,10 @@ export async function GET(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    return NextResponse.json({ user });
+    return noStoreJsonResponse({ user });
   } catch (error) {
     console.error("Error checking session:", error);
-    return NextResponse.json({ user: null }, { status: 200 });
+    return noStoreJsonResponse({ user: null });
   }
 }
 

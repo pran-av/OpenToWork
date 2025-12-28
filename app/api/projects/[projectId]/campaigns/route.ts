@@ -6,6 +6,9 @@ import {
   getActiveCampaignByProjectId,
 } from "@/lib/db/campaigns";
 import { getProjectById } from "@/lib/db/projects";
+import { cachedPrivateJsonResponse } from "@/lib/utils/api-cache";
+
+export const runtime = "edge";
 
 interface RouteParams {
   params: Promise<{ projectId: string }>;
@@ -33,10 +36,7 @@ export async function GET(
     const campaigns = await getCampaignsByProjectId(projectId);
     const activeCampaign = await getActiveCampaignByProjectId(projectId);
 
-    return NextResponse.json(
-      { campaigns, activeCampaign },
-      { status: 200 }
-    );
+    return cachedPrivateJsonResponse({ campaigns, activeCampaign });
   } catch (error) {
     console.error("Error fetching campaigns:", error);
     return NextResponse.json(

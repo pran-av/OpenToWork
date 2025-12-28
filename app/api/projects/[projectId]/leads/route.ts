@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLeadsByProjectId } from "@/lib/db/campaigns";
 import { getProjectById } from "@/lib/db/projects";
+import { cachedPrivateJsonResponse } from "@/lib/utils/api-cache";
+
+export const runtime = "edge";
 
 interface RouteParams {
   params: Promise<{ projectId: string }>;
@@ -37,7 +40,7 @@ export async function GET(
 
     const result = await getLeadsByProjectId(projectId, page, pageSize);
 
-    return NextResponse.json(result);
+    return cachedPrivateJsonResponse(result);
   } catch (error: any) {
     console.error("Error fetching leads:", error);
     return NextResponse.json(

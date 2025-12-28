@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createProject, getUserProjects } from "@/lib/db/projects";
+import { cachedPrivateJsonResponse } from "@/lib/utils/api-cache";
+
+export const runtime = "edge";
 
 export async function GET() {
   try {
     const projects = await getUserProjects();
-    return NextResponse.json({ projects });
+    return cachedPrivateJsonResponse({ projects });
   } catch (error) {
     console.error("Error fetching projects:", error);
     return NextResponse.json(

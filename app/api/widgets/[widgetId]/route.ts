@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient } from "@/lib/supabase/server";
+import { cachedPrivateJsonResponse } from "@/lib/utils/api-cache";
 
 export async function GET(
   request: NextRequest,
@@ -47,7 +48,7 @@ export async function GET(
     }
 
     // Return widget configuration with project URL
-    return NextResponse.json({
+    return cachedPrivateJsonResponse({
       widget_id: widget.widget_id,
       campaign_id: widget.campaign_id,
       is_active: widget.is_active,
