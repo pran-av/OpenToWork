@@ -22,16 +22,12 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: "/tardis_elevator_icon_refined_3d.webp",
-        type: "image/webp",
-      },
-      {
-        url: "/tardis_elevator_icon_refined_3d.png",
-        type: "image/png",
+        url: "/pitchlikethis-logo.svg",
+        type: "image/svg+xml",
       },
     ],
-    shortcut: "/tardis_elevator_icon_refined_3d.png",
-    apple: "/tardis_elevator_icon_refined_3d.png",
+    shortcut: "/pitchlikethis-logo.svg",
+    apple: "/pitchlikethis-logo.svg",
   },
 };
 
