@@ -67,8 +67,8 @@ export default function LandingPage() {
             {/* Left Container - Desktop & Mobile */}
             <div className="text-center lg:text-left space-y-6 md:space-y-8">
               <h2 className="font-poppins font-semibold text-lg sm:text-3xl md:text-4xl lg:text-5xl text-gray-800 leading-tight">
-                <div>You expertise in your skills.</div>
-                <div>We expertise in selling your skills.</div>
+                <div>You excel at your skills.</div>
+                <div>We excel at selling them.</div>
               </h2>
               
               <p className="font-inter font-semibold text-base sm:text-lg md:text-xl text-gray-700 leading-relaxed max-w-2xl mx-auto lg:mx-0 text-center">
