@@ -141,6 +141,18 @@ h6 {
   }
 }
 
+@keyframes subheading-rotate {
+  0%, 20% {
+    opacity: 1;
+  }
+  25%, 95% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
 @keyframes scroll-horizontal {
   0% {
     transform: translateX(0);
