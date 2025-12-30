@@ -59,12 +59,12 @@ function ClientServicesSection({
   onSaveCaseStudy: (caseStudy: CaseStudy, serviceId: string) => Promise<void>;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="rounded-lg border border-orange-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-black dark:text-zinc-50">
             Client Services <span className="text-red-600 dark:text-red-400">*</span>
-            <span className="ml-2 text-sm font-normal text-zinc-500 dark:text-zinc-400">
+            <span className="ml-2 text-sm font-normal text-gray-500 dark:text-zinc-400">
               (At least one service with case study required)
             </span>
           </h3>
@@ -72,7 +72,7 @@ function ClientServicesSection({
         {isEditMode && (
           <button
             onClick={onAddService}
-            className="flex items-center gap-2 rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+            className="flex items-center gap-2 rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
           >
             <Plus className="h-4 w-4" />
             Add Service
@@ -80,13 +80,13 @@ function ClientServicesSection({
         )}
       </div>
       {services.length === 0 ? (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm text-gray-600 dark:text-zinc-400">
           No services added yet. Click "Add Service" to get started.
         </p>
       ) : (
         <div className="space-y-2">
           {services.map((service) => (
-            <div key={service.client_service_id} className="rounded-lg border border-zinc-200 dark:border-zinc-800">
+            <div key={service.client_service_id} className="rounded-lg border border-orange-100 dark:border-zinc-800">
               <div className="relative">
                 <Accordion
                   title={service.client_service_name}
@@ -114,18 +114,18 @@ function ClientServicesSection({
                               : s
                           ));
                         }}
-                        className="flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                        className="flex items-center gap-2 rounded-md border border-orange-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                       >
                         <Plus className="h-4 w-4" />
                         Add Case Study
                       </button>
-                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
                         At least one case study is required
                       </p>
                     </div>
                   )}
                   {service.caseStudies.length === 0 ? (
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                    <p className="text-sm text-gray-600 dark:text-zinc-400">
                       No case studies added yet.
                     </p>
                   ) : (
@@ -307,22 +307,22 @@ function CaseStudyCard({
   if (!isEditMode) {
     // View mode
     return (
-      <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="rounded-md border border-orange-100 bg-orange-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <h4 className="font-medium text-black dark:text-zinc-50">
           {caseStudy.case_name}
         </h4>
         {caseStudy.case_summary && (
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-gray-600 dark:text-zinc-400">
             {caseStudy.case_summary}
           </p>
         )}
         {caseStudy.case_duration && (
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
             Duration: {caseStudy.case_duration}
           </p>
         )}
         {caseStudy.case_highlights && (
-          <ul className="mt-2 list-disc list-inside space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
+          <ul className="mt-2 list-disc list-inside space-y-1 text-sm text-gray-600 dark:text-zinc-400">
             {caseStudy.case_highlights.split(";").filter(h => h.trim()).map((highlight, idx) => (
               <li key={idx}>{highlight.trim()}</li>
             ))}
@@ -333,7 +333,7 @@ function CaseStudyCard({
             href={caseStudy.case_study_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-2 inline-block text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+            className="mt-2 inline-block text-sm text-gray-600 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200"
           >
             View Case Study →
           </a>
@@ -345,14 +345,14 @@ function CaseStudyCard({
   // Edit mode
   if (!isEditing) {
     return (
-      <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="rounded-md border border-orange-100 bg-orange-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <h4 className="font-medium text-black dark:text-zinc-50">
               {caseStudy.case_name}
             </h4>
             {caseStudy.case_summary && (
-              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="mt-1 text-sm text-gray-600 dark:text-zinc-400">
                 {caseStudy.case_summary}
               </p>
             )}
@@ -380,7 +380,7 @@ function CaseStudyCard({
     <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
             Case Name <span className="text-red-600 dark:text-red-400">*</span>
           </label>
           <input
@@ -389,17 +389,17 @@ function CaseStudyCard({
             onChange={(e) => setCaseName(e.target.value)}
             maxLength={50}
             className={`mt-1 block w-full rounded-md border px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:ring-zinc-600 sm:text-sm ${
-              !caseName.trim() ? "border-red-300 focus:border-red-500 dark:border-red-700" : "border-zinc-300 focus:border-zinc-500 dark:focus:border-zinc-600"
+              !caseName.trim() ? "border-red-300 focus:border-red-500 dark:border-red-700" : "border-orange-200 focus:border-orange-500 dark:focus:border-zinc-600"
             }`}
             placeholder="Enter case name"
           />
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
             {caseName.length}/50 characters
           </p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
             Case Summary
           </label>
           <textarea
@@ -407,16 +407,16 @@ function CaseStudyCard({
             onChange={(e) => setCaseSummary(e.target.value)}
             maxLength={100}
             rows={3}
-            className="mt-1 block w-full rounded-md border border-zinc-300 px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
+                className="mt-1 block w-full rounded-md border border-orange-200 px-3 py-2 text-gray-800 placeholder-gray-400 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-orange-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
             placeholder="Enter case summary"
           />
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
             {caseSummary.length}/100 characters
           </p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
             Case Duration
           </label>
           <input
@@ -427,13 +427,13 @@ function CaseStudyCard({
             className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
             placeholder="e.g., 12th Sep, 2024 to 13th Nov, 2024"
           />
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
             {caseDuration.length}/50 characters
           </p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
             Case Highlights <span className="text-red-600 dark:text-red-400">*</span>
           </label>
           <div className="mt-2 space-y-2">
@@ -443,13 +443,13 @@ function CaseStudyCard({
                   type="text"
                   value={highlight}
                   onChange={(e) => handleHighlightChange(index, e.target.value)}
-                  className="flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
+                  className="flex-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-gray-800 placeholder-gray-400 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-orange-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
                   placeholder={`Highlight ${index + 1}`}
                 />
                 {caseHighlights.length > 1 && (
                   <button
                     onClick={() => handleRemoveHighlight(index)}
-                    className="flex items-center justify-center rounded-md border border-zinc-300 bg-white p-2 text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                    className="flex items-center justify-center rounded-md border border-orange-200 bg-white p-2 text-gray-600 transition-colors hover:bg-orange-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -458,7 +458,7 @@ function CaseStudyCard({
             ))}
             <button
               onClick={handleAddHighlight}
-              className="flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              className="flex items-center gap-2 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-orange-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
             >
               <Plus className="h-4 w-4" />
               Add Highlight
@@ -472,7 +472,7 @@ function CaseStudyCard({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
             Case Study URL
           </label>
           <input
@@ -488,7 +488,7 @@ function CaseStudyCard({
           <button
             onClick={handleSave}
             disabled={!caseName.trim() || !caseHighlights.some(h => h.trim())}
-            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+            className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
           >
             Save
           </button>
@@ -1181,7 +1181,7 @@ export default function CampaignOverviewClient({
               isSwitching ||
               project.is_archived
             }
-            className="w-full rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+            className="w-full rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
           >
             {(isPublishing || isSwitching) ? "Processing..." : getPrimaryCTALabel()}
           </button>
@@ -1198,7 +1198,7 @@ export default function CampaignOverviewClient({
       </div>
 
       {/* Header Section */}
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="rounded-lg border border-orange-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             {isEditMode ? (
@@ -1219,11 +1219,11 @@ export default function CampaignOverviewClient({
               <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeColor()}`}>
                 {campaign.campaign_status}
               </span>
-              <span className="text-sm text-zinc-600 dark:text-zinc-400">
+              <span className="text-sm text-gray-600 dark:text-zinc-400">
                 Created {new Date(campaign.created_at).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })}
               </span>
               {project.project_url && campaign.campaign_status === "ACTIVE" && (
-                <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                <span className="text-sm text-gray-600 dark:text-zinc-400">
                   {project.project_url}
                 </span>
               )}
@@ -1234,14 +1234,14 @@ export default function CampaignOverviewClient({
       </div>
 
       {/* Campaign Structure Section */}
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="rounded-lg border border-orange-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
         <h3 className="mb-4 text-lg font-semibold text-black dark:text-zinc-50">
           Campaign Structure
         </h3>
         <div className="space-y-4">
           {/* Client Name */}
           <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
               Client Name <span className="text-red-600 dark:text-red-400">*</span>
             </label>
             {isEditMode ? (
@@ -1264,7 +1264,7 @@ export default function CampaignOverviewClient({
 
           {/* Client Summary */}
           <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
               Client Summary <span className="text-red-600 dark:text-red-400">*</span>
             </label>
             {isEditMode ? (
@@ -1302,7 +1302,7 @@ export default function CampaignOverviewClient({
               </div>
             )}
             {isEditMode && (
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
                 {clientSummary.length}/400 characters
               </p>
             )}
@@ -1310,7 +1310,7 @@ export default function CampaignOverviewClient({
 
           {/* CTA Configuration */}
           <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
               CTA Configuration <span className="text-red-600 dark:text-red-400">*</span>
               <span className="ml-2 text-xs font-normal text-zinc-500 dark:text-zinc-400">
                 (At least one required)
@@ -1318,7 +1318,7 @@ export default function CampaignOverviewClient({
             </label>
             <div className="mt-2 space-y-2">
               <div>
-                <label className="block text-xs text-zinc-600 dark:text-zinc-400">
+                <label className="block text-xs text-gray-600 dark:text-zinc-400">
                   Schedule Meeting URL
                 </label>
                 {isEditMode ? (
@@ -1336,7 +1336,7 @@ export default function CampaignOverviewClient({
                 )}
               </div>
               <div>
-                <label className="block text-xs text-zinc-600 dark:text-zinc-400">
+                <label className="block text-xs text-gray-600 dark:text-zinc-400">
                   Email (mailto)
                 </label>
                 {isEditMode ? (
@@ -1354,7 +1354,7 @@ export default function CampaignOverviewClient({
                 )}
               </div>
               <div>
-                <label className="block text-xs text-zinc-600 dark:text-zinc-400">
+                <label className="block text-xs text-gray-600 dark:text-zinc-400">
                   LinkedIn URL
                 </label>
                 {isEditMode ? (
@@ -1372,7 +1372,7 @@ export default function CampaignOverviewClient({
                 )}
               </div>
               <div>
-                <label className="block text-xs text-zinc-600 dark:text-zinc-400">
+                <label className="block text-xs text-gray-600 dark:text-zinc-400">
                   Phone
                 </label>
                 {isEditMode ? (
@@ -1502,7 +1502,7 @@ export default function CampaignOverviewClient({
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
                 Service Name <span className="text-red-600 dark:text-red-400">*</span>
               </label>
               <input
@@ -1522,7 +1522,7 @@ export default function CampaignOverviewClient({
                 placeholder="Service Name"
                 autoFocus
               />
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
                 {newServiceName.length}/50 characters
               </p>
               {serviceNameError && (
@@ -1546,7 +1546,7 @@ export default function CampaignOverviewClient({
             <button
               onClick={handleAddService}
               disabled={!newServiceName.trim() || !!serviceNameError}
-              className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+              className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
             >
               Add
             </button>
@@ -1617,7 +1617,7 @@ export default function CampaignOverviewClient({
                 setShowUnsavedWarning(false);
                 await handleSave();
               }}
-              className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+              className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
             >
               Save
             </button>
@@ -1656,11 +1656,11 @@ export default function CampaignOverviewClient({
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
                 Switch To Campaign <span className="text-red-600 dark:text-red-400">*</span>
               </label>
               {availableCampaigns.length === 0 ? (
-                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">
                   No other campaigns available to switch to.
                 </p>
               ) : (
@@ -1702,7 +1702,7 @@ export default function CampaignOverviewClient({
             <button
               onClick={handleConfirmSwitch}
               disabled={isSwitching || !selectedTargetCampaignId || availableCampaigns.length === 0}
-              className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+              className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
             >
               {isSwitching ? "Switching..." : "Confirm Switch"}
             </button>

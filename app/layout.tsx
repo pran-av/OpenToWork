@@ -17,8 +17,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Elevator Pitch App",
-  description: "create shareable link for your pitch",
+  title: "Pitch Like This",
+  description: "We expertise in selling your skills.",
   icons: {
     icon: [
       {

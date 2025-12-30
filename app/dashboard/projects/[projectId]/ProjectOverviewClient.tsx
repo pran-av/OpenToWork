@@ -221,14 +221,14 @@ export default function ProjectOverviewClient({
         </div>
       )}
       {/* Tabs */}
-      <div className="border-b border-zinc-200 dark:border-zinc-800">
+      <div className="border-b border-orange-100 dark:border-zinc-800">
         <nav className="flex gap-4" aria-label="Tabs">
           <button
             onClick={() => setActiveTab("overview")}
             className={`border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === "overview"
                 ? "border-black text-black dark:border-zinc-50 dark:text-zinc-50"
-                : "border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+                : "border-transparent text-gray-500 hover:border-orange-200 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-300"
             }`}
           >
             Overview
@@ -238,7 +238,7 @@ export default function ProjectOverviewClient({
             className={`border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === "leads"
                 ? "border-black text-black dark:border-zinc-50 dark:text-zinc-50"
-                : "border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+                : "border-transparent text-gray-500 hover:border-orange-200 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-300"
             }`}
           >
             Leads
@@ -258,7 +258,7 @@ export default function ProjectOverviewClient({
       {!isNavigating && activeTab === "overview" ? (
         <>
           {/* Project Details Section */}
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="rounded-lg border border-orange-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-4">
@@ -266,12 +266,12 @@ export default function ProjectOverviewClient({
                 {project.project_name}
               </h2>
             </div>
-            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-              Created {new Date(project.created_at).toLocaleDateString()}
+            <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">
+              Created {new Date(project.created_at).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })}
             </p>
             {hasActiveCampaign && project.project_url && (
               <div className="mt-4 flex items-center gap-2">
-                <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                <span className="text-sm text-gray-600 dark:text-zinc-400">
                   {project.project_url}
                 </span>
                 <button
@@ -282,7 +282,7 @@ export default function ProjectOverviewClient({
                   <Copy className="h-4 w-4" />
                 </button>
                 {copyStatus && (
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                  <span className="text-xs text-gray-500 dark:text-zinc-400">
                     {copyStatus}
                   </span>
                 )}
@@ -291,7 +291,7 @@ export default function ProjectOverviewClient({
           </div>
           <DropdownMenu
             trigger={
-              <div className="flex items-center justify-center rounded-md p-2 text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800">
+              <div className="flex items-center justify-center rounded-md p-2 text-gray-500 transition-colors hover:bg-orange-50 dark:text-zinc-400 dark:hover:bg-zinc-800">
                 <Settings className="h-5 w-5" />
               </div>
             }
@@ -318,7 +318,7 @@ export default function ProjectOverviewClient({
           <button
             onClick={() => setIsDialogOpen(true)}
             disabled={isArchived}
-            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+            className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Create New Campaign
           </button>
@@ -329,18 +329,18 @@ export default function ProjectOverviewClient({
       {hasActiveCampaign ? (
         <Link
           href={`/dashboard/projects/${project.project_id}/campaigns/${activeCampaign.campaign_id}`}
-          className="block rounded-lg border border-zinc-200 bg-white p-6 transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
+          className="block rounded-lg border border-orange-100 bg-white p-6 transition-colors hover:border-orange-200 hover:bg-orange-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
         >
           <h3 className="mb-4 text-lg font-semibold text-black dark:text-zinc-50">
             Currently Active Campaign
           </h3>
           <div className="space-y-2">
             <div>
-              <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <p className="text-sm font-medium text-gray-700 dark:text-zinc-300">
                 {activeCampaign.campaign_name}
               </p>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Created {new Date(activeCampaign.created_at).toLocaleDateString()}
+              <p className="text-xs text-gray-500 dark:text-zinc-400">
+                Created {new Date(activeCampaign.created_at).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -359,7 +359,7 @@ export default function ProjectOverviewClient({
                     setSelectedTargetCampaignId("");
                   }}
                   disabled={isArchived}
-                  className="ml-auto rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                  className="ml-auto rounded-md border border-orange-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                 >
                   Switch Campaign
                 </button>
@@ -368,8 +368,8 @@ export default function ProjectOverviewClient({
           </div>
         </Link>
       ) : (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-800 dark:bg-zinc-900">
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <div className="rounded-lg border border-orange-100 bg-orange-50 p-6 dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="text-sm text-gray-600 dark:text-zinc-400">
             Publish at least one campaign to generate shareable link
           </p>
         </div>
@@ -386,7 +386,7 @@ export default function ProjectOverviewClient({
               <Link
                 key={campaign.campaign_id}
                 href={`/dashboard/projects/${project.project_id}/campaigns/${campaign.campaign_id}`}
-                className="block rounded-lg border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
+                className="block rounded-lg border border-orange-100 bg-white p-4 transition-colors hover:border-orange-200 hover:bg-orange-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -394,14 +394,14 @@ export default function ProjectOverviewClient({
                       {campaign.campaign_name}
                     </p>
                     <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                      Created {new Date(campaign.created_at).toLocaleDateString()}
+                      Created {new Date(campaign.created_at).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })}
                     </p>
                   </div>
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-medium ${
                       campaign.campaign_status === "DRAFT"
                         ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                        : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                        : "bg-orange-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400"
                     }`}
                   >
                     {campaign.campaign_status}
@@ -415,14 +415,14 @@ export default function ProjectOverviewClient({
 
       {/* Create Campaign CTA - Center (if no campaigns) */}
       {campaigns.length === 0 && (
-        <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4 rounded-lg border border-zinc-200 bg-white p-8 dark:border-zinc-800 dark:bg-zinc-900">
-          <p className="text-center text-zinc-600 dark:text-zinc-400">
+        <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4 rounded-lg border border-orange-100 bg-white p-8 dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="text-center text-gray-600 dark:text-zinc-400">
             You don't have any campaigns yet.
           </p>
           <button
             onClick={() => setIsDialogOpen(true)}
             disabled={isArchived}
-            className="rounded-md bg-black px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+            className="rounded-md bg-orange-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
           >
             Create a campaign
           </button>
@@ -449,7 +449,7 @@ export default function ProjectOverviewClient({
             <div>
               <label
                 htmlFor="campaign-name"
-                className="block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                className="block text-sm font-medium text-gray-700 dark:text-zinc-300"
               >
                 Campaign Name
               </label>
@@ -467,12 +467,12 @@ export default function ProjectOverviewClient({
                   }
                 }}
                 maxLength={25}
-                className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
+                className="mt-1 block w-full rounded-md border border-orange-200 bg-white px-3 py-2 text-gray-800 placeholder-gray-400 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-orange-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
                 placeholder="My Campaign"
                 disabled={isCreating}
                 autoFocus
               />
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
                 {campaignName.length}/25 characters
               </p>
               {error && (
@@ -491,14 +491,14 @@ export default function ProjectOverviewClient({
                 setError(null);
               }}
               disabled={isCreating}
-              className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              className="rounded-md border border-orange-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
             >
               Cancel
             </button>
             <button
               onClick={handleCreateCampaign}
               disabled={isCreating || !campaignName.trim()}
-              className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+              className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
             >
               {isCreating ? "Creating..." : "Create Campaign"}
             </button>
@@ -515,7 +515,7 @@ export default function ProjectOverviewClient({
               Once archived, a project cannot be activated again. Public links will show: "owner has archieved this campaign".
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 text-sm text-zinc-700 dark:text-zinc-300">
+          <div className="space-y-3 text-sm text-gray-700 dark:text-zinc-300">
             {hasActiveCampaign && (
               <p className="text-amber-700 dark:text-amber-300">
                 Active campaign "{activeCampaign?.campaign_name}" will be paused.
@@ -526,7 +526,7 @@ export default function ProjectOverviewClient({
           <DialogFooter className="flex justify-end gap-2">
             <button
               onClick={() => setIsArchiveModalOpen(false)}
-              className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className="rounded-md border border-orange-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
             >
               Cancel
             </button>
@@ -562,21 +562,21 @@ export default function ProjectOverviewClient({
           </DialogHeader>
           <div className="space-y-4">
             {activeCampaign && (
-              <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
-                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <div className="rounded-md border border-orange-100 bg-orange-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
+                <p className="text-sm font-medium text-gray-700 dark:text-zinc-300">
                   Current Active Campaign:
                 </p>
-                <p className="mt-1 text-sm text-zinc-900 dark:text-zinc-50">
+                <p className="mt-1 text-sm text-gray-900 dark:text-zinc-50">
                   {activeCampaign.campaign_name}
                 </p>
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
                 Switch To Campaign <span className="text-red-600 dark:text-red-400">*</span>
               </label>
               {remainingCampaigns.length === 0 ? (
-                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">
                   No other campaigns available to switch to.
                 </p>
               ) : (
@@ -584,7 +584,7 @@ export default function ProjectOverviewClient({
                   value={selectedTargetCampaignId}
                   onChange={(e) => setSelectedTargetCampaignId(e.target.value)}
                   disabled={isSwitching}
-                  className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-black shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
+                  className="mt-1 block w-full rounded-md border border-orange-200 bg-white px-3 py-2 text-gray-800 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-orange-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
                 >
                   <option value="">Select a campaign...</option>
                   {remainingCampaigns.map((c) => (
@@ -611,7 +611,7 @@ export default function ProjectOverviewClient({
                 setError(null);
               }}
               disabled={isSwitching}
-              className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              className="rounded-md border border-orange-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
             >
               Cancel
             </button>
@@ -656,7 +656,7 @@ export default function ProjectOverviewClient({
                 }
               }}
               disabled={isSwitching || !selectedTargetCampaignId || remainingCampaigns.length === 0}
-              className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+              className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
             >
               {isSwitching ? "Switching..." : "Confirm Switch"}
             </button>

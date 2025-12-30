@@ -155,14 +155,14 @@ export default function AuthPageContent() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black">
+    <div className="flex min-h-screen items-center justify-center bg-orange-50 dark:bg-black">
       <div className="w-full max-w-md space-y-8 rounded-lg bg-white p-8 shadow-sm dark:bg-zinc-900">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
+          <h1 className="text-2xl font-semibold text-gray-800 dark:text-zinc-50">
             {loggedOut ? "You have been logged out" : "Sign in to your account"}
           </h1>
           {loggedOut && (
-            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">
               Please sign in again to continue
             </p>
           )}
@@ -185,7 +185,7 @@ export default function AuthPageContent() {
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                className="block text-sm font-medium text-gray-700 dark:text-zinc-300"
               >
                 Email address
               </label>
@@ -197,7 +197,7 @@ export default function AuthPageContent() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
+                className="mt-1 block w-full rounded-md border border-orange-200 bg-white px-3 py-2 text-gray-800 placeholder-gray-400 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-orange-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
                 placeholder="you@example.com"
                 disabled={isLoading}
               />
@@ -206,7 +206,7 @@ export default function AuthPageContent() {
             <button
               type="submit"
               disabled={isLoading || !email.trim()}
-              className="w-full rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+              className="w-full rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isLoading ? "Sending..." : "Continue"}
             </button>
@@ -219,8 +219,8 @@ export default function AuthPageContent() {
               </p>
             </div>
 
-            <div className="rounded-md bg-zinc-50 p-4 dark:bg-zinc-800">
-              <p className="text-sm text-zinc-700 dark:text-zinc-300">
+            <div className="rounded-md bg-orange-50 p-4 dark:bg-zinc-800">
+              <p className="text-sm text-gray-700 dark:text-zinc-300">
                 Visit your inbox, open the received email and click on the link
                 to login/signup to the app.
               </p>
@@ -230,14 +230,14 @@ export default function AuthPageContent() {
               <button
                 onClick={handleResend}
                 disabled={isLoading}
-                className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                className="w-full rounded-md border border-orange-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
               >
                 {isLoading ? "Resending..." : "Resend Email"}
               </button>
             ) : (
               <button
                 disabled
-                className="w-full rounded-md border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
+                className="w-full rounded-md border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-medium text-gray-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
               >
                 Resend Email ({resendCooldown}s)
               </button>
@@ -249,7 +249,7 @@ export default function AuthPageContent() {
                 setEmail("");
                 setMessage(null);
               }}
-              className="w-full text-sm text-zinc-600 underline hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+              className="w-full text-sm text-gray-600 underline hover:text-orange-600 dark:text-zinc-400 dark:hover:text-orange-400"
             >
               Use a different email
             </button>

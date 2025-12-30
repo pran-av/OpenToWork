@@ -2,6 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
+import Image from "next/image";
 
 export default function DashboardHeader() {
   const router = useRouter();
@@ -43,15 +44,25 @@ export default function DashboardHeader() {
   };
 
   return (
-    <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+    <header className="border-b border-orange-100 bg-white/80 backdrop-blur-sm dark:border-orange-900/30 dark:bg-zinc-900/80">
       <div className="container mx-auto flex items-center justify-between px-4 py-4">
         <div className="flex items-center gap-4">
+          {/* Logo */}
+          <div className="relative h-8 w-8">
+            <Image
+              src="/pitchlikethis-logo.svg"
+              alt="Pitch Like This"
+              fill
+              className="object-contain object-left"
+              priority
+            />
+          </div>
           {!isDashboardHome && (
             <button
               onClick={handleBack}
-              className="flex items-center justify-center rounded-md p-2 text-zinc-700 transition-colors hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              title="Back to Dashboard"
-              aria-label="Back to Dashboard"
+              className="flex items-center justify-center rounded-md p-2 text-gray-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              title="Back to Studio"
+              aria-label="Back to Studio"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -71,15 +82,15 @@ export default function DashboardHeader() {
           )}
           <button
             onClick={() => router.push("/dashboard")}
-            className="text-lg font-semibold text-black transition-colors hover:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:text-zinc-50 dark:hover:text-zinc-300"
+            className="text-lg font-semibold text-gray-800 transition-colors hover:text-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:text-zinc-50 dark:hover:text-orange-400"
           >
-            Dashboard
+            Studio
           </button>
         </div>
         <button
           onClick={handleLogout}
           disabled={isLoggingOut}
-          className="rounded-md px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          className="rounded-md px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
         >
           {isLoggingOut ? "Logging out..." : "Logout"}
         </button>
