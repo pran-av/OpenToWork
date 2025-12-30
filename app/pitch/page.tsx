@@ -21,9 +21,17 @@ const floors = [
 export default function PitchPage() {
   const [currentFloor, setCurrentFloor] = useState("ground");
   const [expandedButton, setExpandedButton] = useState<string | null>(null);
+  const [authUrl, setAuthUrl] = useState("/auth");
   const { isMusicOn, toggleMusic } = useElevatorMusic();
   const containerRef = useRef<HTMLDivElement>(null);
   const sectionsRef = useRef<{ [key: string]: HTMLElement | null }>({});
+
+  // Set dynamic auth URL based on origin
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setAuthUrl(`${window.location.origin}/auth`);
+    }
+  }, []);
 
   // Initialize scroll position to bottom (Ground Floor)
   useEffect(() => {
@@ -408,7 +416,7 @@ export default function PitchPage() {
 
           {/* CTA Button - Aligned with Ground button level (bottom 20% of viewport) */}
           <Link
-            href="https://elevateyourpitch.netlify.app/auth"
+            href={authUrl}
             onClick={() => {
               if (typeof window !== "undefined" && (window as any).gtag) {
                 (window as any).gtag("event", "click", {
