@@ -115,7 +115,7 @@ export default function LandingPage() {
                 </span>
               </p>
 
-              <div className="flex justify-center lg:justify-start pt-2">
+              <div className="flex flex-col lg:flex-row justify-center lg:justify-start items-center lg:items-center gap-3 lg:gap-4 pt-2">
                 <Link
                   href={authUrl}
                   onClick={() => {
@@ -126,10 +126,26 @@ export default function LandingPage() {
                       });
                     }
                   }}
-                  className="font-inter font-semibold text-base md:text-lg px-8 md:px-10 py-3 md:py-4 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                  className="font-inter font-semibold text-base md:text-lg px-8 md:px-10 py-3 md:py-4 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 w-full lg:w-auto text-center"
                 >
                   Create Your Pitch
                 </Link>
+                <a
+                  href="https://www.pitchlikethis.com/project/1afa893f-68ed-41e2-87e7-907f9278b68d"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => {
+                    if (typeof window !== "undefined" && (window as any).gtag) {
+                      (window as any).gtag("event", "click", {
+                        event_category: "CTA",
+                        event_label: "Sample Pitch",
+                      });
+                    }
+                  }}
+                  className="font-inter font-semibold text-base md:text-lg px-8 md:px-10 py-3 md:py-4 rounded-lg border-2 border-orange-500 text-orange-500 bg-white hover:bg-orange-50 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 w-full lg:w-auto text-center"
+                >
+                  Sample Pitch
+                </a>
               </div>
             </div>
 

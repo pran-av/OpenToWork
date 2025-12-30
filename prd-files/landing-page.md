@@ -36,3 +36,12 @@ CTA Button: "Create Your Pitch" On Click user goes to: "https://www.pitchlikethi
 - Copyright symbol 2025 "Pitch Like This". All right reserved.
 - Created by Pranav (hyperlink: https://x.com/pranavdotexe)
 
+## Incremeental Changes - P1
+
+Adding more features to the landing page.
+
+### Secondary CTA for Hero Section
+
+CTA Text: "Sample Pitch" onClick takes user to in new tab: "https://www.pitchlikethis.com/project/1afa893f-68ed-41e2-87e7-907f9278b68d"
+
+For Desktop create a CTA besides the existing primary CTA. For Mobile and Tablet create below Primary CTA.
