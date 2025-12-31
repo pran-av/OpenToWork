@@ -55,26 +55,3 @@ Optimize Headers:
 3. Excluded auth related requests from having caches
 4. UPDATE, INSERT, and DELETE operations do not have any caching
 5. Added edge runtime for GET routes specific to authroized individual users
-
-
-
-Observed Bugs:
-1. Recurring Hydration Issue
-2. Refresh Issue when Campaigns are created - they are not visible without refresh
-3. Switch to Current does not work as expected
-4. Token changes during dashboard use which leads to ungraceful handling and showing 404. Can implemnt autologout.
-
-Should first verify production speed improvments and security patches before fixing bugs.
-
-
-## Link Usability Improvements
-1. When a link for a particular project is shared, that link should have a preview where it displays the title of summary page "Hire abc", and a partial summary is displayed first few lines.
-2. The project link browser tab title says "OpenToWork" change it to "Elevator Pitch"
-
-
-## TO DO
-1. Website PRD and Development
-2. Make the Database Fast
-3. Onboarding for Dashboard
-4. Privacy Policy
-5. Link Previews

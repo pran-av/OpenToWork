@@ -183,7 +183,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600 leading-tight sm:leading-normal">
             <p className="font-inter">
-              © 2025 Pitch Like This. All rights reserved.
+              © 2025 - 2026 Pitch Like This. All rights reserved.
             </p>
             <p className="font-inter">
               Created by{" "}
