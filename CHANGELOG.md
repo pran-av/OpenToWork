@@ -1,5 +1,57 @@
 # CHANGELOG
 
+## v1.5.0 (Current)
+(Jan 01, 2026 - )
+> Phase 3 in progress: mvp is ready to contest PMF in the market
+
+- Footer copyright year update to 2026
+- Updated Changelog till latest v1.5
+
+## v1.4.0
+(Dec 30, 2025 - Dec 31, 2025)
+- Deployed website to pitchlikethis.com hosted via Vercel, latency issue resolved via having database and client on same location
+- New Landing Page replaces previous elevator pitch page
+- New logo added as favicon, app name updated to 'Pitch Like This'
+- Dashboard named as "Studio" with logo in the header
+- Dashboard theme partially updated, some buttons are orange, bugs in the rest of CSS
+- Secondary CTA for Sample Pitch, opens in new tab a project URL
+
+### Fixes:
+- Dynamic Origin for Login and Create Pitch CTAs and all landing pages
+- Updated hero page heading copy to "You excel at your skills. We excel at selling them."
+- Vercel Bot: dependency version updates
+
+## v1.3.0
+(Dec 26, 2025 - Dec 28, 2025)
+- Migration, Optimised RLS Policies: Policies for authenticated own data operations, user generated content visibility delivered via RPC functions, Enforced use of RPC in client to retrieve data - RLS policies only govern ownership
+- Migration: Implement RPC function for lead insert functionality
+- Added Browser Side caching preferences for APIs. GET APIs have 60s browser, all authenticated requests are private and not publicly cached.
+- Loading dashboard pages with POST routes as edge runtime
+
+Fixes:
+- Modify functions to add public schema to fetch enums
+- Case Study datatypes in functions switched to varchar to match schema
+- Revoked anon access for rpc functions performing atomic swaps
+- Updated RLS policies to enclose helper functions in SELECT operation
+
+## v1.2.0
+(Dec 15, 2025 - Dec 17, 2025)
+- An elevator pitch inspired website, created specifically for mobile experience
+- Made pitch website responsive for tablet and desktop
+- Prelude page to explain about elevator pitch
+- Added elevator music to the pitch webpage
+- Elevator favicon
+- Cascading for images
+- Google Analytics tag integration
+
+### Fixes
+- Create Pitch CTA positioning 15% from bottom of the screen
+- Mobile viewport CSS fixes and adjustments
+- Preload images to improve LCP
+- Compressed audio quality
+- Disable minor scroll movement in mobile viewports
+- Edge adjoining border clipped for elevator buttons and indicator
+
 ## v1.1.0
 (Dec 10, 2025 - Dec 12, 2025)
 - supabase cli setup for separate backend pipeline for development
