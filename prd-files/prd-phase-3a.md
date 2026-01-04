@@ -24,10 +24,40 @@ Fix: Website LCP and other scores
 ## Requirements
 
 ### Studio/Dashboard CSS Fixes
-Studio already has tailwind css coded for light as well as dark mode
+Note: Studio already has tailwind css coded for light as well as dark mode. Ensure tailwind version is greater than 3.4.1
 
-1. Add a theme provider for react so that we have a mechanism to switch between dark and light mode
-2. Default to light mode
-3. Persist them update in local storage
-4. Sync theme after mount to avoid hydration issues
-5. Create a toggle icon on Studio header, position on the right side of the header
+1. Use next-themes library to manage the theme switching
+2. Default mode for new users should be light mode. For returning users, persist their preferred mode based on the latest mode they switched into last time they visited. Manage using next-themes.
+3. The tailwind config should set the dark mode property to "selector".
+4. Add `ThemeProvider` to our Studio pages root and set the `attribute = "class"`
+5. Sync theme after client mount to avoid hydration issues
+6. Since we do not want a system theme, ignore system preference explicitly `<ThemeProvider enableSystem={false}>`. Now the library keeps default theme as light.
+5. Create a toggle icon on Studio header, position on the right side of the header.
+
+### Bug: Temp UUID being passed while inserting (save cta) case studies
+Request:
+```
+POST curl 'http://localhost:3000/api/campaigns/800779d0-0b02-4845-ac76-5842d64c3a41/case-studies'
+```
+Payload:
+```
+[
+    {
+        "type": "create",
+        "tempId": "temp-case-1767518732889",
+        "serviceId": "temp-1767518731078",
+        "data": {
+            "case_id": "temp-case-1767518732889",
+            "client_service_id": "temp-1767518731078",
+            "case_name": "Case",
+            "case_summary": "Cs",
+            "case_duration": "",
+            "case_highlights": "H1",
+            "case_study_url": ""
+        }
+    }
+]
+```
+Response: `Failed to process operation: Failed to create case study: invalid input syntax for type uuid: "temp-1767518731078"` temp-1767518731078 is client-service-id
+
+Note: Operation does not always fails and error occurs in few cases. Identify the root cause before determining the fix.
