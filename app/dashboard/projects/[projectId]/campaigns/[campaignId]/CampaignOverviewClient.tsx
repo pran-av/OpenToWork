@@ -150,7 +150,7 @@ function ClientServicesSection({
                               : s
                           ));
 
-                          // Check if service has real ID (not temp)
+                          // Check if service has real UUID (not temp)
                           const serviceHasRealId = !service.client_service_id.startsWith("temp-");
                           
                           if (serviceHasRealId) {
@@ -798,19 +798,26 @@ export default function CampaignOverviewClient({
       }
 
       // Save case studies if there are pending operations
+      // Only proceed after services are saved (serviceIdMap is populated)
       if (pendingCaseStudyOps.length > 0) {
         // Map temp service IDs to real IDs using the map
+        // Filter out any operations with temp IDs
         const mappedOps = pendingCaseStudyOps.map(op => {
           if (op.serviceId?.startsWith("temp-")) {
             const realServiceId = serviceIdMap.get(op.serviceId);
-            if (realServiceId) {
+            if (realServiceId && !realServiceId.startsWith("temp-")) {
               return { ...op, serviceId: realServiceId };
             }
-            // If service wasn't found in map, it might have been deleted, skip it
+            // If service wasn't found in map or is still a temp ID, skip it
             return null;
           }
-          return op;
-        }).filter((op): op is NonNullable<typeof op> => op !== null && !op.serviceId?.startsWith("temp-"));
+          // If serviceId exists and is not a temp ID, keep it
+          if (op.serviceId && !op.serviceId.startsWith("temp-")) {
+            return op;
+          }
+          // Skip if serviceId is missing or is a temp ID
+          return null;
+        }).filter((op): op is NonNullable<typeof op> => op !== null && !!op.serviceId && !op.serviceId.startsWith("temp-"));
 
         if (mappedOps.length > 0) {
           const caseStudiesRes = await fetch(`/api/campaigns/${campaign.campaign_id}/case-studies`, {
@@ -931,6 +938,9 @@ export default function CampaignOverviewClient({
 
           // Save services and case studies if needed
           if (pendingServiceOps.length > 0 || pendingCaseStudyOps.length > 0) {
+            // Build service ID map for case study operations
+            const publishServiceIdMap = new Map<string, string>();
+            
             // Save services first
             if (pendingServiceOps.length > 0) {
               const servicesRes = await fetch(`/api/campaigns/${campaign.campaign_id}/services`, {
@@ -945,21 +955,50 @@ export default function CampaignOverviewClient({
                 const servicesData = await servicesRes.json();
                 throw new Error(servicesData.error || "Failed to save services");
               }
+
+              const servicesData = await servicesRes.json();
+              // Build service ID map from temp IDs to real IDs
+              servicesData.results?.forEach((result: any) => {
+                if (result.type === "create" && result.id && result.service) {
+                  publishServiceIdMap.set(result.id, result.service.client_service_id);
+                }
+              });
             }
 
-            // Save case studies
+            // Save case studies - map temp service IDs to real IDs
             if (pendingCaseStudyOps.length > 0) {
-              const caseStudiesRes = await fetch(`/api/campaigns/${campaign.campaign_id}/case-studies`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ operations: pendingCaseStudyOps }),
-              });
+              // Map temp service IDs to real IDs using the map
+              // Filter out any operations with temp IDs
+              const mappedPublishOps = pendingCaseStudyOps.map(op => {
+                if (op.serviceId?.startsWith("temp-")) {
+                  const realServiceId = publishServiceIdMap.get(op.serviceId);
+                  if (realServiceId && !realServiceId.startsWith("temp-")) {
+                    return { ...op, serviceId: realServiceId };
+                  }
+                  // If service wasn't found in map or is still a temp ID, skip it
+                  return null;
+                }
+                // If serviceId exists and is not a temp ID, keep it
+                if (op.serviceId && !op.serviceId.startsWith("temp-")) {
+                  return op;
+                }
+                // Skip if serviceId is missing or is a temp ID
+                return null;
+              }).filter((op): op is NonNullable<typeof op> => op !== null && !!op.serviceId && !op.serviceId.startsWith("temp-"));
 
-              if (!caseStudiesRes.ok) {
-                const caseStudiesData = await caseStudiesRes.json();
-                throw new Error(caseStudiesData.error || "Failed to save case studies");
+              if (mappedPublishOps.length > 0) {
+                const caseStudiesRes = await fetch(`/api/campaigns/${campaign.campaign_id}/case-studies`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ operations: mappedPublishOps }),
+                });
+
+                if (!caseStudiesRes.ok) {
+                  const caseStudiesData = await caseStudiesRes.json();
+                  throw new Error(caseStudiesData.error || "Failed to save case studies");
+                }
               }
             }
           }

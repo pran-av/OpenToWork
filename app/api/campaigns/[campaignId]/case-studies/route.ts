@@ -53,12 +53,33 @@ export async function POST(
     for (const op of operations) {
       try {
         if (op.type === "create") {
+          // Validate serviceId is not a temp ID
+          if (!op.serviceId || op.serviceId.startsWith("temp-")) {
+            return NextResponse.json(
+              { error: `Invalid service ID: ${op.serviceId}. Expected a valid UUID, not a temporary ID.` },
+              { status: 400 }
+            );
+          }
           const caseStudy = await createCaseStudy(op.serviceId, op.data);
           results.push({ type: "create", id: op.tempId, caseStudy });
         } else if (op.type === "update") {
+          // Validate caseId is not a temp ID
+          if (!op.caseId || op.caseId.startsWith("temp-")) {
+            return NextResponse.json(
+              { error: `Invalid case study ID: ${op.caseId}. Expected a valid UUID, not a temporary ID.` },
+              { status: 400 }
+            );
+          }
           const caseStudy = await updateCaseStudy(op.caseId, op.data);
           results.push({ type: "update", caseId: op.caseId, caseStudy });
         } else if (op.type === "delete") {
+          // Validate caseId is not a temp ID
+          if (!op.caseId || op.caseId.startsWith("temp-")) {
+            return NextResponse.json(
+              { error: `Invalid case study ID: ${op.caseId}. Expected a valid UUID, not a temporary ID.` },
+              { status: 400 }
+            );
+          }
           await deleteCaseStudy(op.caseId);
           results.push({ type: "delete", caseId: op.caseId });
         }
