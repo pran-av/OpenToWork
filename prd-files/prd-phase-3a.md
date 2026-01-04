@@ -61,3 +61,18 @@ Payload:
 Response: `Failed to process operation: Failed to create case study: invalid input syntax for type uuid: "temp-1767518731078"` temp-1767518731078 is client-service-id
 
 Note: Operation does not always fails and error occurs in few cases. Identify the root cause before determining the fix.
+
+### Bug: Real Time Updates on Project Overview Page
+
+Issue:
+1. When I create a new campaign, save it and return back the Project Overview Page, the new campaign is not visible unless I hard refersh the page.
+2. When we switch from Campaign A to Campaign B, the latest campaign statuses are not updated on the Project Overview page until hard refresh.
+3. When we open the Switch Campaign modal, the 'Current Active Campaign' and 'Switch to Campaign' dropdown list is not latest.
+
+Expected Functionality:
+The campaigns and its data should be instantly visible for the user post any mutations like creating new campaigns and switching of campaigns statuses.
+
+Improvements to ensure latest state while not affecting performance:
+1. Implement Optimistic Updates:
+- When a new campaign is created: an object can store the new campaign and display it optimistically in the project overview UI
+- When a campaign status is updated via the switch functionality, the optimisitic update object can record the status changes and display the UI based on latest changes always

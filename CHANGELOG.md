@@ -6,6 +6,14 @@
 
 - Footer copyright year update to 2026
 - Updated Changelog till latest v1.5
+- refactoring: removed unused key frame for subheading rotation
+- disable system theme and provide manual toggle in Studio header (via next-themes)
+- added unit test config (vitest)
+
+### Fixes:
+- Check to verify UUIDs is not temporary before direct save operation for case studies, if temp then queue for batch saving
+- Check to not pass tempIDs to APIs for insert operations
+- During batch saving ensure client services are saved before attempting case studies to be saved
 
 ## v1.4.0
 (Dec 30, 2025 - Dec 31, 2025)

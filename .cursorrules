@@ -28,3 +28,7 @@
 - Never expose database credentials or connection strings
 - Reference project ID from environment variables, not hardcoded values
 
+## Unit Tests
+
+- Do not write any unit tests unless clearly asked for
+
