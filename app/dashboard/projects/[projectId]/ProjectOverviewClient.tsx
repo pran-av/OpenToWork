@@ -21,7 +21,31 @@ export default function ProjectOverviewClient({
   initialActiveCampaign,
 }: ProjectOverviewClientProps) {
   const router = useRouter();
-  const [campaigns, setCampaigns] = useState<CampaignData[]>(initialCampaigns);
+  
+  // Restore optimistic campaigns from sessionStorage
+  const getOptimisticCampaigns = (excludeCampaignIds: string[] = []): CampaignData[] => {
+    if (typeof window === "undefined") return [];
+    try {
+      const stored = sessionStorage.getItem(`optimistic_campaigns_${project.project_id}`);
+      if (stored) {
+        const optimisticCampaigns = JSON.parse(stored) as CampaignData[];
+        // Filter out campaigns that are in the exclude list (server has them now)
+        return optimisticCampaigns.filter(
+          (opt) => !excludeCampaignIds.includes(opt.campaign_id)
+        );
+      }
+    } catch (error) {
+      console.error("Error reading optimistic campaigns from sessionStorage:", error);
+    }
+    return [];
+  };
+
+  // Merge initial campaigns with optimistic ones (exclude campaigns already in initialCampaigns)
+  const initialCampaignIds = initialCampaigns.map(c => c.campaign_id);
+  const optimisticCampaigns = getOptimisticCampaigns(initialCampaignIds);
+  const mergedInitialCampaigns = [...initialCampaigns, ...optimisticCampaigns];
+
+  const [campaigns, setCampaigns] = useState<CampaignData[]>(mergedInitialCampaigns);
   const [activeCampaign, setActiveCampaign] = useState<CampaignData | null>(initialActiveCampaign);
   const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -49,14 +73,79 @@ export default function ProjectOverviewClient({
   const [isArchiving, setIsArchiving] = useState(false);
   const [isArchived, setIsArchived] = useState(project.is_archived);
 
-  const fetchCampaigns = async () => {
+  // Refresh campaigns when page becomes visible (e.g., navigating back)
+  useEffect(() => {
+    // Immediately refresh on mount to get latest data
+    fetchCampaigns(true).catch(console.error);
+    router.refresh();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        // Refresh data when page becomes visible
+        fetchCampaigns(true).catch(console.error);
+        router.refresh();
+      }
+    };
+
+    const handleFocus = () => {
+      // Also refresh on window focus (handles navigation back)
+      fetchCampaigns(true).catch(console.error);
+      router.refresh();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.project_id]);
+
+  const fetchCampaigns = async (useCacheBust = false) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/projects/${project.project_id}/campaigns`);
+      // Add cache-busting query param when explicitly requested (e.g., when opening modal)
+      const url = useCacheBust 
+        ? `/api/projects/${project.project_id}/campaigns?t=${Date.now()}`
+        : `/api/projects/${project.project_id}/campaigns`;
+      const res = await fetch(url);
       const data = await res.json();
       if (res.ok) {
-        setCampaigns(data.campaigns || []);
-        setActiveCampaign(data.activeCampaign || null);
+        const serverCampaigns = data.campaigns || [];
+        const serverActiveCampaign = data.activeCampaign || null;
+        
+        // Get optimistic campaigns that aren't in server response yet
+        const serverCampaignIds = serverCampaigns.map((c: CampaignData) => c.campaign_id);
+        const pendingOptimistic = getOptimisticCampaigns(serverCampaignIds);
+        
+        // Merge server data with pending optimistic campaigns
+        const mergedCampaigns = [...serverCampaigns, ...pendingOptimistic];
+        
+        setCampaigns(mergedCampaigns);
+        
+        // Use functional update to preserve optimistic activeCampaign if it's still valid
+        setActiveCampaign((currentActive) => {
+          // If we have a current active campaign that's ACTIVE in merged campaigns, keep it
+          if (currentActive) {
+            const currentInMerged = mergedCampaigns.find(
+              (c) => c.campaign_id === currentActive.campaign_id && c.campaign_status === "ACTIVE"
+            );
+            if (currentInMerged) {
+              return currentInMerged;
+            }
+          }
+          // Otherwise use server data
+          return serverActiveCampaign;
+        });
+        
+        // Clean up sessionStorage for campaigns that are now in server response
+        if (pendingOptimistic.length === 0) {
+          sessionStorage.removeItem(`optimistic_campaigns_${project.project_id}`);
+        } else {
+          sessionStorage.setItem(`optimistic_campaigns_${project.project_id}`, JSON.stringify(pendingOptimistic));
+        }
       }
     } catch (error) {
       console.error("Error fetching campaigns:", error);
@@ -112,6 +201,35 @@ export default function ProjectOverviewClient({
     setIsCreating(true);
     setError(null);
 
+    // Optimistic update: Create temporary campaign object
+    const tempCampaign: CampaignData = {
+      campaign_id: `temp-${Date.now()}`,
+      project_id: project.project_id,
+      campaign_name: campaignName.trim(),
+      campaign_status: "DRAFT",
+      campaign_structure: {
+        client_name: "",
+        client_summary: "",
+      },
+      cta_config: {},
+      created_at: new Date().toISOString(),
+    };
+
+    // Optimistically add to campaigns list
+    const previousCampaigns = campaigns;
+    setCampaigns([...campaigns, tempCampaign]);
+
+    // Store optimistic campaign in sessionStorage for persistence across navigation
+    try {
+      const existingOptimistic = getOptimisticCampaigns([]);
+      sessionStorage.setItem(
+        `optimistic_campaigns_${project.project_id}`,
+        JSON.stringify([...existingOptimistic, tempCampaign])
+      );
+    } catch (error) {
+      console.error("Error storing optimistic campaign:", error);
+    }
+
     try {
       const res = await fetch(`/api/projects/${project.project_id}/campaigns`, {
         method: "POST",
@@ -124,13 +242,49 @@ export default function ProjectOverviewClient({
       const data = await res.json();
 
       if (!res.ok) {
+        // Revert optimistic update on error
+        setCampaigns(previousCampaigns);
+        // Remove from sessionStorage
+        try {
+          const existingOptimistic = getOptimisticCampaigns([]);
+          const updated = existingOptimistic.filter((c) => c.campaign_id !== tempCampaign.campaign_id);
+          if (updated.length === 0) {
+            sessionStorage.removeItem(`optimistic_campaigns_${project.project_id}`);
+          } else {
+            sessionStorage.setItem(`optimistic_campaigns_${project.project_id}`, JSON.stringify(updated));
+          }
+        } catch (error) {
+          console.error("Error removing optimistic campaign:", error);
+        }
         setError(data.error || "Failed to create campaign");
         setIsCreating(false);
         return;
       }
 
-      // Refresh campaigns list
-      await fetchCampaigns();
+      // Replace temp campaign with real one from server
+      setCampaigns((prev) =>
+        prev.map((c) => (c.campaign_id === tempCampaign.campaign_id ? data.campaign : c))
+      );
+
+      // Remove temp campaign from sessionStorage (server has it now)
+      try {
+        const existingOptimistic = getOptimisticCampaigns([]);
+        const updated = existingOptimistic.filter((c) => c.campaign_id !== tempCampaign.campaign_id);
+        if (updated.length === 0) {
+          sessionStorage.removeItem(`optimistic_campaigns_${project.project_id}`);
+        } else {
+          sessionStorage.setItem(`optimistic_campaigns_${project.project_id}`, JSON.stringify(updated));
+        }
+      } catch (error) {
+        console.error("Error removing optimistic campaign:", error);
+      }
+
+      // Revalidate server data in background
+      router.refresh();
+      
+      // Fetch fresh data in background to sync with server
+      fetchCampaigns().catch(console.error);
+
       setIsDialogOpen(false);
       setCampaignName("");
       setError(null);
@@ -140,6 +294,8 @@ export default function ProjectOverviewClient({
       setIsNavigating(true);
       router.push(`/dashboard/projects/${project.project_id}/campaigns/${data.campaign.campaign_id}`);
     } catch (error) {
+      // Revert optimistic update on error
+      setCampaigns(previousCampaigns);
       setError("An unexpected error occurred");
       setIsCreating(false);
     }
@@ -349,13 +505,13 @@ export default function ProjectOverviewClient({
               </span>
               {campaigns.length > 1 && (
                 <button
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     if (isArchived) return;
+                    // Fetch fresh campaigns with cache-busting before opening modal
+                    await fetchCampaigns(true);
                     setIsSwitchModalOpen(true);
-                    // Fetch campaigns to populate dropdown
-                    fetchCampaigns();
                     setSelectedTargetCampaignId("");
                   }}
                   disabled={isArchived}
@@ -543,12 +699,12 @@ export default function ProjectOverviewClient({
 
       {/* Switch Campaign Modal */}
       <Dialog open={isSwitchModalOpen} onOpenChange={(open) => {
-        if (!isSwitching) {
-          setIsSwitchModalOpen(open);
-          if (!open) {
-            setSelectedTargetCampaignId("");
-            setError(null);
-          }
+        setIsSwitchModalOpen(open);
+        if (!open) {
+          // Always reset state when modal closes
+          setSelectedTargetCampaignId("");
+          setError(null);
+          setIsSwitching(false); // Reset switching state
         }
       }}>
         <DialogContent>
@@ -609,9 +765,9 @@ export default function ProjectOverviewClient({
                 setIsSwitchModalOpen(false);
                 setSelectedTargetCampaignId("");
                 setError(null);
+                setIsSwitching(false); // Reset switching state on cancel
               }}
-              disabled={isSwitching}
-              className="rounded-md border border-orange-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              className="rounded-md border border-orange-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
             >
               Cancel
             </button>
@@ -624,6 +780,37 @@ export default function ProjectOverviewClient({
 
                 setIsSwitching(true);
                 setError(null);
+
+                // Store previous state for rollback
+                const previousActiveCampaign = activeCampaign;
+                const previousCampaigns = campaigns;
+
+                // Find target campaign
+                const targetCampaign = campaigns.find((c) => c.campaign_id === selectedTargetCampaignId);
+                if (!targetCampaign) {
+                  setError("Target campaign not found");
+                  setIsSwitching(false);
+                  return;
+                }
+
+                // Optimistic update: Update campaign statuses immediately
+                const updatedCampaigns = campaigns.map((c) => {
+                  if (c.campaign_id === activeCampaign?.campaign_id) {
+                    return { ...c, campaign_status: "PAUSED" as const };
+                  }
+                  if (c.campaign_id === selectedTargetCampaignId) {
+                    return { ...c, campaign_status: "ACTIVE" as const };
+                  }
+                  return c;
+                });
+
+                // Find the updated target campaign from the updated array
+                const updatedTargetCampaign = updatedCampaigns.find((c) => c.campaign_id === selectedTargetCampaignId);
+                
+                setCampaigns(updatedCampaigns);
+                if (updatedTargetCampaign) {
+                  setActiveCampaign(updatedTargetCampaign);
+                }
 
                 try {
                   const res = await fetch(`/api/campaigns/switch`, {
@@ -640,6 +827,9 @@ export default function ProjectOverviewClient({
                   const data = await res.json();
 
                   if (!res.ok) {
+                    // Revert optimistic update on error
+                    setCampaigns(previousCampaigns);
+                    setActiveCampaign(previousActiveCampaign);
                     setError(data.error || "Failed to switch campaign");
                     setIsSwitching(false);
                     return;
@@ -647,10 +837,20 @@ export default function ProjectOverviewClient({
 
                   setIsSwitchModalOpen(false);
                   setSelectedTargetCampaignId("");
+                  setIsSwitching(false); // Reset switching state
                   
-                  // Refresh campaigns list
-                  await fetchCampaigns();
+                  // Revalidate server data in background
+                  router.refresh();
+                  
+                  // Fetch fresh data in background to sync with server
+                  // Use a delay to ensure optimistic update is applied and rendered first
+                  setTimeout(() => {
+                    fetchCampaigns(true).catch(console.error);
+                  }, 500);
                 } catch (error: any) {
+                  // Revert optimistic update on error
+                  setCampaigns(previousCampaigns);
+                  setActiveCampaign(previousActiveCampaign);
                   setError(error.message || "An unexpected error occurred");
                   setIsSwitching(false);
                 }

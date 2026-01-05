@@ -76,3 +76,9 @@ Improvements to ensure latest state while not affecting performance:
 1. Implement Optimistic Updates:
 - When a new campaign is created: an object can store the new campaign and display it optimistically in the project overview UI
 - When a campaign status is updated via the switch functionality, the optimisitic update object can record the status changes and display the UI based on latest changes always
+2. Fetch from server:
+- The server fetch should occur in the background to revalidate the data and update the caches accordingly. When a fetch is successful the optimistic data can now be updated with server side data which acts as a single source of truth.
+- Fetch from server only when mutations are trigerred, in the above scenario it happens when a Campaign is Saved, when a Campaign status is updated via the Switch funtionality or if a campaign is published - which then makes it Active from Draft state
+- Optional if architecture supports: fetch only the specific tags that have been modified via mutations keeping the rest same. For new campaign creations/save the same old cache can be updated with new campaign. In case of status change, only status can be fetched and change.
+- All campaign related mutations and its cache can be managed by a function to avoid multiple parallel cache instances.
+- Verify if caching headers are ideal and not causing the issues.

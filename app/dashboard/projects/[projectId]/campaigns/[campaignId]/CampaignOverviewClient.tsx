@@ -1029,6 +1029,9 @@ export default function CampaignOverviewClient({
 
       setSuccess(data.message || "Campaign published successfully!");
       
+      // Revalidate server data before navigation
+      router.refresh();
+      
       // Redirect to project overview after a short delay
       setTimeout(() => {
         router.push(`/dashboard/projects/${project.project_id}`);
@@ -1129,6 +1132,9 @@ export default function CampaignOverviewClient({
 
       setSuccess(data.message || "Campaign switched successfully!");
       setIsSwitchModalOpen(false);
+      
+      // Revalidate server data before navigation
+      router.refresh();
       
       // Redirect to project overview after a short delay
       setTimeout(() => {
