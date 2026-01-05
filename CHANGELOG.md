@@ -14,6 +14,8 @@
 - Check to verify UUIDs is not temporary before direct save operation for case studies, if temp then queue for batch saving
 - Check to not pass tempIDs to APIs for insert operations
 - During batch saving ensure client services are saved before attempting case studies to be saved
+- Optimistic Updates and Cache Busting implemented for campaign mutations to update Package Overview Page without hard refresh - implementations made to Switch Modals as well to update latest Active Campaigns in the project overview page
+- Switch to Current CTA opens a modal with latest Active Campaign details and a preselected current campaign as dropdown
 
 ## v1.4.0
 (Dec 30, 2025 - Dec 31, 2025)
