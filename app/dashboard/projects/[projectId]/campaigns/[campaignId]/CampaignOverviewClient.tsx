@@ -1044,7 +1044,8 @@ export default function CampaignOverviewClient({
 
   const fetchAvailableCampaigns = async () => {
     try {
-      const res = await fetch(`/api/projects/${project.project_id}/campaigns`);
+      // Use cache-busting to ensure fresh data
+      const res = await fetch(`/api/projects/${project.project_id}/campaigns?t=${Date.now()}`);
       const data = await res.json();
       
       if (res.ok) {
@@ -1052,6 +1053,7 @@ export default function CampaignOverviewClient({
         const active = data.activeCampaign || null;
         
         // For PAUSED campaigns, include the current campaign in available list (for "Make Active")
+        // For DRAFT campaigns, include the current campaign in available list (for "Switch to Current")
         // For other cases, filter out the current campaign
         const available = allCampaigns.filter((c: CampaignData) => {
           // Only include DRAFT or PAUSED campaigns
@@ -1059,8 +1061,9 @@ export default function CampaignOverviewClient({
             return false;
           }
           
-          // If current campaign is PAUSED, include it in the list
-          if (campaign.campaign_status === "PAUSED" && c.campaign_id === campaign.campaign_id) {
+          // If current campaign is PAUSED or DRAFT, include it in the list
+          if ((campaign.campaign_status === "PAUSED" || campaign.campaign_status === "DRAFT") && 
+              c.campaign_id === campaign.campaign_id) {
             return true;
           }
           
@@ -1071,15 +1074,9 @@ export default function CampaignOverviewClient({
         setAvailableCampaigns(available);
         setCurrentActiveCampaign(active);
         
-        // Pre-select the current campaign if it's PAUSED (for "Make Active")
-        if (campaign.campaign_status === "PAUSED") {
+        // Pre-select the current campaign if it's PAUSED (for "Make Active") or DRAFT (for "Switch to Current")
+        if (campaign.campaign_status === "PAUSED" || campaign.campaign_status === "DRAFT") {
           setSelectedTargetCampaignId(campaign.campaign_id);
-        } else if (campaign.campaign_status === "DRAFT" && available.length > 0) {
-          // For DRAFT campaigns, pre-select if it's in the available list
-          const preSelect = available.find((c: CampaignData) => c.campaign_id === campaign.campaign_id);
-          if (preSelect) {
-            setSelectedTargetCampaignId(campaign.campaign_id);
-          }
         }
       }
     } catch (error) {
@@ -1672,12 +1669,11 @@ export default function CampaignOverviewClient({
 
       {/* Switch Campaign Modal */}
       <Dialog open={isSwitchModalOpen} onOpenChange={(open) => {
-        if (!isSwitching) {
-          setIsSwitchModalOpen(open);
-          if (!open) {
-            setSelectedTargetCampaignId("");
-            setError(null);
-          }
+        setIsSwitchModalOpen(open);
+        if (!open) {
+          setSelectedTargetCampaignId("");
+          setError(null);
+          setIsSwitching(false); // Reset switching state when modal closes
         }
       }}>
         <DialogContent>
@@ -1738,9 +1734,9 @@ export default function CampaignOverviewClient({
                 setIsSwitchModalOpen(false);
                 setSelectedTargetCampaignId("");
                 setError(null);
+                setIsSwitching(false); // Reset switching state on cancel
               }}
-              disabled={isSwitching}
-              className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
             >
               Cancel
             </button>
