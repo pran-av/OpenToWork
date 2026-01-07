@@ -29,6 +29,31 @@ export const metadata: Metadata = {
     shortcut: "/pitchlikethis-logo.svg",
     apple: "/pitchlikethis-logo.svg",
   },
+  openGraph: {
+    title: "Pitch Like This",
+    description: "Create tailored pitches for every role or client, organise your projects and case studies, and share them as clean, distraction-free links that tell your story with clarity and impact.",
+    url: "https://www.pitchlikethis.com",
+    siteName: "Pitch Like This",
+    images: [
+      {
+        url: "https://www.pitchlikethis.com/og_image.png",
+        width: 1200,
+        height: 630,
+        alt: "Pitch Like This",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Pitch Like This",
+    description: "Create tailored pitches for every role or client, organise your projects and case studies, and share them as clean, distraction-free links that tell your story with clarity and impact.",
+    images: ["https://www.pitchlikethis.com/og_image.png"],
+  },
+  alternates: {
+    canonical: "https://www.pitchlikethis.com",
+  },
 };
 
 export default function RootLayout({

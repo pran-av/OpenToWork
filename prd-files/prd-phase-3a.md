@@ -82,3 +82,23 @@ Improvements to ensure latest state while not affecting performance:
 - Optional if architecture supports: fetch only the specific tags that have been modified via mutations keeping the rest same. For new campaign creations/save the same old cache can be updated with new campaign. In case of status change, only status can be fetched and change.
 - All campaign related mutations and its cache can be managed by a function to avoid multiple parallel cache instances.
 - Verify if caching headers are ideal and not causing the issues.
+
+### Enhancement: Page Specific Metadata and Canonical URLs
+Let's divide our strategy into two parts.
+Part 1: Sharing the root url (like pitchlikethis.com) should preview content about the tool that is Pitch Like This
+Part 2: Sharing of project URLs (ex project/{project_id}) should preview the custom campaign specific data (i.e currently active campaign of the project)
+
+For Part 1
+1. Add or verify if OG tags for title, description, image and url.
+2. Use the same og meta and image for all social media cards including twitter
+3. Use public/og_image.png
+
+For Part 2
+1. The OG title and description should be the {Client Name} and the first sentence of {Client Summary}
+2. The above parameters will change based on url which will follow projects/{project_id} style
+3. The Client Name and Client Summary should be of based on the current active campaign for the project
+4. Do not use an og image for these independent URLs
+
+Canonical URL
+1. www.pitchlikethis.com is our primary url
+2. Add a link based tag to pitchlikethis.com to be canonical of the primary which is www

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import CampaignFlowClient from "@/app/campaign/[id]/CampaignFlowClient";
 import {
   getActiveCampaignByProjectIdPublic,
@@ -10,6 +11,75 @@ import type { CaseStudy } from "@/lib/db/campaigns";
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
+}
+
+// Extract first sentence from text
+function getFirstSentence(text: string): string {
+  if (!text) return "";
+  // Match first sentence ending with . ! or ?
+  const match = text.match(/^[^.!?]+[.!?]/);
+  if (match) {
+    return match[0].trim();
+  }
+  // If no sentence ending found, return first 150 characters
+  return text.substring(0, 150).trim();
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { projectId } = await params;
+  
+  try {
+    const activeCampaign = await getActiveCampaignByProjectIdPublic(projectId);
+    
+    if (!activeCampaign) {
+      return {
+        title: "Pitch Like This - Campaign Not Available",
+        description: "This project is not serving an active campaign at the moment.",
+      };
+    }
+
+    const clientName = activeCampaign.campaign_structure?.client_name || "";
+    const clientSummary = activeCampaign.campaign_structure?.client_summary || "";
+    const firstSentence = getFirstSentence(clientSummary);
+    
+    const baseUrl = "https://www.pitchlikethis.com";
+    const projectUrl = `${baseUrl}/project/${projectId}`;
+
+    return {
+      title: clientName || "Review Candidate / Project Pitch",
+      description: firstSentence || clientSummary || "This shared link includes a tailored pitch, relevant experience, and project evidence provided by the sender. Review the complete details before responding or following up.",
+      openGraph: {
+        title: clientName || "Review Candidate / Project Pitch",
+        description: firstSentence || clientSummary || "This shared link includes a tailored pitch, relevant experience, and project evidence provided by the sender. Review the complete details before responding or following up.",
+        url: projectUrl,
+        siteName: "Pitch Like This",
+        type: "website",
+        images: [
+          {
+            url: "https://www.pitchlikethis.com/og_image_projects.png",
+            width: 1200,
+            height: 630,
+            alt: clientName || "Review Candidate / Project Pitch",
+          },
+        ],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: clientName || "Review Candidate / Project Pitch",
+        description: firstSentence || clientSummary || "This shared link includes a tailored pitch, relevant experience, and project evidence provided by the sender. Review the complete details before responding or following up.",
+        images: ["https://www.pitchlikethis.com/og_image_projects.png"],
+      },
+      alternates: {
+        canonical: projectUrl,
+      },
+    };
+  } catch (error) {
+    console.error("Error generating metadata for project page:", error);
+    return {
+      title: "Pitch Like This",
+      description: "View this pitch campaign",
+    };
+  }
 }
 
 export default async function ProjectPage({ params }: PageProps) {
