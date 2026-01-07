@@ -13,18 +13,6 @@ interface PageProps {
   params: Promise<{ projectId: string }>;
 }
 
-// Extract first sentence from text
-function getFirstSentence(text: string): string {
-  if (!text) return "";
-  // Match first sentence ending with . ! or ?
-  const match = text.match(/^[^.!?]+[.!?]/);
-  if (match) {
-    return match[0].trim();
-  }
-  // If no sentence ending found, return first 150 characters
-  return text.substring(0, 150).trim();
-}
-
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { projectId } = await params;
   
@@ -39,18 +27,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     }
 
     const clientName = activeCampaign.campaign_structure?.client_name || "";
-    const clientSummary = activeCampaign.campaign_structure?.client_summary || "";
-    const firstSentence = getFirstSentence(clientSummary);
+    const rawClientSummary = activeCampaign.campaign_structure?.client_summary || "";
+    const clientSummary = rawClientSummary.slice(0, 150);
     
     const baseUrl = "https://www.pitchlikethis.com";
     const projectUrl = `${baseUrl}/project/${projectId}`;
 
     return {
       title: clientName || "Review Candidate / Project Pitch",
-      description: firstSentence || clientSummary || "This shared link includes a tailored pitch, relevant experience, and project evidence provided by the sender. Review the complete details before responding or following up.",
+      description: clientSummary || "This shared link includes a tailored pitch, relevant experience, and project evidence provided by the sender. Review the complete details before responding or following up.",
       openGraph: {
         title: clientName || "Review Candidate / Project Pitch",
-        description: firstSentence || clientSummary || "This shared link includes a tailored pitch, relevant experience, and project evidence provided by the sender. Review the complete details before responding or following up.",
+        description: clientSummary || "This shared link includes a tailored pitch, relevant experience, and project evidence provided by the sender. Review the complete details before responding or following up.",
         url: projectUrl,
         siteName: "Pitch Like This",
         type: "website",
@@ -66,7 +54,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       twitter: {
         card: "summary_large_image",
         title: clientName || "Review Candidate / Project Pitch",
-        description: firstSentence || clientSummary || "This shared link includes a tailored pitch, relevant experience, and project evidence provided by the sender. Review the complete details before responding or following up.",
+        description: clientSummary || "This shared link includes a tailored pitch, relevant experience, and project evidence provided by the sender. Review the complete details before responding or following up.",
         images: ["https://www.pitchlikethis.com/og_image_projects.png"],
       },
       alternates: {

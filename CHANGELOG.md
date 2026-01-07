@@ -9,6 +9,8 @@
 - refactoring: removed unused key frame for subheading rotation
 - disable system theme and provide manual toggle in Studio header (via next-themes)
 - added unit test config (vitest)
+- OG Metadata addition for Pitch Like This sites and custom project URLs. Custom project URLs read the client name and client summary parameters for active campaigns and display them as og params. Separate og images for marketing website and client used project links.
+- Declared www.pitchlikethis.com as the canonical domain, and for client projects the respective non parameterised links are canonical
 
 ### Fixes:
 - Check to verify UUIDs is not temporary before direct save operation for case studies, if temp then queue for batch saving
@@ -16,6 +18,7 @@
 - During batch saving ensure client services are saved before attempting case studies to be saved
 - Optimistic Updates and Cache Busting implemented for campaign mutations to update Package Overview Page without hard refresh - implementations made to Switch Modals as well to update latest Active Campaigns in the project overview page
 - Switch to Current CTA opens a modal with latest Active Campaign details and a preselected current campaign as dropdown
+- Updated OG description for custom project links to share first 150 characters of client summary instead of first sentence
 
 ## v1.4.0
 (Dec 30, 2025 - Dec 31, 2025)
