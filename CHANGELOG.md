@@ -1,7 +1,7 @@
 # CHANGELOG
 
 ## v1.5.0 (Current)
-(Jan 01, 2026 - )
+(Jan 01, 2026 - Jan 08, 2026)
 > Phase 3 in progress: mvp is ready to contest PMF in the market
 
 - Footer copyright year update to 2026
@@ -11,6 +11,8 @@
 - added unit test config (vitest)
 - OG Metadata addition for Pitch Like This sites and custom project URLs. Custom project URLs read the client name and client summary parameters for active campaigns and display them as og params. Separate og images for marketing website and client used project links.
 - Declared www.pitchlikethis.com as the canonical domain, and for client projects the respective non parameterised links are canonical
+- Privacy Policy and Terms of Service v0.1.0 drafted and updated in the Home Page Footer, Auth Container, and the Studio Footer
+- Created version controlled directories in repo to maintain version of PP and ToS. Any new versions require manual linking for webpages to be updated.
 
 ### Fixes:
 - Check to verify UUIDs is not temporary before direct save operation for case studies, if temp then queue for batch saving

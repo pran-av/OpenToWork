@@ -102,3 +102,19 @@ For Part 2
 Canonical URL
 1. www.pitchlikethis.com is our primary url
 2. Add a link based tag to pitchlikethis.com to be canonical of the primary which is www
+
+### Enhancement: Add Privacy Policy and Terms of Service
+
+**Home Page:**
+1. Add links to access PP and ToS to the footer of the root webpage. PP is available at policies/privacy/v0.1.0-2026-01-07.md. ToS is available at policies/terms-of-service/v0.1.0-2026-01-07.md
+2. For mobile and tablet viewports, avoid a new line to include these policies, instead add a pipe and mention these in front of "Created by Pranav".
+3. On click the policies should open in a new tab and display content as in the markdowns. Take user automatically to the new tab.
+4. Make sure the same headers and footers are available for the privacy and terms of service webpages. Clicking on the logo in the header should take user onto the home page. Provide a 'Back to Home' hyperlink at the bottom of the page post the ToS or PP ends. Besides this provide a hyperlink for 'Review Policy Versions' that points to the github repo https://github.com/pran-av/OpenToWork
+5. When new policies are launched the PP and ToS pages are manually linked with the latest markdown file from the repo.
+
+**Auth Flow:**
+
+For All Users
+1. The /auth page mentions the latest PP and ToS below the email collection field and above the Continue CTA. The text says "By continuing, you agree to the Pitch Like This Terms of Service and Privacy Policy." - the ToS and PP should be hyperlinked with the  policy webpages.
+2. When a new policy is launched the hyperlinks are changed while the webpage remains the same.
+3. (Manual Task) The Supabase magic link email copy is added the webpage URLs that display the latest copy of PP and ToS.

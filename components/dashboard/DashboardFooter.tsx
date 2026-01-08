@@ -7,7 +7,35 @@ export default function DashboardFooter() {
     <footer className="border-t border-orange-100 bg-white/80 backdrop-blur-sm dark:border-orange-900/30 dark:bg-zinc-900/80">
       <div className="container mx-auto px-4 py-6">
         <p className="text-center text-sm text-gray-600 dark:text-zinc-400">
-          All rights reserved. © 2025 - 2026 Pitch Like This | {" "}
+          All rights reserved. © 2025 - 2026 Pitch Like This |{" "}
+          <a
+            href="/policies/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.preventDefault();
+              window.open("/policies/privacy", "_blank", "noopener,noreferrer");
+              window.focus();
+            }}
+            className="font-medium text-gray-800 transition-colors hover:text-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:text-zinc-50 dark:hover:text-orange-400 underline"
+          >
+            Privacy Policy
+          </a>
+          {" | "}
+          <a
+            href="/policies/terms-of-service"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.preventDefault();
+              window.open("/policies/terms-of-service", "_blank", "noopener,noreferrer");
+              window.focus();
+            }}
+            className="font-medium text-gray-800 transition-colors hover:text-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:text-zinc-50 dark:hover:text-orange-400 underline"
+          >
+            Terms of Service
+          </a>
+          {" | "}
           <Link
             href="https://x.com/pranavdotexe"
             target="_blank"

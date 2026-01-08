@@ -203,6 +203,38 @@ export default function AuthPageContent() {
               />
             </div>
 
+            <p className="text-xs text-gray-600 dark:text-zinc-400 text-center">
+              By continuing, you agree to the Pitch Like This{" "}
+              <a
+                href="/policies/terms-of-service"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.open("/policies/terms-of-service", "_blank", "noopener,noreferrer");
+                  window.focus();
+                }}
+                className="text-orange-600 hover:text-orange-700 font-semibold underline"
+              >
+                Terms of Service
+              </a>
+              {" "}and{" "}
+              <a
+                href="/policies/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.open("/policies/privacy", "_blank", "noopener,noreferrer");
+                  window.focus();
+                }}
+                className="text-orange-600 hover:text-orange-700 font-semibold underline"
+              >
+                Privacy Policy
+              </a>
+              .
+            </p>
+
             <button
               type="submit"
               disabled={isLoading || !email.trim()}
