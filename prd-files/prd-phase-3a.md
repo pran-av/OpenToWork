@@ -118,3 +118,14 @@ For All Users
 1. The /auth page mentions the latest PP and ToS below the email collection field and above the Continue CTA. The text says "By continuing, you agree to the Pitch Like This Terms of Service and Privacy Policy." - the ToS and PP should be hyperlinked with the  policy webpages.
 2. When a new policy is launched the hyperlinks are changed while the webpage remains the same.
 3. (Manual Task) The Supabase magic link email copy is added the webpage URLs that display the latest copy of PP and ToS.
+
+### Feature: Add a Github Star Button on Header
+
+Display the CTA on left of the primary Login or Create Pitch button. On click the user is taken to 
+Mobile: Githun logo and Star
+
+### Optimizations:
+
+1. P3 - Hero section images for home page. Do not preload desktop image for mobile viewport and vice-versa.
+2. P0 - In metadata: “We expertise” → incorrect English Better: “We specialize in selling your skills.”
+3. P0 - The favicon should fallback to png instead of just svg.

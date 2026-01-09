@@ -18,17 +18,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Pitch Like This",
-  description: "We expertise in selling your skills.",
-  icons: {
-    icon: [
-      {
-        url: "/pitchlikethis-logo.svg",
-        type: "image/svg+xml",
-      },
-    ],
-    shortcut: "/pitchlikethis-logo.svg",
-    apple: "/pitchlikethis-logo.svg",
-  },
+  description: "We specialize in selling your skills.",
   openGraph: {
     title: "Pitch Like This",
     description: "Create tailored pitches for every role or client, organise your projects and case studies, and share them as clean, distraction-free links that tell your story with clarity and impact.",
@@ -63,6 +53,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="apple-mobile-web-app-title" content="Pitch Like This" />
+      </head>
       <body
         className={`${poppins.variable} ${inter.variable} antialiased`}
       >

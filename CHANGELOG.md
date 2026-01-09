@@ -21,6 +21,7 @@
 - Optimistic Updates and Cache Busting implemented for campaign mutations to update Package Overview Page without hard refresh - implementations made to Switch Modals as well to update latest Active Campaigns in the project overview page
 - Switch to Current CTA opens a modal with latest Active Campaign details and a preselected current campaign as dropdown
 - Updated OG description for custom project links to share first 150 characters of client summary instead of first sentence
+- favicon fixes and addition of manifest json for webapp icons
 
 ## v1.4.0
 (Dec 30, 2025 - Dec 31, 2025)
