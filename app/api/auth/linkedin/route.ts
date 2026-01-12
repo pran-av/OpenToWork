@@ -6,15 +6,15 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
     const origin = request.nextUrl.origin;
-    const emailRedirectTo = `${origin}/auth/callback`;
+    const emailRedirectTo = `${origin}/auth/v1/callback`;
 
     // Initiate LinkedIn OAuth flow
     const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "linkedin",
+      provider: "linkedin_oidc",
       options: {
         redirectTo: emailRedirectTo,
         // Request additional scopes if needed
-        scopes: "openid profile email",
+        // scopes: "openid profile email",
       },
     });
 

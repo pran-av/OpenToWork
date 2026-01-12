@@ -29,7 +29,7 @@ export async function storeLinkedInSub(sub: string): Promise<void> {
   const expiresAt = Date.now() + COOKIE_TTL_SECONDS * 1000;
   
   const data: LinkedInSubData = {
-    provider: "linkedin",
+    provider: "linkedin_oidc",
     sub,
     created_at: Date.now(),
     expires_at: expiresAt,

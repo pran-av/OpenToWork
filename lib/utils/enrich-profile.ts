@@ -61,38 +61,38 @@ export async function enrichProfileFromLinkedIn(
 
   if (firstName && !currentUser.user_first_name) {
     updates.user_first_name = firstName;
-    metaRecords.push({ source: "linkedin", field: "user_first_name", confidence: true });
+    metaRecords.push({ source: "linkedin_oidc", field: "user_first_name", confidence: true });
   }
 
   if (lastName && !currentUser.user_last_name) {
     updates.user_last_name = lastName;
-    metaRecords.push({ source: "linkedin", field: "user_last_name", confidence: true });
+    metaRecords.push({ source: "linkedin_oidc", field: "user_last_name", confidence: true });
   }
 
   // Set display_name from full name or first+last, only if empty
   if (!currentUser.display_name) {
     if (fullName) {
       updates.display_name = fullName;
-      metaRecords.push({ source: "linkedin", field: "display_name", confidence: true });
+      metaRecords.push({ source: "linkedin_oidc", field: "display_name", confidence: true });
     } else if (firstName && lastName) {
       updates.display_name = `${firstName} ${lastName}`;
-      metaRecords.push({ source: "linkedin", field: "display_name", confidence: true });
+      metaRecords.push({ source: "linkedin_oidc", field: "display_name", confidence: true });
     }
   }
 
   if (avatarUrl && !currentUser.avatar_url) {
     updates.avatar_url = avatarUrl;
-    metaRecords.push({ source: "linkedin", field: "avatar_url", confidence: true });
+    metaRecords.push({ source: "linkedin_oidc", field: "avatar_url", confidence: true });
   }
 
   if (country && !currentUser.country) {
     updates.country = country;
-    metaRecords.push({ source: "linkedin", field: "country", confidence: true });
+    metaRecords.push({ source: "linkedin_oidc", field: "country", confidence: true });
   }
 
   if (language && !currentUser.language) {
     updates.language = language;
-    metaRecords.push({ source: "linkedin", field: "language", confidence: true });
+    metaRecords.push({ source: "linkedin_oidc", field: "language", confidence: true });
   }
 
   // Update profile_last_updated timestamp
@@ -142,7 +142,7 @@ export async function enrichProfileFromLinkedIn(
       .from("provider_profiles")
       .upsert({
         user_id: userId,
-        provider: "linkedin",
+        provider: "linkedin_oidc",
         provider_sub: linkedinSub,
         provider_data: linkedinData,
       }, {

@@ -41,6 +41,10 @@ export default function AuthPageContent() {
         errorMsg = errorDetails 
           ? errorDetails
           : "Your LinkedIn account did not provide a verified email. Please sign up using magic link.";
+      } else if (errorParam === "linkedin_auth_failed") {
+        errorMsg = errorDetails 
+          ? errorDetails
+          : "LinkedIn authentication failed. Please try again or use email sign-in.";
       } else {
         errorMsg = errorDetails || `Authentication error: ${errorParam}`;
       }

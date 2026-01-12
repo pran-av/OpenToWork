@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
-import { enrichProfileFromLinkedIn } from "@/lib/utils/enrich-profile";
-import { storeLinkedInSub, markLinkedInSubAsUsed } from "@/lib/utils/linkedin-sub-cookie";
 
+/**
+ * Handles magic link authentication callback at /auth/callback
+ * LinkedIn OAuth callbacks are handled at /auth/v1/callback
+ */
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
@@ -13,31 +15,9 @@ export async function GET(request: NextRequest) {
   const errorDescription = requestUrl.searchParams.get("error_description");
   const errorCode = requestUrl.searchParams.get("error_code");
 
-  // Log full request details for debugging (commented for production)
-  // console.log("=== Auth Callback Debug ===");
-  //console.log("Full request URL:", request.url);
-  //console.log("Parsed URL:", requestUrl.toString());
-  //console.log("All search params:", Object.fromEntries(requestUrl.searchParams));
-  //console.log("Headers:", {
-  //  referer: request.headers.get("referer"),
-  //  userAgent: request.headers.get("user-agent"),
-  //  host: request.headers.get("host"),
-  //});
-  // console.log("Parameters:", {
-  //   hasCode: !!code,
-  //   //code: code ? `${code.substring(0, 10)}...` : null,
-  //   hasToken: !!token,
-  //   //token: token ? `${token.substring(0, 10)}...` : null,
-  //   type,
-  //   errorParam,
-  //   errorDescription,
-  //   errorCode,
-  // });
-  // console.log("========================");
-
   // If Supabase returns an error in the callback
   if (errorParam) {
-    console.error("Auth callback error from Supabase:", errorParam, errorDescription);
+    console.error("Magic link callback error from Supabase:", errorParam, errorDescription);
     let errorMessage = "Authentication failed";
     if (errorParam === "token_not_found" || errorDescription?.includes("expired")) {
       errorMessage = "The magic link has expired. Please request a new one.";
@@ -52,7 +32,6 @@ export async function GET(request: NextRequest) {
   // Handle direct token (if Supabase redirects with token instead of code)
   // This shouldn't normally happen, but we'll handle it as a fallback
   if (token && type === "magiclink" && !code) {
-    // console.log("Received token directly, attempting to verify...");
     try {
       const supabase = await createServerClient();
       // Try to verify the token - Supabase should handle this via their verify endpoint
@@ -61,7 +40,6 @@ export async function GET(request: NextRequest) {
         `/auth/v1/verify?token=${token}&type=${type}&redirect_to=${encodeURIComponent(requestUrl.origin + "/auth/callback")}`,
         process.env.NEXT_PUBLIC_SUPABASE_URL
       );
-      //console.log("verifyUrl", verifyUrl.toString());
       return NextResponse.redirect(verifyUrl.toString());
     } catch (err) {
       console.error("Error handling token:", err);
@@ -85,68 +63,11 @@ export async function GET(request: NextRequest) {
       }
 
       if (data.session) {
-        const user = data.session.user;
         const forwardedHost = request.headers.get("x-forwarded-host");
         const protocol = request.headers.get("x-forwarded-proto") || "http";
         const baseUrl = forwardedHost
           ? `${protocol}://${forwardedHost}`
           : request.url.split("/auth")[0];
-
-        // Check if this is a LinkedIn OAuth login
-        const linkedinIdentity = user.identities?.find(
-          (identity: any) => identity.provider === "linkedin"
-        );
-
-        if (linkedinIdentity) {
-          // This is a LinkedIn OAuth login
-          // Get LinkedIn OIDC data from user_metadata or app_metadata
-          const profileBootstrapData = {
-            ...user.user_metadata,
-          };
-
-          // Check if email is verified
-          const email = profileBootstrapData.email || user.email;
-          const emailVerified = profileBootstrapData.email_verified !== false && email; // Default to true if not explicitly false
-
-          if (!email || !emailVerified) {
-            // LinkedIn didn't provide verified email
-            // Store sub temporarily for later linking
-            const sub = profileBootstrapData.sub || linkedinIdentity.id;
-            if (sub) {
-              await storeLinkedInSub(sub);
-            }
-
-            // Note: Supabase may have already created the user, but we'll handle this in the UI
-            return NextResponse.redirect(
-              new URL(
-                `/auth?error=linkedin_no_email&details=${encodeURIComponent(
-                  "Your LinkedIn account did not provide a verified email. Please sign up using magic link."
-                )}`,
-                request.url
-              )
-            );
-          }
-
-          // Email is verified - enrich profile and proceed
-          try {
-            await enrichProfileFromLinkedIn(user.id, {
-              sub: profileBootstrapData.sub || linkedinIdentity.id,
-              email: email,
-              email_verified: emailVerified,
-              name: profileBootstrapData.name,
-              given_name: profileBootstrapData.given_name,
-              family_name: profileBootstrapData.family_name,
-              picture: profileBootstrapData.picture,
-              locale: profileBootstrapData.locale,
-            });
-
-            // Mark any pending sub as used (if it exists)
-            await markLinkedInSubAsUsed();
-          } catch (enrichError) {
-            console.error("Error enriching profile from LinkedIn:", enrichError);
-            // Don't fail the auth flow if enrichment fails
-          }
-        }
 
         // Redirect to dashboard on successful authentication
         return NextResponse.redirect(new URL(next, baseUrl));
@@ -157,25 +78,12 @@ export async function GET(request: NextRequest) {
         );
       }
     } catch (err) {
-      console.error("Unexpected error in auth callback:", err);
+      console.error("Unexpected error in magic link callback:", err);
       return NextResponse.redirect(
         new URL("/auth?error=auth_failed", request.url)
       );
     }
   }
-
-  // If there's no code and no token, this might be:
-  // 1. User manually navigated to /auth/callback
-  // 2. Old/expired magic link (Supabase verify failed but redirected anyway)
-  // 3. Redirect URL mismatch
-  // 4. Token was already used
-  // 5. Supabase verify endpoint failed silently
-  // console.warn("Auth callback called without code or token parameter");
-  // console.warn("This usually means:");
-  // console.warn("  - The magic link expired (5 minute limit)");
-  // console.warn("  - The token was already used");
-  // console.warn("  - Supabase verify endpoint failed before redirecting");
-  // console.warn("  - Redirect URL mismatch in Supabase config");
   
   // Check if we have any error indicators
   if (errorCode || errorParam) {
