@@ -11,6 +11,7 @@ import { storeLinkedInSub, markLinkedInSubAsUsed } from "@/lib/utils/linkedin-su
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
+  const isLinking = requestUrl.searchParams.get("link") === "true";
   const next = requestUrl.searchParams.get("next") || "/dashboard";
   const errorParam = requestUrl.searchParams.get("error");
   const errorDescription = requestUrl.searchParams.get("error_description");
@@ -32,10 +33,35 @@ export async function GET(request: NextRequest) {
   if (code) {
     try {
       const supabase = await createServerClient();
+      
+      // If this is a linking flow, verify user is already authenticated
+      if (isLinking) {
+        const {
+          data: { user: existingUser },
+        } = await supabase.auth.getUser();
+        
+        if (!existingUser) {
+          // User not authenticated, redirect to auth
+          return NextResponse.redirect(
+            new URL("/auth?error=auth_required&details=Please sign in first to link your LinkedIn account", request.url)
+          );
+        }
+      }
+
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
       
       if (error) {
         console.error("Error exchanging LinkedIn OAuth code for session:", error.message, error);
+        
+        // Handle specific linking errors
+        if (isLinking) {
+          if (error.message?.includes("already linked") || error.message?.includes("identity already exists")) {
+            return NextResponse.redirect(
+              new URL("/dashboard?error=linkedin_already_linked&details=LinkedIn is already linked to another account", request.url)
+            );
+          }
+        }
+        
         return NextResponse.redirect(
           new URL(`/auth?error=auth_failed&details=${encodeURIComponent(error.message)}`, request.url)
         );
@@ -49,13 +75,13 @@ export async function GET(request: NextRequest) {
           ? `${protocol}://${forwardedHost}`
           : request.url.split("/auth")[0];
 
-        // Check if this is a LinkedIn OAuth login (should always be true for this route)
+        // Check if this is a LinkedIn OAuth login/link (should always be true for this route)
         const linkedinIdentity = user.identities?.find(
           (identity: any) => identity.provider === "linkedin_oidc"
         );
 
         if (linkedinIdentity) {
-          // This is a LinkedIn OAuth login
+          // This is a LinkedIn OAuth login or link
           // Get LinkedIn OIDC data from user_metadata
           const profileBootstrapData = {
             ...user.user_metadata,
@@ -71,6 +97,13 @@ export async function GET(request: NextRequest) {
             const sub = profileBootstrapData.sub || linkedinIdentity.id;
             if (sub) {
               await storeLinkedInSub(sub);
+            }
+
+            // If linking, redirect to dashboard with error
+            if (isLinking) {
+              return NextResponse.redirect(
+                new URL("/dashboard?error=linkedin_no_email&details=LinkedIn account does not have a verified email", request.url)
+              );
             }
 
             return NextResponse.redirect(
@@ -104,8 +137,12 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Redirect to dashboard on successful authentication
-        return NextResponse.redirect(new URL(next, baseUrl));
+        // Redirect to dashboard on successful authentication/linking
+        // If linking, show success message
+        const redirectUrl = isLinking 
+          ? new URL("/dashboard?linked=success", baseUrl)
+          : new URL(next, baseUrl);
+        return NextResponse.redirect(redirectUrl);
       } else {
         console.error("No session returned after LinkedIn OAuth code exchange");
         return NextResponse.redirect(

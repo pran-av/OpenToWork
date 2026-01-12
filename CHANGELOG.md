@@ -1,6 +1,11 @@
 # CHANGELOG
 
-## v1.5.0 (Current)
+## v1.6.0 (Current)
+
+- Linkedin OAuth Integration
+- Profile Enrichment based on Linkedin Data
+
+## v1.5.0
 (Jan 01, 2026 - Jan 09, 2026)
 > Phase 3 in progress: mvp is ready to contest PMF in the market
 
