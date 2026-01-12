@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { enrichProfileFromLinkedIn } from "@/lib/utils/enrich-profile";
+import { storeLinkedInSub, markLinkedInSubAsUsed } from "@/lib/utils/linkedin-sub-cookie";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -83,12 +85,69 @@ export async function GET(request: NextRequest) {
       }
 
       if (data.session) {
-        // console.log("Session created successfully for user:", data.session.user.id);
+        const user = data.session.user;
         const forwardedHost = request.headers.get("x-forwarded-host");
         const protocol = request.headers.get("x-forwarded-proto") || "http";
         const baseUrl = forwardedHost
           ? `${protocol}://${forwardedHost}`
           : request.url.split("/auth")[0];
+
+        // Check if this is a LinkedIn OAuth login
+        const linkedinIdentity = user.identities?.find(
+          (identity: any) => identity.provider === "linkedin"
+        );
+
+        if (linkedinIdentity) {
+          // This is a LinkedIn OAuth login
+          // Get LinkedIn OIDC data from user_metadata or app_metadata
+          const profileBootstrapData = {
+            ...user.user_metadata,
+          };
+
+          // Check if email is verified
+          const email = profileBootstrapData.email || user.email;
+          const emailVerified = profileBootstrapData.email_verified !== false && email; // Default to true if not explicitly false
+
+          if (!email || !emailVerified) {
+            // LinkedIn didn't provide verified email
+            // Store sub temporarily for later linking
+            const sub = profileBootstrapData.sub || linkedinIdentity.id;
+            if (sub) {
+              await storeLinkedInSub(sub);
+            }
+
+            // Note: Supabase may have already created the user, but we'll handle this in the UI
+            return NextResponse.redirect(
+              new URL(
+                `/auth?error=linkedin_no_email&details=${encodeURIComponent(
+                  "Your LinkedIn account did not provide a verified email. Please sign up using magic link."
+                )}`,
+                request.url
+              )
+            );
+          }
+
+          // Email is verified - enrich profile and proceed
+          try {
+            await enrichProfileFromLinkedIn(user.id, {
+              sub: profileBootstrapData.sub || linkedinIdentity.id,
+              email: email,
+              email_verified: emailVerified,
+              name: profileBootstrapData.name,
+              given_name: profileBootstrapData.given_name,
+              family_name: profileBootstrapData.family_name,
+              picture: profileBootstrapData.picture,
+              locale: profileBootstrapData.locale,
+            });
+
+            // Mark any pending sub as used (if it exists)
+            await markLinkedInSubAsUsed();
+          } catch (enrichError) {
+            console.error("Error enriching profile from LinkedIn:", enrichError);
+            // Don't fail the auth flow if enrichment fails
+          }
+        }
+
         // Redirect to dashboard on successful authentication
         return NextResponse.redirect(new URL(next, baseUrl));
       } else {

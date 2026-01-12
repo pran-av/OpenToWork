@@ -1,7 +1,7 @@
 # CHANGELOG
 
 ## v1.5.0 (Current)
-(Jan 01, 2026 - Jan 08, 2026)
+(Jan 01, 2026 - Jan 09, 2026)
 > Phase 3 in progress: mvp is ready to contest PMF in the market
 
 - Footer copyright year update to 2026
