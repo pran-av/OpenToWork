@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 interface LinkIdentityDialogProps {
   onDismiss: () => void;
@@ -10,13 +11,16 @@ interface LinkIdentityDialogProps {
 
 /**
  * Dialog strip component for linking LinkedIn identity
- * Shows below Studio Header with 15 minute countdown timer
+ * Shows below Studio Header with 5 minute countdown timer
+ * Uses Supabase linkIdentity() for manual identity linking
  */
 export default function LinkIdentityDialog({
   onDismiss,
   onLink,
 }: LinkIdentityDialogProps) {
   const [timeRemaining, setTimeRemaining] = useState(5 * 60); // 5 minutes in seconds
+  const [isLinking, setIsLinking] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -45,16 +49,55 @@ export default function LinkIdentityDialog({
   };
 
   const handleLink = async () => {
+    setIsLinking(true);
     onLink();
-    // Redirect to link identity API route
-    window.location.href = "/api/auth/link-identity";
+
+    try {
+      // console.log("[LinkIdentity] Calling server-side linkIdentity() API...");
+      
+      // Call server-side API route that runs linkIdentity() with HttpOnly cookies
+      const response = await fetch("/api/auth/link-identity", {
+        method: "GET",
+        credentials: "include", // Include HttpOnly cookies
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || "Failed to connect LinkedIn";
+        // console.error("[LinkIdentity] Server API error:", errorMessage);
+        setIsLinking(false);
+        setToast({ message: errorMessage, type: "error" });
+        // Auto-dismiss toast after 5 seconds
+        setTimeout(() => setToast(null), 5000);
+        return;
+      }
+
+      const data = await response.json();
+      
+      if (!data.url) {
+        // console.error("[LinkIdentity] No OAuth URL returned from server");
+        setIsLinking(false);
+        setToast({ message: "Failed to initiate LinkedIn connection. Please try again.", type: "error" });
+        setTimeout(() => setToast(null), 5000);
+        return;
+      }
+
+      // console.log("[LinkIdentity] ✅ Success! Redirecting to LinkedIn OAuth URL:", data.url);
+      // Redirect to LinkedIn OAuth URL returned from server
+      window.location.href = data.url;
+    } catch (error) {
+      // console.error("[LinkIdentity] Unexpected error:", error);
+      setIsLinking(false);
+      setToast({ message: "An unexpected error occurred. Please try again.", type: "error" });
+      setTimeout(() => setToast(null), 5000);
+    }
   };
 
   return (
     <div className="border-b border-orange-200 bg-orange-50/50 dark:border-orange-900/30 dark:bg-zinc-900/50">
       <div className="container mx-auto flex items-center justify-between gap-4 px-4 py-3">
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="flex-shrink-0">
+          <div className="shrink-0">
             <svg
               className="h-5 w-5 text-orange-600 dark:text-orange-400"
               fill="currentColor"
@@ -70,15 +113,26 @@ export default function LinkIdentityDialog({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="flex items-center gap-3 shrink-0">
           <div className="text-xs font-mono text-gray-600 dark:text-zinc-400">
             {formatTime(timeRemaining)}
           </div>
           <button
             onClick={handleLink}
-            className="rounded-md bg-[#0077b5] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#006399] focus:outline-none focus:ring-2 focus:ring-[#0077b5] focus:ring-offset-2"
+            disabled={isLinking}
+            className="rounded-md bg-[#0077b5] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#006399] focus:outline-none focus:ring-2 focus:ring-[#0077b5] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2"
           >
-            Connect LinkedIn
+            {isLinking ? (
+              <>
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Redirecting...</span>
+              </>
+            ) : (
+              "Connect LinkedIn"
+            )}
           </button>
           <button
             onClick={onDismiss}
@@ -103,6 +157,29 @@ export default function LinkIdentityDialog({
           </button>
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          className={`fixed top-4 right-4 z-50 rounded-lg px-6 py-4 shadow-lg transition-all ${
+            toast.type === "success"
+              ? "bg-green-500 text-white"
+              : "bg-red-500 text-white"
+          }`}
+          role="alert"
+        >
+          <div className="flex items-center gap-2">
+            <span>{toast.message}</span>
+            <button
+              onClick={() => setToast(null)}
+              className="ml-2 text-white hover:text-gray-200 transition-colors"
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

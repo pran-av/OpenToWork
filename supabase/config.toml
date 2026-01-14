@@ -147,7 +147,7 @@ enabled = true
 # in emails.
 site_url = "http://localhost:3000/auth/callback"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["http://localhost:3000/auth/callback"]
+additional_redirect_urls = ["http://localhost:3000/auth/callback", "http://localhost:3000/auth/v1/callback"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to the local API URL (http://127.0.0.1:<port>/auth/v1).
@@ -302,7 +302,7 @@ client_id = "env(LINKEDIN_CLIENT_ID)"
 # DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
 secret = "env(LINKEDIN_CLIENT_SECRET)"
 # Overrides the default auth redirectUrl.
-redirect_uri = "http://127.0.0.1:54321/auth/v1/callback"
+redirect_uri = "http://localhost:54321/auth/v1/callback"
 # Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
 # or any other third-party OIDC providers.
 url = ""

@@ -163,4 +163,49 @@ Store prvider response as jsonb in `public.provider_profiles` table
 1. (To be done manually) Update the Privacy Policy for Linkedin Oauth and link new policy in the webpages
 
 
+### Resources
 
+**Troubleshooting linkIdentity() issues**
+
+Supabase code for linkIdentity method. The linkIdentity is not able to fetch the JWT by itself and hence verify the authenticated user. On manual trial errors we understand that getUser() needs to be specifically passed with JWT as a param to be able to identify the sub.
+
+If the following code fetches JWT in headers we can explore if we can pass it via headers while running this method. Or identify if any other intel we receive from this code.
+
+```
+private async linkIdentityOAuth(credentials: SignInWithOAuthCredentials): Promise<OAuthResponse> {
+    try {
+      const { data, error } = await this._useSession(async (result) => {
+        const { data, error } = result
+        if (error) throw error
+        const url: string = await this._getUrlForProvider(
+          `${this.url}/user/identities/authorize`,
+          credentials.provider,
+          {
+            redirectTo: credentials.options?.redirectTo,
+            scopes: credentials.options?.scopes,
+            queryParams: credentials.options?.queryParams,
+            skipBrowserRedirect: true,
+          }
+        )
+        return await _request(this.fetch, 'GET', url, {
+          headers: this.headers,
+          jwt: data.session?.access_token ?? undefined,
+        })
+      })
+      if (error) throw error
+      if (isBrowser() && !credentials.options?.skipBrowserRedirect) {
+        window.location.assign(data?.url)
+      }
+      return this._returnResult({
+        data: { provider: credentials.provider, url: data?.url },
+        error: null,
+      })
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: { provider: credentials.provider, url: null }, error })
+      }
+      throw error
+    }
+  }
+
+```

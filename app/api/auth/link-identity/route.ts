@@ -3,12 +3,18 @@ import { createServerClient } from "@/lib/supabase/server";
 import { getLinkedInSub } from "@/lib/utils/linkedin-sub-cookie";
 
 /**
- * API route to initiate manual LinkedIn identity linking
- * Uses Supabase linkIdentity() to link LinkedIn OAuth to existing account
+ * API route to initiate manual LinkedIn identity linking using linkIdentity()
+ * 
+ * This route runs linkIdentity() on the server side where we can read HttpOnly cookies.
+ * It returns the OAuth URL to the client, which then redirects to LinkedIn.
+ * 
+ * The actual linking is handled in /auth/v1/callback when link=true is present.
  */
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    
+    // Verify user is authenticated (can read HttpOnly cookies on server)
     const {
       data: { user },
       error: userError,
@@ -36,39 +42,79 @@ export async function GET(request: NextRequest) {
     const origin = request.nextUrl.origin;
     const redirectTo = `${origin}/auth/v1/callback?link=true`;
 
-    // Check if there's a stored LinkedIn sub from previous failed OAuth (no verified email case)
-    const storedSub = await getLinkedInSub();
+    // Get session to ensure we have a valid JWT
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session || !session.access_token) {
+      console.error("Error getting session for linkIdentity:", sessionError);
+      return NextResponse.json(
+        { error: "Session not found or invalid" },
+        { status: 401 }
+      );
+    }
 
-    // Initiate LinkedIn OAuth for identity linking
-    // Note: linkIdentity() may not be available in server client, so we use signInWithOAuth
-    // and handle the linking in the callback by checking if user is already authenticated
-    // Supabase will automatically link if the user is already logged in
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "linkedin_oidc",
-      options: {
-        redirectTo: redirectTo,
-        // This will link the identity if user is already authenticated
-        // Supabase handles this automatically when user is already logged in
-      },
+    console.log("[LinkIdentity Server] Session found, calling linkIdentity() with JWT:", {
+      userId: user.id,
+      hasAccessToken: !!session.access_token,
     });
 
-    if (error) {
-      console.error("Error initiating LinkedIn identity linking:", error);
-      return NextResponse.json(
-        { error: error.message || "Failed to initiate LinkedIn linking" },
-        { status: 400 }
-      );
-    }
+    // Try to use linkIdentity() on server side
+    // Note: linkIdentity() may not be available in server clients, but we'll try
+    // If it fails, we'll fall back to signInWithOAuth()
+    try {
+      // @ts-ignore - linkIdentity() might not be in server client types but may work at runtime
+      const { data, error } = await supabase.auth.linkIdentity({
+        provider: "linkedin_oidc",
+        options: {
+          redirectTo: redirectTo,
+        },
+      });
 
-    if (!data.url) {
-      return NextResponse.json(
-        { error: "No OAuth URL returned" },
-        { status: 500 }
-      );
-    }
+      if (error) {
+        console.error("[LinkIdentity Server] linkIdentity() error:", error);
+        // Fall back to signInWithOAuth if linkIdentity() fails
+        throw error;
+      }
 
-    // Redirect to LinkedIn OAuth URL for linking
-    return NextResponse.redirect(data.url);
+      if (!data?.url) {
+        return NextResponse.json(
+          { error: "No OAuth URL returned from linkIdentity()" },
+          { status: 500 }
+        );
+      }
+
+      console.log("[LinkIdentity Server] ✅ linkIdentity() succeeded, returning URL");
+      // Return URL as JSON so client can redirect
+      return NextResponse.json({ url: data.url });
+    } catch (linkIdentityError: any) {
+      // Fallback: use signInWithOAuth() if linkIdentity() is not available
+      console.log("[LinkIdentity Server] linkIdentity() not available, falling back to signInWithOAuth()");
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "linkedin_oidc",
+        options: {
+          redirectTo: redirectTo,
+        },
+      });
+
+      if (error) {
+        console.error("Error initiating LinkedIn identity linking:", error);
+        return NextResponse.json(
+          { error: error.message || "Failed to initiate LinkedIn linking" },
+          { status: 400 }
+        );
+      }
+
+      if (!data.url) {
+        return NextResponse.json(
+          { error: "No OAuth URL returned" },
+          { status: 500 }
+        );
+      }
+
+      // Return URL as JSON so client can redirect
+      return NextResponse.json({ url: data.url });
+    }
   } catch (error) {
     console.error("Error in link identity route:", error);
     return NextResponse.json(

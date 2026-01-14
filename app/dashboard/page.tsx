@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { ProjectData } from "@/lib/db/projects";
 import {
@@ -20,11 +20,49 @@ export default function DashboardPage() {
   const [projectName, setProjectName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  const getErrorMessage = (errorCode: string): string => {
+    const errorMessages: Record<string, string> = {
+      linkedin_already_linked: "LinkedIn is already linked to another account",
+      linkedin_no_email: "LinkedIn account does not have a verified email",
+      auth_required: "Please sign in first to link your LinkedIn account",
+      auth_failed: "Authentication failed. Please try again.",
+      linkedin_auth_failed: "LinkedIn authentication failed. Please try again.",
+    };
+    return errorMessages[errorCode] || "An error occurred. Please try again.";
+  };
+
+  // Handle toast messages from URL parameters (e.g., ?linked=success or ?error=...)
+  useEffect(() => {
+    const linked = searchParams.get("linked");
+    const errorParam = searchParams.get("error");
+    const errorDetails = searchParams.get("details");
+
+    if (linked === "success") {
+      setToast({ message: "LinkedIn account connected successfully!", type: "success" });
+      // Clean URL
+      router.replace("/dashboard", { scroll: false });
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => setToast(null), 5000);
+    } else if (errorParam) {
+      // Decode error details if present, otherwise use error code mapping
+      const errorMessage = errorDetails 
+        ? decodeURIComponent(errorDetails) 
+        : getErrorMessage(errorParam);
+      setToast({ message: errorMessage, type: "error" });
+      // Clean URL
+      router.replace("/dashboard", { scroll: false });
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => setToast(null), 5000);
+    }
+  }, [searchParams, router]);
 
   const fetchProjects = async () => {
     try {
@@ -243,6 +281,29 @@ export default function DashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          className={`fixed top-4 right-4 z-50 rounded-lg px-6 py-4 shadow-lg transition-all ${
+            toast.type === "success"
+              ? "bg-green-500 text-white"
+              : "bg-red-500 text-white"
+          }`}
+          role="alert"
+        >
+          <div className="flex items-center gap-2">
+            <span>{toast.message}</span>
+            <button
+              onClick={() => setToast(null)}
+              className="ml-2 text-white hover:text-gray-200 transition-colors"
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

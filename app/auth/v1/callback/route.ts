@@ -57,9 +57,13 @@ export async function GET(request: NextRequest) {
         if (isLinking) {
           if (error.message?.includes("already linked") || error.message?.includes("identity already exists")) {
             return NextResponse.redirect(
-              new URL("/dashboard?error=linkedin_already_linked&details=LinkedIn is already linked to another account", request.url)
+              new URL("/dashboard?error=linkedin_already_linked&details=" + encodeURIComponent("LinkedIn is already linked to another account"), request.url)
             );
           }
+          // For other linking errors, redirect to dashboard with error
+          return NextResponse.redirect(
+            new URL(`/dashboard?error=auth_failed&details=${encodeURIComponent(error.message || "Failed to link LinkedIn account")}`, request.url)
+          );
         }
         
         return NextResponse.redirect(
@@ -102,7 +106,7 @@ export async function GET(request: NextRequest) {
             // If linking, redirect to dashboard with error
             if (isLinking) {
               return NextResponse.redirect(
-                new URL("/dashboard?error=linkedin_no_email&details=LinkedIn account does not have a verified email", request.url)
+                new URL("/dashboard?error=linkedin_no_email&details=" + encodeURIComponent("LinkedIn account does not have a verified email"), request.url)
               );
             }
 
