@@ -1,9 +1,23 @@
 # CHANGELOG
 
 ## v1.6.0 (Current)
+(Jan 10,2026 - Jan 15, 2026)
 
 - Linkedin OAuth Integration
-- Profile Enrichment based on Linkedin Data
+- Profile Page: User can update name manually and save or connect Linkedin via Profile Page
+- Profile Enrichment based on Linkedin Data when name or profile pic is empty
+- Link LinkedIn to Magic Link Accounts via Dialog Strip or Profile Page CTA
+- Fallback to Magic Link Auth when LI does fails due to no verified email
+- Encryption for Linkedin Sub Storage as cookie for post Magic Link auth linking
+- Header displays Profile Image if LI Connected
+- Header Dropdown for Profile Page Nav or Logout
+
+### Fixes:
+- Repositioned Back Navigation
+- Link Identity methods runs from server side to retrieve user cliams without failure
+- P0: View Public Campaign Flows as an Authenticated User without generating a new identity when Social Login is present (Pending)
+- P1: Back Navigation Strip hides the Header Dropdown (Pending)
+- P2: On Click Link Linkedin via Dialog CTA - no loader is displayed (Pending)
 
 ## v1.5.0
 (Jan 01, 2026 - Jan 09, 2026)
