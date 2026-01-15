@@ -46,17 +46,13 @@ export async function GET(request: NextRequest) {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
     if (sessionError || !session || !session.access_token) {
-      console.error("Error getting session for linkIdentity:", sessionError);
+      // console.error("Error getting session for linkIdentity:", sessionError);
       return NextResponse.json(
         { error: "Session not found or invalid" },
         { status: 401 }
       );
     }
 
-    console.log("[LinkIdentity Server] Session found, calling linkIdentity() with JWT:", {
-      userId: user.id,
-      hasAccessToken: !!session.access_token,
-    });
 
     // Try to use linkIdentity() on server side
     // Note: linkIdentity() may not be available in server clients, but we'll try
@@ -83,12 +79,12 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      console.log("[LinkIdentity Server] ✅ linkIdentity() succeeded, returning URL");
+      // console.log("[LinkIdentity Server] ✅ linkIdentity() succeeded, returning URL");
       // Return URL as JSON so client can redirect
       return NextResponse.json({ url: data.url });
     } catch (linkIdentityError: any) {
       // Fallback: use signInWithOAuth() if linkIdentity() is not available
-      console.log("[LinkIdentity Server] linkIdentity() not available, falling back to signInWithOAuth()");
+      // console.log("[LinkIdentity Server] linkIdentity() not available, falling back to signInWithOAuth()");
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "linkedin_oidc",
