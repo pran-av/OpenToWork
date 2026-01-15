@@ -5,7 +5,7 @@
  */
 
 import { cookies } from "next/headers";
-import { getCookieOptionsForName } from "./cookies";
+import { createCipheriv, createDecipheriv, randomBytes, createHash } from "crypto";
 
 const LINKEDIN_SUB_COOKIE_NAME = "linkedin_pending_sub";
 const COOKIE_TTL_SECONDS = 15 * 60; // 15 minutes
@@ -19,10 +19,82 @@ interface LinkedInSubData {
 }
 
 /**
+ * Get encryption key from environment variable
+ * In production, this should be set as an environment variable
+ * Falls back to a default key in development (not secure, but acceptable for dev)
+ * Uses SHA-256 hash to ensure key is always 32 bytes for AES-256
+ */
+function getEncryptionKey(): Buffer {
+  const key = process.env.LINKEDIN_SUB_ENCRYPTION_KEY;
+  
+  if (!key) {
+    if (process.env.NODE_ENV === "production" || process.env.ENVIRONMENT === "production") {
+      throw new Error("LINKEDIN_SUB_ENCRYPTION_KEY environment variable is required in production");
+    }
+    // Development fallback - hash to ensure 32 bytes
+    return createHash("sha256")
+      .update("dev-key-default-for-linkedin-sub-cookie-encryption")
+      .digest();
+  }
+  
+  // Hash the key to ensure it's exactly 32 bytes for AES-256
+  // This allows any length key to be used
+  return createHash("sha256").update(key).digest();
+}
+
+/**
+ * Encrypt data using AES-256-CBC
+ */
+function encrypt(data: string): string {
+  const key = getEncryptionKey();
+  const iv = randomBytes(16); // Initialization vector
+  const cipher = createCipheriv("aes-256-cbc", key, iv);
+  
+  let encrypted = cipher.update(data, "utf-8", "hex");
+  encrypted += cipher.final("hex");
+  
+  // Prepend IV to encrypted data (IV doesn't need to be secret)
+  return iv.toString("hex") + ":" + encrypted;
+}
+
+/**
+ * Decrypt data using AES-256-CBC
+ */
+function decrypt(encryptedData: string): string {
+  const key = getEncryptionKey();
+  const [ivHex, encrypted] = encryptedData.split(":");
+  
+  if (!ivHex || !encrypted) {
+    throw new Error("Invalid encrypted data format");
+  }
+  
+  const iv = Buffer.from(ivHex, "hex");
+  const decipher = createDecipheriv("aes-256-cbc", key, iv);
+  
+  let decrypted = decipher.update(encrypted, "hex", "utf-8");
+  decrypted += decipher.final("utf-8");
+  
+  return decrypted;
+}
+
+/**
+ * Get cookie options for LinkedIn sub cookie
+ * Uses Lax sameSite to allow redirects from LinkedIn OAuth
+ */
+function getLinkedInSubCookieOptions() {
+  const isProduction = process.env.ENVIRONMENT === "production" || process.env.NODE_ENV === "production";
+  
+  return {
+    httpOnly: true, // Always HttpOnly for security
+    secure: isProduction, // Secure only in production (HTTPS required)
+    sameSite: "lax" as const, // Lax to allow redirects from LinkedIn
+    path: "/",
+  };
+}
+
+/**
  * Store LinkedIn sub in encrypted cookie
- * Note: In a production environment, you'd want to use proper encryption
- * For now, we'll use base64 encoding (not secure, but works for dev)
- * TODO: Implement proper encryption using crypto or a library like jose
+ * Uses AES-256-CBC encryption for production security
  */
 export async function storeLinkedInSub(sub: string): Promise<void> {
   const cookieStore = await cookies();
@@ -36,11 +108,11 @@ export async function storeLinkedInSub(sub: string): Promise<void> {
     used: false,
   };
 
-  // Base64 encode (in production, use proper encryption)
-  const encoded = Buffer.from(JSON.stringify(data)).toString("base64");
+  // Encrypt the data
+  const encrypted = encrypt(JSON.stringify(data));
   
-  const cookieOptions = getCookieOptionsForName(LINKEDIN_SUB_COOKIE_NAME);
-  cookieStore.set(LINKEDIN_SUB_COOKIE_NAME, encoded, {
+  const cookieOptions = getLinkedInSubCookieOptions();
+  cookieStore.set(LINKEDIN_SUB_COOKIE_NAME, encrypted, {
     ...cookieOptions,
     maxAge: COOKIE_TTL_SECONDS,
   });
@@ -59,9 +131,9 @@ export async function getLinkedInSub(): Promise<string | null> {
   }
 
   try {
-    // Decode from base64
-    const decoded = Buffer.from(cookie.value, "base64").toString("utf-8");
-    const data: LinkedInSubData = JSON.parse(decoded);
+    // Decrypt the data
+    const decrypted = decrypt(cookie.value);
+    const data: LinkedInSubData = JSON.parse(decrypted);
 
     // Check if expired
     if (Date.now() > data.expires_at) {
