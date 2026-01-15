@@ -19,7 +19,6 @@ export async function GET(request: NextRequest) {
 
   // If LinkedIn returns an error in the callback
   if (errorParam) {
-    console.error("LinkedIn OAuth callback error:", errorParam, errorDescription);
     let errorMessage = "LinkedIn authentication failed";
     if (errorDescription) {
       errorMessage = errorDescription;
@@ -51,8 +50,6 @@ export async function GET(request: NextRequest) {
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
       
       if (error) {
-        console.error("Error exchanging LinkedIn OAuth code for session:", error.message, error);
-        
         // Handle specific linking errors
         if (isLinking) {
           if (error.message?.includes("already linked") || error.message?.includes("identity already exists")) {
@@ -88,7 +85,7 @@ export async function GET(request: NextRequest) {
           // This is a LinkedIn OAuth login or link
           // Get LinkedIn OIDC data from user_metadata
           const profileBootstrapData = {
-            ...user.user_metadata,
+            ...(user.user_metadata || {}),
           };
 
           // Check if email is verified
@@ -122,7 +119,7 @@ export async function GET(request: NextRequest) {
 
           // Email is verified - enrich profile and proceed
           try {
-            await enrichProfileFromLinkedIn(user.id, {
+            const linkedinProfileData = {
               sub: profileBootstrapData.sub || linkedinIdentity.id,
               email: email,
               email_verified: emailVerified,
@@ -131,30 +128,39 @@ export async function GET(request: NextRequest) {
               family_name: profileBootstrapData.family_name,
               picture: profileBootstrapData.picture,
               locale: profileBootstrapData.locale,
-            });
+            };
+
+            await enrichProfileFromLinkedIn(user.id, linkedinProfileData);
 
             // Mark any pending sub as used (if it exists)
             await markLinkedInSubAsUsed();
           } catch (enrichError) {
-            console.error("Error enriching profile from LinkedIn:", enrichError);
             // Don't fail the auth flow if enrichment fails
           }
         }
 
+        // Validate and sanitize redirect URL to prevent open redirects
+        let redirectPath = "/dashboard";
+        if (isLinking) {
+          redirectPath = "/dashboard?linked=success";
+        } else if (next) {
+          // Only allow relative paths (starting with /) to prevent open redirects
+          const nextPath = next.startsWith("/") ? next : "/dashboard";
+          // Additional validation: ensure it's a valid path (no protocol, no host)
+          if (!nextPath.includes("://") && !nextPath.includes("//")) {
+            redirectPath = nextPath;
+          }
+        }
+
         // Redirect to dashboard on successful authentication/linking
-        // If linking, show success message
-        const redirectUrl = isLinking 
-          ? new URL("/dashboard?linked=success", baseUrl)
-          : new URL(next, baseUrl);
+        const redirectUrl = new URL(redirectPath, baseUrl);
         return NextResponse.redirect(redirectUrl);
       } else {
-        console.error("No session returned after LinkedIn OAuth code exchange");
         return NextResponse.redirect(
           new URL("/auth?error=auth_failed&details=No session created", request.url)
         );
       }
     } catch (err) {
-      console.error("Unexpected error in LinkedIn OAuth callback:", err);
       return NextResponse.redirect(
         new URL("/auth?error=auth_failed", request.url)
       );
@@ -162,10 +168,6 @@ export async function GET(request: NextRequest) {
   }
   
   // If there's no code, redirect to auth page with error
-  if (errorCode || errorParam) {
-    console.error("LinkedIn OAuth error detected:", { errorCode, errorParam, errorDescription });
-  }
-  
   return NextResponse.redirect(
     new URL(
       "/auth?error=linkedin_auth_failed&details=No authorization code received from LinkedIn. Please try again.",

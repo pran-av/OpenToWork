@@ -105,6 +105,7 @@ export default function DashboardHeader() {
               src="/pitchlikethis-logo.svg"
               alt="Pitch Like This"
               fill
+              sizes="32px"
               className="object-contain object-left"
               priority
             />
@@ -176,6 +177,7 @@ export default function DashboardHeader() {
                       src={profile.avatar_url}
                       alt="Profile"
                       fill
+                      sizes="32px"
                       className="object-cover"
                     />
                   </div>

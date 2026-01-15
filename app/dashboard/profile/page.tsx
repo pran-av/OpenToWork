@@ -191,6 +191,7 @@ export default function ProfilePage() {
                 src={profile.avatar_url}
                 alt="Profile"
                 fill
+                sizes="128px"
                 className="object-cover"
               />
             </div>

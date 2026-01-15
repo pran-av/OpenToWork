@@ -22,6 +22,9 @@ interface LinkedInOIDCResponse {
 /**
  * Enrich user profile from LinkedIn OIDC data
  * Only updates fields that are currently empty/null (doesn't overwrite existing data)
+ * 
+ * Note: Waits for the handle_new_auth_user() trigger to create the public.users record
+ * if it doesn't exist yet (race condition fix for production)
  */
 export async function enrichProfileFromLinkedIn(
   userId: string,
@@ -29,15 +32,47 @@ export async function enrichProfileFromLinkedIn(
 ): Promise<void> {
   const supabase = await createServerClient();
 
-  // Get current user data
-  const { data: currentUser, error: fetchError } = await supabase
-    .from("users")
-    .select("*")
-    .eq("user_id", userId)
-    .single();
+  // Wait for user record to exist (handle race condition with handle_new_auth_user trigger)
+  // The trigger runs AFTER INSERT on auth.users, so we may need to retry
+  // For low-tier throttling, we need more retries and longer delays
+  let currentUser = null;
+  let fetchError = null;
+  const maxRetries = 15; // Increased for low-tier throttling
+  const initialDelay = 500; // Initial delay to give trigger time to start
+  const baseRetryDelay = 300; // Base delay between retries
+
+  // Initial delay before first attempt (gives trigger time to start)
+  await new Promise(resolve => setTimeout(resolve, initialDelay));
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+
+    if (data && !error) {
+      currentUser = data;
+      fetchError = null;
+      break;
+    }
+
+    fetchError = error;
+    
+    // If it's not a "not found" error, don't retry
+    if (error?.code !== "PGRST116" && error?.message !== "JSON object requested, multiple (or no) rows returned") {
+      break;
+    }
+
+    // Wait before retrying (exponential backoff with longer intervals for low-tier throttling)
+    if (attempt < maxRetries - 1) {
+      // Exponential backoff: 300ms, 600ms, 900ms, 1200ms, etc. (capped at 2000ms)
+      const delay = Math.min(baseRetryDelay * (attempt + 1), 2000);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
 
   if (fetchError || !currentUser) {
-    console.error("Error fetching user for profile enrichment:", fetchError);
     return;
   }
 
@@ -114,7 +149,6 @@ export async function enrichProfileFromLinkedIn(
       .eq("user_id", userId);
 
     if (updateError) {
-      console.error("Error updating user profile:", updateError);
       return;
     }
 
@@ -130,7 +164,6 @@ export async function enrichProfileFromLinkedIn(
         .insert(metaInserts);
 
       if (metaError) {
-        console.error("Error inserting identity meta:", metaError);
         // Don't fail the whole operation if meta insert fails
       }
     }
@@ -150,7 +183,6 @@ export async function enrichProfileFromLinkedIn(
       });
 
     if (providerError) {
-      console.error("Error storing provider profile:", providerError);
       // Don't fail the whole operation if provider profile insert fails
     }
   }
