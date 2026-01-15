@@ -25,12 +25,17 @@ interface LinkedInOIDCResponse {
  * 
  * Note: Waits for the handle_new_auth_user() trigger to create the public.users record
  * if it doesn't exist yet (race condition fix for production)
+ * 
+ * @param userId - The user ID from auth.users
+ * @param linkedinData - LinkedIn OIDC response data
+ * @param supabaseClient - Optional Supabase client instance (if provided, uses this instead of creating new one)
  */
 export async function enrichProfileFromLinkedIn(
   userId: string,
-  linkedinData: LinkedInOIDCResponse
+  linkedinData: LinkedInOIDCResponse,
+  supabaseClient?: Awaited<ReturnType<typeof createServerClient>>
 ): Promise<void> {
-  const supabase = await createServerClient();
+  const supabase = supabaseClient || await createServerClient();
 
   // Wait for user record to exist (handle race condition with handle_new_auth_user trigger)
   // The trigger runs AFTER INSERT on auth.users, so we may need to retry
@@ -143,12 +148,36 @@ export async function enrichProfileFromLinkedIn(
 
   // Update user record if there are changes
   if (Object.keys(updates).length > 0) {
-    const { error: updateError } = await supabase
+    // Verify session is available for RLS before attempting update
+    // This is critical: RLS policies use auth.uid() which requires the JWT to be in the request
+    const { data: { session: verifySession }, error: sessionError } = await supabase.auth.getSession();
+    if (!verifySession || sessionError) {
+      // Session not available - RLS would fail silently (returns 0 rows, not an error)
+      // This can happen if the client doesn't have the session established yet
+      // Using the same client from exchangeCodeForSession should prevent this
+      return;
+    }
+
+    // Verify the session user ID matches (safety check)
+    if (verifySession.user?.id !== userId) {
+      // Session user ID mismatch - this shouldn't happen
+      return;
+    }
+
+    const { data: updateData, error: updateError } = await supabase
       .from("users")
       .update(updates)
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .select(); // Select to verify rows were updated
 
     if (updateError) {
+      return;
+    }
+
+    // Check if any rows were actually updated (RLS might block silently)
+    if (!updateData || updateData.length === 0) {
+      // No rows updated - likely RLS policy blocked the update
+      // This can happen if auth.uid() is not available in the database context
       return;
     }
 
@@ -183,6 +212,17 @@ export async function enrichProfileFromLinkedIn(
       });
 
     if (providerError) {
+      // Log error for debugging (remove before production)
+      if (process.env.NODE_ENV !== "production" && process.env.ENVIRONMENT !== "production") {
+        console.error("Provider profile upsert failed:", {
+          userId,
+          provider: "linkedin_oidc",
+          providerSub: linkedinSub,
+          error: providerError,
+          errorCode: providerError.code,
+          errorMessage: providerError.message,
+        });
+      }
       // Don't fail the whole operation if provider profile insert fails
     }
   }

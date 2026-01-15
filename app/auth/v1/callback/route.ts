@@ -118,6 +118,9 @@ export async function GET(request: NextRequest) {
           }
 
           // Email is verified - enrich profile and proceed
+          // Use the same Supabase client instance that has the session from exchangeCodeForSession
+          // This ensures RLS policies work correctly and session context is available
+          // The session cookies are set by exchangeCodeForSession and available to this client instance
           try {
             const linkedinProfileData = {
               sub: profileBootstrapData.sub || linkedinIdentity.id,
@@ -130,7 +133,9 @@ export async function GET(request: NextRequest) {
               locale: profileBootstrapData.locale,
             };
 
-            await enrichProfileFromLinkedIn(user.id, linkedinProfileData);
+            // Pass the existing Supabase client that has the session context from exchangeCodeForSession
+            // This ensures RLS policies can read auth.uid() correctly
+            await enrichProfileFromLinkedIn(user.id, linkedinProfileData, supabase);
 
             // Mark any pending sub as used (if it exists)
             await markLinkedInSubAsUsed();
