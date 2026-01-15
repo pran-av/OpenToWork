@@ -15,7 +15,7 @@
 ### Fixes:
 - Repositioned Back Navigation
 - Link Identity methods runs from server side to retrieve user cliams without failure
-- P0: View Public Campaign Flows as an Authenticated User without generating a new identity when Social Login is present (Pending)
+- P0: View Public Campaign Flows as an Authenticated User without generating a new identity when Social Login is present
 - P1: Back Navigation Strip hides the Header Dropdown (Pending)
 - P2: On Click Link Linkedin via Dialog CTA - no loader is displayed (Pending)
 

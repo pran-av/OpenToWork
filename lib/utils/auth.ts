@@ -2,9 +2,19 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+interface SessionCheckResponse {
+  hasSession: boolean;
+  isAnonymous: boolean;
+  userId?: string;
+  error?: string;
+}
+
 /**
  * Initialize anonymous authentication for guest users
  * PRD Requirement: Check if permanent user exists first, then check for anonymous user, then sign in anonymously
+ * 
+ * IMPORTANT: This function first checks server-side (can read httpOnly cookies like LinkedIn OAuth segmented cookies)
+ * before checking client-side. This ensures LinkedIn OAuth sessions are properly detected.
  * 
  * @param supabase - Supabase client instance
  * @param context - Context string for logging (e.g., "CampaignFlow", "CallToAction")
@@ -17,7 +27,43 @@ export async function ensureAnonymousAuth(
   try {
     // console.log(`[${context}] Starting auth initialization...`);
     
-    // Step 1: Check existing session (reads from cookies)
+    // Step 1: Check server-side session first (can read httpOnly cookies including segmented cookies like auth-token.0, auth-token.1)
+    // This is critical for LinkedIn OAuth which uses httpOnly segmented cookies that client-side getSession() cannot read
+    try {
+      const serverCheckResponse = await fetch("/api/auth/check-session", {
+        method: "GET",
+        credentials: "include", // Include cookies in request
+      });
+      
+      if (serverCheckResponse.ok) {
+        const serverCheck: SessionCheckResponse = await serverCheckResponse.json();
+        
+        if (serverCheck.hasSession) {
+          // Server found a session (can be permanent or anonymous)
+          // console.log(`[${context}] Server-side session found:`, {
+          //   isAnonymous: serverCheck.isAnonymous,
+          //   userId: serverCheck.userId,
+          // });
+          
+          // If permanent user session exists, skip anonymous sign-in
+          if (!serverCheck.isAnonymous) {
+            // console.log(`[${context}] Permanent user session detected on server - skipping anonymous sign-in`);
+            return true;
+          }
+          
+          // If anonymous session exists, reuse it
+          if (serverCheck.isAnonymous) {
+            // console.log(`[${context}] Anonymous user session already exists on server - reusing session`);
+            return true;
+          }
+        }
+      }
+    } catch (serverCheckError) {
+      // If server check fails, fall back to client-side check
+      // console.warn(`[${context}] Server-side session check failed, falling back to client-side:`, serverCheckError);
+    }
+    
+    // Step 2: Fallback to client-side session check (for Magic Link and other non-httpOnly cookie scenarios)
     const { data: { session: existingSession }, error: sessionError } = await supabase.auth.getSession();
     
     if (sessionError) {
@@ -31,7 +77,7 @@ export async function ensureAnonymousAuth(
         const jwtPayload = JSON.parse(atob(existingSession.access_token.split('.')[1]));
         isAnonymous = jwtPayload.is_anonymous === true;
         
-        // console.log(`[${context}] Existing session found:`, {
+        // console.log(`[${context}] Client-side session found:`, {
         //   user_id: existingSession.user?.id,
         //   email: existingSession.user?.email,
         //   is_anonymous: existingSession.user?.is_anonymous,
@@ -67,8 +113,8 @@ export async function ensureAnonymousAuth(
       }
     }
     
-    // Step 2: PRD Requirement - If cookies for neither guest nor permanent user exist, sign in anonymously
-    // console.log(`[${context}] No valid session found, signing in anonymously...`);
+    // Step 3: PRD Requirement - If cookies for neither guest nor permanent user exist, sign in anonymously
+    // console.log(`[${context}] No valid session found (neither server-side nor client-side), signing in anonymously...`);
     
     // Sign in anonymously (this will set cookies via @supabase/ssr)
     const { data: signInData, error: signInError } = await supabase.auth.signInAnonymously();
