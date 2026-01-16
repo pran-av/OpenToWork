@@ -5,15 +5,9 @@ import { storeLinkedInSub, markLinkedInSubAsUsed } from "@/lib/utils/linkedin-su
 
 /**
  * Get base URL for redirects
- * Uses preview URL in development environment, otherwise uses request origin
+ * Dynamically uses request origin from headers or request URL
  */
 function getBaseUrl(request: NextRequest): string {
-  const isDevelopment = process.env.ENVIRONMENT === "development";
-  
-  if (isDevelopment) {
-    return "https://open-to-work-nzy95uhlt-pranavs-projects-41dbddbc.vercel.app";
-  }
-  
   const forwardedHost = request.headers.get("x-forwarded-host");
   const protocol = request.headers.get("x-forwarded-proto") || "http";
   return forwardedHost
