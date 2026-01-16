@@ -4,6 +4,24 @@ import { enrichProfileFromLinkedIn } from "@/lib/utils/enrich-profile";
 import { storeLinkedInSub, markLinkedInSubAsUsed } from "@/lib/utils/linkedin-sub-cookie";
 
 /**
+ * Get base URL for redirects
+ * Uses preview URL in development environment, otherwise uses request origin
+ */
+function getBaseUrl(request: NextRequest): string {
+  const isDevelopment = process.env.ENVIRONMENT === "development";
+  
+  if (isDevelopment) {
+    return "https://open-to-work-nzy95uhlt-pranavs-projects-41dbddbc.vercel.app";
+  }
+  
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const protocol = request.headers.get("x-forwarded-proto") || "http";
+  return forwardedHost
+    ? `${protocol}://${forwardedHost}`
+    : request.url.split("/auth")[0];
+}
+
+/**
  * Handles LinkedIn OAuth callback at /auth/v1/callback
  * This route is specifically for LinkedIn OAuth (linkedin_oidc provider)
  * Magic link flows continue to use /auth/callback
@@ -23,8 +41,9 @@ export async function GET(request: NextRequest) {
     if (errorDescription) {
       errorMessage = errorDescription;
     }
+    const baseUrl = getBaseUrl(request);
     return NextResponse.redirect(
-      new URL(`/auth?error=linkedin_auth_failed&details=${encodeURIComponent(errorMessage)}`, request.url)
+      new URL(`/auth?error=linkedin_auth_failed&details=${encodeURIComponent(errorMessage)}`, baseUrl)
     );
   }
 
@@ -41,8 +60,9 @@ export async function GET(request: NextRequest) {
         
         if (!existingUser) {
           // User not authenticated, redirect to auth
+          const baseUrl = getBaseUrl(request);
           return NextResponse.redirect(
-            new URL("/auth?error=auth_required&details=Please sign in first to link your LinkedIn account", request.url)
+            new URL("/auth?error=auth_required&details=Please sign in first to link your LinkedIn account", baseUrl)
           );
         }
       }
@@ -50,31 +70,28 @@ export async function GET(request: NextRequest) {
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
       
       if (error) {
+        const baseUrl = getBaseUrl(request);
         // Handle specific linking errors
         if (isLinking) {
           if (error.message?.includes("already linked") || error.message?.includes("identity already exists")) {
             return NextResponse.redirect(
-              new URL("/dashboard?error=linkedin_already_linked&details=" + encodeURIComponent("LinkedIn is already linked to another account"), request.url)
+              new URL("/dashboard?error=linkedin_already_linked&details=" + encodeURIComponent("LinkedIn is already linked to another account"), baseUrl)
             );
           }
           // For other linking errors, redirect to dashboard with error
           return NextResponse.redirect(
-            new URL(`/dashboard?error=auth_failed&details=${encodeURIComponent(error.message || "Failed to link LinkedIn account")}`, request.url)
+            new URL(`/dashboard?error=auth_failed&details=${encodeURIComponent(error.message || "Failed to link LinkedIn account")}`, baseUrl)
           );
         }
         
         return NextResponse.redirect(
-          new URL(`/auth?error=auth_failed&details=${encodeURIComponent(error.message)}`, request.url)
+          new URL(`/auth?error=auth_failed&details=${encodeURIComponent(error.message)}`, baseUrl)
         );
       }
 
       if (data.session) {
         const user = data.session.user;
-        const forwardedHost = request.headers.get("x-forwarded-host");
-        const protocol = request.headers.get("x-forwarded-proto") || "http";
-        const baseUrl = forwardedHost
-          ? `${protocol}://${forwardedHost}`
-          : request.url.split("/auth")[0];
+        const baseUrl = getBaseUrl(request);
 
         // Check if this is a LinkedIn OAuth login/link (should always be true for this route)
         const linkedinIdentity = user.identities?.find(
@@ -102,17 +119,19 @@ export async function GET(request: NextRequest) {
 
             // If linking, redirect to dashboard with error
             if (isLinking) {
+              const baseUrl = getBaseUrl(request);
               return NextResponse.redirect(
-                new URL("/dashboard?error=linkedin_no_email&details=" + encodeURIComponent("LinkedIn account does not have a verified email"), request.url)
+                new URL("/dashboard?error=linkedin_no_email&details=" + encodeURIComponent("LinkedIn account does not have a verified email"), baseUrl)
               );
             }
 
+            const baseUrl = getBaseUrl(request);
             return NextResponse.redirect(
               new URL(
                 `/auth?error=linkedin_no_email&details=${encodeURIComponent(
                   "Your LinkedIn account did not provide a verified email. Please sign up using magic link."
                 )}`,
-                request.url
+                baseUrl
               )
             );
           }
@@ -161,22 +180,25 @@ export async function GET(request: NextRequest) {
         const redirectUrl = new URL(redirectPath, baseUrl);
         return NextResponse.redirect(redirectUrl);
       } else {
+        const baseUrl = getBaseUrl(request);
         return NextResponse.redirect(
-          new URL("/auth?error=auth_failed&details=No session created", request.url)
+          new URL("/auth?error=auth_failed&details=No session created", baseUrl)
         );
       }
     } catch (err) {
+      const baseUrl = getBaseUrl(request);
       return NextResponse.redirect(
-        new URL("/auth?error=auth_failed", request.url)
+        new URL("/auth?error=auth_failed", baseUrl)
       );
     }
   }
   
   // If there's no code, redirect to auth page with error
+  const baseUrl = getBaseUrl(request);
   return NextResponse.redirect(
     new URL(
       "/auth?error=linkedin_auth_failed&details=No authorization code received from LinkedIn. Please try again.",
-      request.url
+      baseUrl
     )
   );
 }
