@@ -21,12 +21,23 @@ function getBaseUrl(request: NextRequest): string {
  * Magic link flows continue to use /auth/callback
  */
 export async function GET(request: NextRequest) {
-  // Force log at the very start to verify route is being called
+  // CRITICAL: This must execute - if you don't see this, the route isn't being called
+  // Try multiple logging methods
+  console.error("=== OAUTH CALLBACK ROUTE EXECUTING ===");
   console.error("[OAuth Callback] ROUTE CALLED", {
     url: request.url,
     timestamp: new Date().toISOString(),
     method: request.method,
+    pathname: request.nextUrl.pathname,
+    searchParams: Object.fromEntries(request.nextUrl.searchParams),
   });
+  
+  // Also try process.stderr.write as a fallback
+  try {
+    process.stderr.write(`[OAuth Callback] Route executing at ${new Date().toISOString()}\n`);
+  } catch (e) {
+    // Ignore if stderr not available
+  }
 
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
@@ -44,14 +55,18 @@ export async function GET(request: NextRequest) {
 
   // If LinkedIn returns an error in the callback
   if (errorParam) {
+    console.error("[OAuth Callback] LinkedIn error in callback", { errorParam, errorDescription });
     let errorMessage = "LinkedIn authentication failed";
     if (errorDescription) {
       errorMessage = errorDescription;
     }
     const baseUrl = getBaseUrl(request);
-    return NextResponse.redirect(
+    const errorResponse = NextResponse.redirect(
       new URL(`/auth?error=linkedin_auth_failed&details=${encodeURIComponent(errorMessage)}`, baseUrl)
     );
+    errorResponse.headers.set("X-Debug-Error", "linkedin_error");
+    errorResponse.headers.set("X-Debug-RouteExecuted", "yes");
+    return errorResponse;
   }
 
   // Handle LinkedIn OAuth callback with code
@@ -77,23 +92,33 @@ export async function GET(request: NextRequest) {
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
       
       if (error) {
+        console.error("[OAuth Callback] exchangeCodeForSession error", { error: error.message, isLinking });
         const baseUrl = getBaseUrl(request);
         // Handle specific linking errors
         if (isLinking) {
           if (error.message?.includes("already linked") || error.message?.includes("identity already exists")) {
-            return NextResponse.redirect(
+            const response = NextResponse.redirect(
               new URL("/dashboard?error=linkedin_already_linked&details=" + encodeURIComponent("LinkedIn is already linked to another account"), baseUrl)
             );
+            response.headers.set("X-Debug-Error", "already_linked");
+            response.headers.set("X-Debug-RouteExecuted", "yes");
+            return response;
           }
           // For other linking errors, redirect to dashboard with error
-          return NextResponse.redirect(
+          const response = NextResponse.redirect(
             new URL(`/dashboard?error=auth_failed&details=${encodeURIComponent(error.message || "Failed to link LinkedIn account")}`, baseUrl)
           );
+          response.headers.set("X-Debug-Error", "auth_failed_linking");
+          response.headers.set("X-Debug-RouteExecuted", "yes");
+          return response;
         }
         
-        return NextResponse.redirect(
+        const response = NextResponse.redirect(
           new URL(`/auth?error=auth_failed&details=${encodeURIComponent(error.message)}`, baseUrl)
         );
+        response.headers.set("X-Debug-Error", "auth_failed");
+        response.headers.set("X-Debug-RouteExecuted", "yes");
+        return response;
       }
 
       if (data.session) {
@@ -324,26 +349,42 @@ export async function GET(request: NextRequest) {
         const redirectUrl = new URL(redirectPath, baseUrl);
         return NextResponse.redirect(redirectUrl);
       } else {
+        console.error("[OAuth Callback] No session created after exchangeCodeForSession");
         const baseUrl = getBaseUrl(request);
-        return NextResponse.redirect(
+        const response = NextResponse.redirect(
           new URL("/auth?error=auth_failed&details=No session created", baseUrl)
         );
+        response.headers.set("X-Debug-Error", "no_session");
+        response.headers.set("X-Debug-RouteExecuted", "yes");
+        return response;
       }
     } catch (err) {
+      console.error("[OAuth Callback] Exception in code handler", { error: err instanceof Error ? err.message : String(err) });
       const baseUrl = getBaseUrl(request);
-      return NextResponse.redirect(
+      const response = NextResponse.redirect(
         new URL("/auth?error=auth_failed", baseUrl)
       );
+      response.headers.set("X-Debug-Error", "exception");
+      response.headers.set("X-Debug-RouteExecuted", "yes");
+      response.headers.set("X-Debug-Exception", err instanceof Error ? err.message : String(err));
+      return response;
     }
   }
   
   // If there's no code, redirect to auth page with error
+  console.error("[OAuth Callback] No code parameter - redirecting to auth with error");
   const baseUrl = getBaseUrl(request);
-  return NextResponse.redirect(
-    new URL(
-      "/auth?error=linkedin_auth_failed&details=No authorization code received from LinkedIn. Please try again.",
-      baseUrl
-    )
+  const errorUrl = new URL(
+    "/auth?error=linkedin_auth_failed&details=No authorization code received from LinkedIn. Please try again.",
+    baseUrl
   );
+  
+  const response = NextResponse.redirect(errorUrl);
+  response.headers.set("X-Debug-NoCode", "true");
+  response.headers.set("X-Debug-RouteExecuted", "yes");
+  console.error("[OAuth Callback] No code response", {
+    redirectUrl: errorUrl.toString(),
+  });
+  return response;
 }
 
