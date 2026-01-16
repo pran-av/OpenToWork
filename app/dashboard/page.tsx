@@ -41,12 +41,22 @@ export default function DashboardPage() {
 
   // Handle enrichment logs from URL parameters (for debugging)
   useEffect(() => {
+    // Check for test parameter first
+    const enrichTestParam = searchParams.get("_enrichTest");
+    if (enrichTestParam) {
+      console.log("🔍 [TEST] Client-side code is running - received _enrichTest parameter", {
+        value: enrichTestParam,
+        allParams: Array.from(searchParams.keys()),
+      });
+    }
+    
     const enrichLogsParam = searchParams.get("enrichLogs");
     if (enrichLogsParam) {
       // Log that we received the parameter (helps debug if client code is running)
       console.log("🔍 Received enrichLogs parameter", { 
         paramLength: enrichLogsParam.length,
-        hasParam: !!enrichLogsParam 
+        hasParam: !!enrichLogsParam,
+        allParams: Array.from(searchParams.keys()),
       });
       
       try {
@@ -77,6 +87,7 @@ export default function DashboardPage() {
         // Clean URL after logging
         const newSearchParams = new URLSearchParams(searchParams.toString());
         newSearchParams.delete("enrichLogs");
+        newSearchParams.delete("_enrichTest");
         const newUrl = newSearchParams.toString()
           ? `${window.location.pathname}?${newSearchParams.toString()}`
           : window.location.pathname;
@@ -89,11 +100,20 @@ export default function DashboardPage() {
         // Still clean URL even if parsing failed
         const newSearchParams = new URLSearchParams(searchParams.toString());
         newSearchParams.delete("enrichLogs");
+        newSearchParams.delete("_enrichTest");
         const newUrl = newSearchParams.toString()
           ? `${window.location.pathname}?${newSearchParams.toString()}`
           : window.location.pathname;
         router.replace(newUrl);
       }
+    } else if (enrichTestParam) {
+      // If test param exists but no logs, just clean it up
+      const newSearchParams = new URLSearchParams(searchParams.toString());
+      newSearchParams.delete("_enrichTest");
+      const newUrl = newSearchParams.toString()
+        ? `${window.location.pathname}?${newSearchParams.toString()}`
+        : window.location.pathname;
+      router.replace(newUrl);
     }
   }, [searchParams, router]);
 

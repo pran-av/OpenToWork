@@ -150,6 +150,13 @@ export async function GET(request: NextRequest) {
             // Pass the existing Supabase client that has the session context from exchangeCodeForSession
             // This ensures RLS policies can read auth.uid() correctly
             enrichLogs = await enrichProfileFromLinkedIn(user.id, linkedinProfileData, supabase) || [];
+            
+            // Server-side logging for debugging
+            console.log("[OAuth Callback] Enrichment completed", {
+              userId: user.id,
+              logsCount: enrichLogs.length,
+              hasLogs: enrichLogs.length > 0,
+            });
 
             // Mark any pending sub as used (if it exists)
             await markLinkedInSubAsUsed();
@@ -166,6 +173,11 @@ export async function GET(request: NextRequest) {
                 timestamp: new Date().toISOString(),
               });
             }
+            console.error("[OAuth Callback] Enrichment error", {
+              userId: user.id,
+              error: enrichError instanceof Error ? enrichError.message : String(enrichError),
+              logsCount: enrichLogs?.length || 0,
+            });
           }
 
           // Validate and sanitize redirect URL to prevent open redirects
@@ -182,7 +194,21 @@ export async function GET(request: NextRequest) {
           }
 
           // Add enrichment logs to URL for client-side display (base64 encoded)
+          // Parse redirectPath to handle existing query parameters correctly
           const redirectUrl = new URL(redirectPath, baseUrl);
+          
+          // Add a test parameter to verify client-side code is running
+          redirectUrl.searchParams.set("_enrichTest", "1");
+          
+          // Server-side logging
+          console.log("[OAuth Callback] Preparing redirect", {
+            redirectPath,
+            baseUrl,
+            enrichLogsCount: enrichLogs?.length || 0,
+            hasLogs: enrichLogs && enrichLogs.length > 0,
+            finalBaseUrl: baseUrl,
+          });
+          
           if (enrichLogs && enrichLogs.length > 0) {
             try {
               const logsJson = JSON.stringify(enrichLogs);
@@ -200,6 +226,12 @@ export async function GET(request: NextRequest) {
               testUrl.searchParams.set("enrichLogs", logsBase64);
               if (testUrl.toString().length < 2000) {
                 redirectUrl.searchParams.set("enrichLogs", logsBase64);
+                console.log("[OAuth Callback] Added enrichLogs to URL", {
+                  urlLength: redirectUrl.toString().length,
+                  logsBase64Length: logsBase64.length,
+                  logsCount: truncatedLogs.length,
+                  finalUrl: redirectUrl.toString().substring(0, 200), // First 200 chars for debugging
+                });
               } else {
                 // If still too long, add a truncated version with a note
                 const truncatedBase64 = Buffer.from(JSON.stringify([
@@ -212,9 +244,17 @@ export async function GET(request: NextRequest) {
                   ...truncatedLogs.slice(-5), // Last 5 logs
                 ])).toString("base64url");
                 redirectUrl.searchParams.set("enrichLogs", truncatedBase64);
+                console.log("[OAuth Callback] Added truncated enrichLogs to URL", {
+                  urlLength: redirectUrl.toString().length,
+                  totalLogs: enrichLogs.length,
+                  displayedLogs: 6, // 1 warning + 5 logs
+                });
               }
             } catch (encodeError) {
               // If encoding fails, add a minimal error log
+              console.error("[OAuth Callback] Failed to encode logs", {
+                error: encodeError instanceof Error ? encodeError.message : String(encodeError),
+              });
               try {
                 const errorLog = [{
                   level: "error" as const,
@@ -224,11 +264,26 @@ export async function GET(request: NextRequest) {
                 }];
                 const errorLogBase64 = Buffer.from(JSON.stringify(errorLog)).toString("base64url");
                 redirectUrl.searchParams.set("enrichLogs", errorLogBase64);
+                console.log("[OAuth Callback] Added error log to URL");
               } catch {
                 // If even error log encoding fails, skip (don't break the redirect)
+                console.error("[OAuth Callback] Failed to add error log to URL");
               }
             }
+          } else {
+            console.log("[OAuth Callback] No logs to add to URL", {
+              enrichLogs: enrichLogs,
+              isArray: Array.isArray(enrichLogs),
+              length: enrichLogs?.length,
+            });
           }
+
+          // Log final URL before redirect
+          console.log("[OAuth Callback] Final redirect URL", {
+            url: redirectUrl.toString().substring(0, 300), // First 300 chars
+            hasEnrichLogs: redirectUrl.searchParams.has("enrichLogs"),
+            allParams: Array.from(redirectUrl.searchParams.keys()),
+          });
 
           // Redirect to dashboard on successful authentication/linking
           return NextResponse.redirect(redirectUrl);
