@@ -35,7 +35,8 @@ export async function enrichProfileFromLinkedIn(
   linkedinData: LinkedInOIDCResponse,
   supabaseClient?: Awaited<ReturnType<typeof createServerClient>>
 ): Promise<void> {
-  const isDev = process.env.NODE_ENV !== "production" && process.env.ENVIRONMENT !== "production";
+  // Temporarily enable logging for both dev and production
+  const isDev = true; // process.env.NODE_ENV !== "production" && process.env.ENVIRONMENT !== "production";
   
   if (isDev) {
     console.log("[enrichProfileFromLinkedIn] Starting profile enrichment", {
