@@ -39,6 +39,44 @@ export default function DashboardPage() {
     return errorMessages[errorCode] || "An error occurred. Please try again.";
   };
 
+  // Handle enrichment logs from URL parameters (for debugging)
+  useEffect(() => {
+    const enrichLogsParam = searchParams.get("enrichLogs");
+    if (enrichLogsParam) {
+      try {
+        // Decode base64url (convert to standard base64: - -> +, _ -> /)
+        const base64 = enrichLogsParam.replace(/-/g, "+").replace(/_/g, "/");
+        // Add padding if needed
+        const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+        const logsJson = atob(padded);
+        const logs = JSON.parse(logsJson);
+        
+        console.group("🔍 Profile Enrichment Logs");
+        logs.forEach((log: any) => {
+          const logMessage = `[${log.timestamp}] ${log.message}`;
+          if (log.level === "error") {
+            console.error(logMessage, log.data);
+          } else if (log.level === "warn") {
+            console.warn(logMessage, log.data);
+          } else {
+            console.log(logMessage, log.data);
+          }
+        });
+        console.groupEnd();
+        
+        // Clean URL after logging
+        const newSearchParams = new URLSearchParams(searchParams.toString());
+        newSearchParams.delete("enrichLogs");
+        const newUrl = newSearchParams.toString()
+          ? `${window.location.pathname}?${newSearchParams.toString()}`
+          : window.location.pathname;
+        router.replace(newUrl);
+      } catch (error) {
+        console.error("Failed to parse enrichment logs:", error);
+      }
+    }
+  }, [searchParams, router]);
+
   // Handle toast messages from URL parameters (e.g., ?linked=success or ?error=...)
   useEffect(() => {
     const linked = searchParams.get("linked");

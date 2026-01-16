@@ -217,7 +217,7 @@ describe('LinkedIn OAuth Flow - No Verified Email Scenario', () => {
       // Stored sub exists and should be used
       vi.mocked(linkedinSubCookie.getLinkedInSub).mockResolvedValue(testLinkedInSub);
       vi.mocked(linkedinSubCookie.markLinkedInSubAsUsed).mockResolvedValue();
-      vi.mocked(enrichProfile.enrichProfileFromLinkedIn).mockResolvedValue();
+      vi.mocked(enrichProfile.enrichProfileFromLinkedIn).mockResolvedValue([]);
 
       const request = new NextRequest(
         `http://localhost/auth/v1/callback?code=linkedin-oauth-code&link=true`
@@ -236,7 +236,8 @@ describe('LinkedIn OAuth Flow - No Verified Email Scenario', () => {
           given_name: 'John',
           family_name: 'Doe',
           picture: 'https://example.com/avatar.jpg',
-        })
+        }),
+        expect.any(Object) // supabaseClient
       );
 
       // Should mark stored sub as used
@@ -357,7 +358,7 @@ describe('LinkedIn OAuth Flow - No Verified Email Scenario', () => {
         error: null,
       });
 
-      vi.mocked(enrichProfile.enrichProfileFromLinkedIn).mockResolvedValue();
+      vi.mocked(enrichProfile.enrichProfileFromLinkedIn).mockResolvedValue([]);
       vi.mocked(linkedinSubCookie.markLinkedInSubAsUsed).mockResolvedValue();
 
       const finalCallbackRequest = new NextRequest(

@@ -148,12 +148,52 @@ export async function GET(request: NextRequest) {
 
             // Pass the existing Supabase client that has the session context from exchangeCodeForSession
             // This ensures RLS policies can read auth.uid() correctly
-            await enrichProfileFromLinkedIn(user.id, linkedinProfileData, supabase);
+            const enrichLogs = await enrichProfileFromLinkedIn(user.id, linkedinProfileData, supabase);
 
             // Mark any pending sub as used (if it exists)
             await markLinkedInSubAsUsed();
+
+            // Validate and sanitize redirect URL to prevent open redirects
+            let redirectPath = "/dashboard";
+            if (isLinking) {
+              redirectPath = "/dashboard?linked=success";
+            } else if (next) {
+              // Only allow relative paths (starting with /) to prevent open redirects
+              const nextPath = next.startsWith("/") ? next : "/dashboard";
+              // Additional validation: ensure it's a valid path (no protocol, no host)
+              if (!nextPath.includes("://") && !nextPath.includes("//")) {
+                redirectPath = nextPath;
+              }
+            }
+
+            // Add enrichment logs to URL for client-side display (base64 encoded)
+            const redirectUrl = new URL(redirectPath, baseUrl);
+            if (enrichLogs && enrichLogs.length > 0) {
+              try {
+                const logsJson = JSON.stringify(enrichLogs);
+                const logsBase64 = Buffer.from(logsJson).toString("base64url");
+                redirectUrl.searchParams.set("enrichLogs", logsBase64);
+              } catch (encodeError) {
+                // If encoding fails, skip adding logs (don't break the redirect)
+              }
+            }
+
+            // Redirect to dashboard on successful authentication/linking
+            return NextResponse.redirect(redirectUrl);
           } catch (enrichError) {
             // Don't fail the auth flow if enrichment fails
+            // Still redirect to dashboard
+            let redirectPath = "/dashboard";
+            if (isLinking) {
+              redirectPath = "/dashboard?linked=success";
+            } else if (next) {
+              const nextPath = next.startsWith("/") ? next : "/dashboard";
+              if (!nextPath.includes("://") && !nextPath.includes("//")) {
+                redirectPath = nextPath;
+              }
+            }
+            const redirectUrl = new URL(redirectPath, baseUrl);
+            return NextResponse.redirect(redirectUrl);
           }
         }
 
