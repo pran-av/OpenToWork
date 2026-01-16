@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { Poppins, Inter, Comic_Neue } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -74,6 +75,7 @@ export default function RootLayout({
           `}
         </Script>
         {children}
+        <SpeedInsights />
       </body>
     </html>
   );
