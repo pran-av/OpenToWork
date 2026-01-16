@@ -77,14 +77,11 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder
-     * - /auth/callback path (Supabase magic link callback) 
+     * - Static files (svg, png, jpg, jpeg, gif, webp)
+     * - /auth/callback (Supabase magic link callback)
+     * - /auth/v1/callback (LinkedIn OAuth callback)
      */
-    
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|auth/callback)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$|auth/callback|auth/v1/callback).*)",
   ],
-
-  
-
 };
 

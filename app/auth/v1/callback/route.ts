@@ -21,6 +21,13 @@ function getBaseUrl(request: NextRequest): string {
  * Magic link flows continue to use /auth/callback
  */
 export async function GET(request: NextRequest) {
+  // Force log at the very start to verify route is being called
+  console.error("[OAuth Callback] ROUTE CALLED", {
+    url: request.url,
+    timestamp: new Date().toISOString(),
+    method: request.method,
+  });
+
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const isLinking = requestUrl.searchParams.get("link") === "true";
@@ -28,6 +35,12 @@ export async function GET(request: NextRequest) {
   const errorParam = requestUrl.searchParams.get("error");
   const errorDescription = requestUrl.searchParams.get("error_description");
   const errorCode = requestUrl.searchParams.get("error_code");
+  
+  console.error("[OAuth Callback] Request params", {
+    hasCode: !!code,
+    isLinking,
+    hasError: !!errorParam,
+  });
 
   // If LinkedIn returns an error in the callback
   if (errorParam) {
@@ -151,8 +164,8 @@ export async function GET(request: NextRequest) {
             // This ensures RLS policies can read auth.uid() correctly
             enrichLogs = await enrichProfileFromLinkedIn(user.id, linkedinProfileData, supabase) || [];
             
-            // Server-side logging for debugging
-            console.log("[OAuth Callback] Enrichment completed", {
+            // Server-side logging for debugging (using console.error as it's kept in production)
+            console.error("[OAuth Callback] Enrichment completed", {
               userId: user.id,
               logsCount: enrichLogs.length,
               hasLogs: enrichLogs.length > 0,
@@ -200,8 +213,8 @@ export async function GET(request: NextRequest) {
           // Add a test parameter to verify client-side code is running
           redirectUrl.searchParams.set("_enrichTest", "1");
           
-          // Server-side logging
-          console.log("[OAuth Callback] Preparing redirect", {
+          // Server-side logging (using console.error as it's kept in production)
+          console.error("[OAuth Callback] Preparing redirect", {
             redirectPath,
             baseUrl,
             enrichLogsCount: enrichLogs?.length || 0,
@@ -226,7 +239,7 @@ export async function GET(request: NextRequest) {
               testUrl.searchParams.set("enrichLogs", logsBase64);
               if (testUrl.toString().length < 2000) {
                 redirectUrl.searchParams.set("enrichLogs", logsBase64);
-                console.log("[OAuth Callback] Added enrichLogs to URL", {
+                console.error("[OAuth Callback] Added enrichLogs to URL", {
                   urlLength: redirectUrl.toString().length,
                   logsBase64Length: logsBase64.length,
                   logsCount: truncatedLogs.length,
@@ -244,7 +257,7 @@ export async function GET(request: NextRequest) {
                   ...truncatedLogs.slice(-5), // Last 5 logs
                 ])).toString("base64url");
                 redirectUrl.searchParams.set("enrichLogs", truncatedBase64);
-                console.log("[OAuth Callback] Added truncated enrichLogs to URL", {
+                console.error("[OAuth Callback] Added truncated enrichLogs to URL", {
                   urlLength: redirectUrl.toString().length,
                   totalLogs: enrichLogs.length,
                   displayedLogs: 6, // 1 warning + 5 logs
@@ -264,29 +277,34 @@ export async function GET(request: NextRequest) {
                 }];
                 const errorLogBase64 = Buffer.from(JSON.stringify(errorLog)).toString("base64url");
                 redirectUrl.searchParams.set("enrichLogs", errorLogBase64);
-                console.log("[OAuth Callback] Added error log to URL");
+                console.error("[OAuth Callback] Added error log to URL");
               } catch {
                 // If even error log encoding fails, skip (don't break the redirect)
                 console.error("[OAuth Callback] Failed to add error log to URL");
               }
             }
           } else {
-            console.log("[OAuth Callback] No logs to add to URL", {
+            console.error("[OAuth Callback] No logs to add to URL", {
               enrichLogs: enrichLogs,
               isArray: Array.isArray(enrichLogs),
               length: enrichLogs?.length,
             });
           }
 
-          // Log final URL before redirect
-          console.log("[OAuth Callback] Final redirect URL", {
+          // Log final URL before redirect (using console.error as it's kept in production)
+          console.error("[OAuth Callback] Final redirect URL", {
             url: redirectUrl.toString().substring(0, 300), // First 300 chars
             hasEnrichLogs: redirectUrl.searchParams.has("enrichLogs"),
             allParams: Array.from(redirectUrl.searchParams.keys()),
           });
 
           // Redirect to dashboard on successful authentication/linking
-          return NextResponse.redirect(redirectUrl);
+          // Add debug headers as backup (can't be stripped)
+          const response = NextResponse.redirect(redirectUrl);
+          response.headers.set("X-Debug-EnrichLogs", enrichLogs && enrichLogs.length > 0 ? "yes" : "no");
+          response.headers.set("X-Debug-LogsCount", String(enrichLogs?.length || 0));
+          response.headers.set("X-Debug-HasTestParam", redirectUrl.searchParams.has("_enrichTest") ? "yes" : "no");
+          return response;
         }
 
         // Validate and sanitize redirect URL to prevent open redirects

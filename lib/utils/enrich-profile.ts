@@ -53,13 +53,14 @@ export async function enrichProfileFromLinkedIn(
       timestamp: new Date().toISOString(),
     };
     logs.push(logEntry);
-    // Also log to server console
+    // Also log to server console (using console.error as it's kept in production)
+    // All logs go to console.error to ensure they appear in Vercel
     if (level === "error") {
-      console.error(`[enrichProfileFromLinkedIn] ${message}`, data);
+      console.error(`[enrichProfileFromLinkedIn] ERROR: ${message}`, data);
     } else if (level === "warn") {
-      console.warn(`[enrichProfileFromLinkedIn] ${message}`, data);
+      console.error(`[enrichProfileFromLinkedIn] WARN: ${message}`, data);
     } else {
-      console.log(`[enrichProfileFromLinkedIn] ${message}`, data);
+      console.error(`[enrichProfileFromLinkedIn] LOG: ${message}`, data);
     }
   };
   
