@@ -35,6 +35,20 @@ export async function enrichProfileFromLinkedIn(
   linkedinData: LinkedInOIDCResponse,
   supabaseClient?: Awaited<ReturnType<typeof createServerClient>>
 ): Promise<void> {
+  const isDev = process.env.NODE_ENV !== "production" && process.env.ENVIRONMENT !== "production";
+  
+  if (isDev) {
+    console.log("[enrichProfileFromLinkedIn] Starting profile enrichment", {
+      userId,
+      hasLinkedInSub: !!linkedinData.sub,
+      hasName: !!linkedinData.name,
+      hasGivenName: !!linkedinData.given_name,
+      hasFamilyName: !!linkedinData.family_name,
+      hasPicture: !!linkedinData.picture,
+      usingProvidedClient: !!supabaseClient,
+    });
+  }
+
   const supabase = supabaseClient || await createServerClient();
 
   // Wait for user record to exist (handle race condition with handle_new_auth_user trigger)
@@ -47,9 +61,18 @@ export async function enrichProfileFromLinkedIn(
   const baseRetryDelay = 300; // Base delay between retries
 
   // Initial delay before first attempt (gives trigger time to start)
+  if (isDev) {
+    console.log("[enrichProfileFromLinkedIn] Waiting initial delay", { initialDelay: `${initialDelay}ms` });
+  }
   await new Promise(resolve => setTimeout(resolve, initialDelay));
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
+    if (isDev) {
+      console.log(`[enrichProfileFromLinkedIn] Fetching user record - attempt ${attempt + 1}/${maxRetries}`, {
+        userId,
+      });
+    }
+
     const { data, error } = await supabase
       .from("users")
       .select("*")
@@ -59,13 +82,38 @@ export async function enrichProfileFromLinkedIn(
     if (data && !error) {
       currentUser = data;
       fetchError = null;
+      if (isDev) {
+        console.log("[enrichProfileFromLinkedIn] User record found", {
+          userId,
+          attempt: attempt + 1,
+          hasFirstName: !!currentUser.user_first_name,
+          hasLastName: !!currentUser.user_last_name,
+          hasDisplayName: !!currentUser.display_name,
+          hasAvatar: !!currentUser.avatar_url,
+          profileCompleted: currentUser.profile_completed,
+        });
+      }
       break;
     }
 
     fetchError = error;
     
+    if (isDev) {
+      console.log(`[enrichProfileFromLinkedIn] User record not found - attempt ${attempt + 1}/${maxRetries}`, {
+        userId,
+        errorCode: error?.code,
+        errorMessage: error?.message,
+      });
+    }
+    
     // If it's not a "not found" error, don't retry
     if (error?.code !== "PGRST116" && error?.message !== "JSON object requested, multiple (or no) rows returned") {
+      if (isDev) {
+        console.log("[enrichProfileFromLinkedIn] Non-retryable error, stopping", {
+          errorCode: error?.code,
+          errorMessage: error?.message,
+        });
+      }
       break;
     }
 
@@ -73,11 +121,21 @@ export async function enrichProfileFromLinkedIn(
     if (attempt < maxRetries - 1) {
       // Exponential backoff: 300ms, 600ms, 900ms, 1200ms, etc. (capped at 2000ms)
       const delay = Math.min(baseRetryDelay * (attempt + 1), 2000);
+      if (isDev) {
+        console.log(`[enrichProfileFromLinkedIn] Waiting before retry`, { delay: `${delay}ms` });
+      }
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 
   if (fetchError || !currentUser) {
+    if (isDev) {
+      console.error("[enrichProfileFromLinkedIn] Failed to fetch user record after all retries", {
+        userId,
+        fetchError: fetchError?.message || "Unknown error",
+        errorCode: fetchError?.code,
+      });
+    }
     return;
   }
 
@@ -146,12 +204,33 @@ export async function enrichProfileFromLinkedIn(
     updates.profile_completed = true;
   }
 
+  if (isDev) {
+    console.log("[enrichProfileFromLinkedIn] Prepared updates", {
+      userId,
+      updateFields: Object.keys(updates),
+      updates,
+      metaRecordsCount: metaRecords.length,
+      hasName,
+      hasAvatar,
+      willMarkCompleted: hasName && !currentUser.profile_completed,
+    });
+  }
+
   // Update user record if there are changes
   if (Object.keys(updates).length > 0) {
     // Verify session is available for RLS before attempting update
     // This is critical: RLS policies use auth.uid() which requires the JWT to be in the request
+    if (isDev) {
+      console.log("[enrichProfileFromLinkedIn] Verifying session for RLS", { userId });
+    }
     const { data: { session: verifySession }, error: sessionError } = await supabase.auth.getSession();
     if (!verifySession || sessionError) {
+      if (isDev) {
+        console.error("[enrichProfileFromLinkedIn] Session not available for RLS", {
+          userId,
+          sessionError: sessionError?.message,
+        });
+      }
       // Session not available - RLS would fail silently (returns 0 rows, not an error)
       // This can happen if the client doesn't have the session established yet
       // Using the same client from exchangeCodeForSession should prevent this
@@ -160,8 +239,28 @@ export async function enrichProfileFromLinkedIn(
 
     // Verify the session user ID matches (safety check)
     if (verifySession.user?.id !== userId) {
+      if (isDev) {
+        console.error("[enrichProfileFromLinkedIn] Session user ID mismatch", {
+          expectedUserId: userId,
+          sessionUserId: verifySession.user?.id,
+        });
+      }
       // Session user ID mismatch - this shouldn't happen
       return;
+    }
+
+    if (isDev) {
+      console.log("[enrichProfileFromLinkedIn] Session verified, proceeding with update", {
+        userId,
+        sessionUserId: verifySession.user?.id,
+      });
+    }
+
+    if (isDev) {
+      console.log("[enrichProfileFromLinkedIn] Updating user record", {
+        userId,
+        updateFields: Object.keys(updates),
+      });
     }
 
     const { data: updateData, error: updateError } = await supabase
@@ -171,18 +270,47 @@ export async function enrichProfileFromLinkedIn(
       .select(); // Select to verify rows were updated
 
     if (updateError) {
+      if (isDev) {
+        console.error("[enrichProfileFromLinkedIn] Update failed", {
+          userId,
+          error: updateError.message,
+          errorCode: updateError.code,
+        });
+      }
       return;
     }
 
     // Check if any rows were actually updated (RLS might block silently)
     if (!updateData || updateData.length === 0) {
+      if (isDev) {
+        console.error("[enrichProfileFromLinkedIn] No rows updated - likely RLS blocked", {
+          userId,
+          updateFields: Object.keys(updates),
+        });
+      }
       // No rows updated - likely RLS policy blocked the update
       // This can happen if auth.uid() is not available in the database context
       return;
     }
 
+    if (isDev) {
+      console.log("[enrichProfileFromLinkedIn] User record updated successfully", {
+        userId,
+        updatedFields: Object.keys(updates),
+        rowsUpdated: updateData.length,
+      });
+    }
+
     // Insert meta records for tracking
     if (metaRecords.length > 0) {
+      if (isDev) {
+        console.log("[enrichProfileFromLinkedIn] Inserting meta records", {
+          userId,
+          metaRecordsCount: metaRecords.length,
+          metaRecords,
+        });
+      }
+
       const metaInserts = metaRecords.map((meta) => ({
         user_id: userId,
         ...meta,
@@ -193,13 +321,37 @@ export async function enrichProfileFromLinkedIn(
         .insert(metaInserts);
 
       if (metaError) {
+        if (isDev) {
+          console.error("[enrichProfileFromLinkedIn] Meta records insert failed", {
+            userId,
+            error: metaError.message,
+            errorCode: metaError.code,
+          });
+        }
         // Don't fail the whole operation if meta insert fails
+      } else if (isDev) {
+        console.log("[enrichProfileFromLinkedIn] Meta records inserted successfully", {
+          userId,
+          recordsInserted: metaRecords.length,
+        });
       }
     }
+  } else if (isDev) {
+    console.log("[enrichProfileFromLinkedIn] No updates needed - all fields already populated", {
+      userId,
+    });
   }
 
   // Store provider profile data
   if (linkedinSub) {
+    if (isDev) {
+      console.log("[enrichProfileFromLinkedIn] Upserting provider profile", {
+        userId,
+        provider: "linkedin_oidc",
+        providerSub: linkedinSub,
+      });
+    }
+
     const { error: providerError } = await supabase
       .from("provider_profiles")
       .upsert({
@@ -212,19 +364,33 @@ export async function enrichProfileFromLinkedIn(
       });
 
     if (providerError) {
-      // Log error for debugging (remove before production)
-      if (process.env.NODE_ENV !== "production" && process.env.ENVIRONMENT !== "production") {
-        console.error("Provider profile upsert failed:", {
+      if (isDev) {
+        console.error("[enrichProfileFromLinkedIn] Provider profile upsert failed", {
           userId,
           provider: "linkedin_oidc",
           providerSub: linkedinSub,
-          error: providerError,
+          error: providerError.message,
           errorCode: providerError.code,
-          errorMessage: providerError.message,
         });
       }
       // Don't fail the whole operation if provider profile insert fails
+    } else if (isDev) {
+      console.log("[enrichProfileFromLinkedIn] Provider profile upserted successfully", {
+        userId,
+        provider: "linkedin_oidc",
+        providerSub: linkedinSub,
+      });
     }
+  } else if (isDev) {
+    console.log("[enrichProfileFromLinkedIn] Skipping provider profile upsert - no LinkedIn sub", {
+      userId,
+    });
+  }
+
+  if (isDev) {
+    console.log("[enrichProfileFromLinkedIn] Profile enrichment completed", {
+      userId,
+    });
   }
 }
 
