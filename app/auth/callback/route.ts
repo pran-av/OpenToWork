@@ -9,11 +9,6 @@ import { storeLinkedInSub, markLinkedInSubAsUsed } from "@/lib/utils/linkedin-su
  * Primary LinkedIn OAuth callback is at /auth/v1/callback
  */
 export async function GET(request: NextRequest) {
-  console.error("[Auth Callback] Route called", {
-    url: request.url,
-    pathname: request.nextUrl.pathname,
-    timestamp: new Date().toISOString(),
-  });
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const token = requestUrl.searchParams.get("token");
@@ -64,13 +59,9 @@ export async function GET(request: NextRequest) {
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
       
       if (error) {
-        console.error("Error exchanging code for session:", error.message, error);
-        const response = NextResponse.redirect(
+        return NextResponse.redirect(
           new URL(`/auth?error=auth_failed&details=${encodeURIComponent(error.message)}`, request.url)
         );
-        response.headers.set("X-Debug-Error", "exchange_code_failed");
-        response.headers.set("X-Debug-RouteExecuted", "yes");
-        return response;
       }
 
       if (data.session) {
@@ -88,8 +79,6 @@ export async function GET(request: NextRequest) {
         );
 
         if (linkedinIdentity) {
-          console.error("[Auth Callback] Detected LinkedIn OAuth flow - handling as LinkedIn callback");
-          
           // This is a LinkedIn OAuth login - handle it like /auth/v1/callback
           const profileBootstrapData = {
             ...(user.user_metadata || {}),
@@ -105,7 +94,7 @@ export async function GET(request: NextRequest) {
             if (sub) {
               await storeLinkedInSub(sub);
             }
-            const response = NextResponse.redirect(
+            return NextResponse.redirect(
               new URL(
                 `/auth?error=linkedin_no_email&details=${encodeURIComponent(
                   "Your LinkedIn account did not provide a verified email. Please sign up using magic link."
@@ -113,9 +102,6 @@ export async function GET(request: NextRequest) {
                 baseUrl
               )
             );
-            response.headers.set("X-Debug-LinkedInOAuth", "no_email");
-            response.headers.set("X-Debug-RouteExecuted", "yes");
-            return response;
           }
 
           // Email is verified - enrich profile (use existing supabase client with session)
@@ -135,7 +121,6 @@ export async function GET(request: NextRequest) {
             enrichLogs = await enrichProfileFromLinkedIn(user.id, linkedinProfileData, supabase) || [];
             await markLinkedInSubAsUsed();
           } catch (enrichError) {
-            console.error("[Auth Callback] LinkedIn enrichment error", enrichError);
             if (enrichLogs && Array.isArray(enrichLogs)) {
               enrichLogs.push({
                 level: "error" as const,
@@ -150,7 +135,6 @@ export async function GET(request: NextRequest) {
 
           // Redirect to dashboard with logs in URL
           const redirectUrl = new URL(next, baseUrl);
-          redirectUrl.searchParams.set("_enrichTest", "1");
           
           if (enrichLogs && enrichLogs.length > 0) {
             try {
@@ -168,40 +152,25 @@ export async function GET(request: NextRequest) {
                 redirectUrl.searchParams.set("enrichLogs", logsBase64);
               }
             } catch (encodeError) {
-              console.error("[Auth Callback] Failed to encode logs", encodeError);
+              // If encoding fails, skip (don't break the redirect)
             }
           }
 
-          const response = NextResponse.redirect(redirectUrl);
-          response.headers.set("X-Debug-LinkedInOAuth", "handled");
-          response.headers.set("X-Debug-EnrichLogs", enrichLogs && enrichLogs.length > 0 ? "yes" : "no");
-          response.headers.set("X-Debug-LogsCount", String(enrichLogs?.length || 0));
-          response.headers.set("X-Debug-RouteExecuted", "yes");
-          return response;
+          return NextResponse.redirect(redirectUrl);
         }
 
         // Regular magic link flow - redirect to dashboard
-        const response = NextResponse.redirect(new URL(next, baseUrl));
-        response.headers.set("X-Debug-MagicLink", "handled");
-        response.headers.set("X-Debug-RouteExecuted", "yes");
-        return response;
+        return NextResponse.redirect(new URL(next, baseUrl));
       } else {
-        console.error("No session returned after code exchange");
         return NextResponse.redirect(
           new URL("/auth?error=auth_failed&details=No session created", request.url)
         );
       }
     } catch (err) {
-      console.error("Unexpected error in magic link callback:", err);
       return NextResponse.redirect(
         new URL("/auth?error=auth_failed", request.url)
       );
     }
-  }
-  
-  // Check if we have any error indicators
-  if (errorCode || errorParam) {
-    console.error("Supabase error detected:", { errorCode, errorParam, errorDescription });
   }
   
   return NextResponse.redirect(

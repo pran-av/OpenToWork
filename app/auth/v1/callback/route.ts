@@ -21,24 +21,6 @@ function getBaseUrl(request: NextRequest): string {
  * Magic link flows continue to use /auth/callback
  */
 export async function GET(request: NextRequest) {
-  // CRITICAL: This must execute - if you don't see this, the route isn't being called
-  // Try multiple logging methods
-  console.error("=== OAUTH CALLBACK ROUTE EXECUTING ===");
-  console.error("[OAuth Callback] ROUTE CALLED", {
-    url: request.url,
-    timestamp: new Date().toISOString(),
-    method: request.method,
-    pathname: request.nextUrl.pathname,
-    searchParams: Object.fromEntries(request.nextUrl.searchParams),
-  });
-  
-  // Also try process.stderr.write as a fallback
-  try {
-    process.stderr.write(`[OAuth Callback] Route executing at ${new Date().toISOString()}\n`);
-  } catch (e) {
-    // Ignore if stderr not available
-  }
-
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const isLinking = requestUrl.searchParams.get("link") === "true";
@@ -46,27 +28,17 @@ export async function GET(request: NextRequest) {
   const errorParam = requestUrl.searchParams.get("error");
   const errorDescription = requestUrl.searchParams.get("error_description");
   const errorCode = requestUrl.searchParams.get("error_code");
-  
-  console.error("[OAuth Callback] Request params", {
-    hasCode: !!code,
-    isLinking,
-    hasError: !!errorParam,
-  });
 
   // If LinkedIn returns an error in the callback
   if (errorParam) {
-    console.error("[OAuth Callback] LinkedIn error in callback", { errorParam, errorDescription });
     let errorMessage = "LinkedIn authentication failed";
     if (errorDescription) {
       errorMessage = errorDescription;
     }
     const baseUrl = getBaseUrl(request);
-    const errorResponse = NextResponse.redirect(
+    return NextResponse.redirect(
       new URL(`/auth?error=linkedin_auth_failed&details=${encodeURIComponent(errorMessage)}`, baseUrl)
     );
-    errorResponse.headers.set("X-Debug-Error", "linkedin_error");
-    errorResponse.headers.set("X-Debug-RouteExecuted", "yes");
-    return errorResponse;
   }
 
   // Handle LinkedIn OAuth callback with code
@@ -92,33 +64,23 @@ export async function GET(request: NextRequest) {
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
       
       if (error) {
-        console.error("[OAuth Callback] exchangeCodeForSession error", { error: error.message, isLinking });
         const baseUrl = getBaseUrl(request);
         // Handle specific linking errors
         if (isLinking) {
           if (error.message?.includes("already linked") || error.message?.includes("identity already exists")) {
-            const response = NextResponse.redirect(
+            return NextResponse.redirect(
               new URL("/dashboard?error=linkedin_already_linked&details=" + encodeURIComponent("LinkedIn is already linked to another account"), baseUrl)
             );
-            response.headers.set("X-Debug-Error", "already_linked");
-            response.headers.set("X-Debug-RouteExecuted", "yes");
-            return response;
           }
           // For other linking errors, redirect to dashboard with error
-          const response = NextResponse.redirect(
+          return NextResponse.redirect(
             new URL(`/dashboard?error=auth_failed&details=${encodeURIComponent(error.message || "Failed to link LinkedIn account")}`, baseUrl)
           );
-          response.headers.set("X-Debug-Error", "auth_failed_linking");
-          response.headers.set("X-Debug-RouteExecuted", "yes");
-          return response;
         }
         
-        const response = NextResponse.redirect(
+        return NextResponse.redirect(
           new URL(`/auth?error=auth_failed&details=${encodeURIComponent(error.message)}`, baseUrl)
         );
-        response.headers.set("X-Debug-Error", "auth_failed");
-        response.headers.set("X-Debug-RouteExecuted", "yes");
-        return response;
       }
 
       if (data.session) {
@@ -188,13 +150,6 @@ export async function GET(request: NextRequest) {
             // Pass the existing Supabase client that has the session context from exchangeCodeForSession
             // This ensures RLS policies can read auth.uid() correctly
             enrichLogs = await enrichProfileFromLinkedIn(user.id, linkedinProfileData, supabase) || [];
-            
-            // Server-side logging for debugging (using console.error as it's kept in production)
-            console.error("[OAuth Callback] Enrichment completed", {
-              userId: user.id,
-              logsCount: enrichLogs.length,
-              hasLogs: enrichLogs.length > 0,
-            });
 
             // Mark any pending sub as used (if it exists)
             await markLinkedInSubAsUsed();
@@ -211,11 +166,6 @@ export async function GET(request: NextRequest) {
                 timestamp: new Date().toISOString(),
               });
             }
-            console.error("[OAuth Callback] Enrichment error", {
-              userId: user.id,
-              error: enrichError instanceof Error ? enrichError.message : String(enrichError),
-              logsCount: enrichLogs?.length || 0,
-            });
           }
 
           // Validate and sanitize redirect URL to prevent open redirects
@@ -235,18 +185,6 @@ export async function GET(request: NextRequest) {
           // Parse redirectPath to handle existing query parameters correctly
           const redirectUrl = new URL(redirectPath, baseUrl);
           
-          // Add a test parameter to verify client-side code is running
-          redirectUrl.searchParams.set("_enrichTest", "1");
-          
-          // Server-side logging (using console.error as it's kept in production)
-          console.error("[OAuth Callback] Preparing redirect", {
-            redirectPath,
-            baseUrl,
-            enrichLogsCount: enrichLogs?.length || 0,
-            hasLogs: enrichLogs && enrichLogs.length > 0,
-            finalBaseUrl: baseUrl,
-          });
-          
           if (enrichLogs && enrichLogs.length > 0) {
             try {
               const logsJson = JSON.stringify(enrichLogs);
@@ -264,12 +202,6 @@ export async function GET(request: NextRequest) {
               testUrl.searchParams.set("enrichLogs", logsBase64);
               if (testUrl.toString().length < 2000) {
                 redirectUrl.searchParams.set("enrichLogs", logsBase64);
-                console.error("[OAuth Callback] Added enrichLogs to URL", {
-                  urlLength: redirectUrl.toString().length,
-                  logsBase64Length: logsBase64.length,
-                  logsCount: truncatedLogs.length,
-                  finalUrl: redirectUrl.toString().substring(0, 200), // First 200 chars for debugging
-                });
               } else {
                 // If still too long, add a truncated version with a note
                 const truncatedBase64 = Buffer.from(JSON.stringify([
@@ -282,17 +214,9 @@ export async function GET(request: NextRequest) {
                   ...truncatedLogs.slice(-5), // Last 5 logs
                 ])).toString("base64url");
                 redirectUrl.searchParams.set("enrichLogs", truncatedBase64);
-                console.error("[OAuth Callback] Added truncated enrichLogs to URL", {
-                  urlLength: redirectUrl.toString().length,
-                  totalLogs: enrichLogs.length,
-                  displayedLogs: 6, // 1 warning + 5 logs
-                });
               }
             } catch (encodeError) {
               // If encoding fails, add a minimal error log
-              console.error("[OAuth Callback] Failed to encode logs", {
-                error: encodeError instanceof Error ? encodeError.message : String(encodeError),
-              });
               try {
                 const errorLog = [{
                   level: "error" as const,
@@ -302,34 +226,14 @@ export async function GET(request: NextRequest) {
                 }];
                 const errorLogBase64 = Buffer.from(JSON.stringify(errorLog)).toString("base64url");
                 redirectUrl.searchParams.set("enrichLogs", errorLogBase64);
-                console.error("[OAuth Callback] Added error log to URL");
               } catch {
                 // If even error log encoding fails, skip (don't break the redirect)
-                console.error("[OAuth Callback] Failed to add error log to URL");
               }
             }
-          } else {
-            console.error("[OAuth Callback] No logs to add to URL", {
-              enrichLogs: enrichLogs,
-              isArray: Array.isArray(enrichLogs),
-              length: enrichLogs?.length,
-            });
           }
 
-          // Log final URL before redirect (using console.error as it's kept in production)
-          console.error("[OAuth Callback] Final redirect URL", {
-            url: redirectUrl.toString().substring(0, 300), // First 300 chars
-            hasEnrichLogs: redirectUrl.searchParams.has("enrichLogs"),
-            allParams: Array.from(redirectUrl.searchParams.keys()),
-          });
-
           // Redirect to dashboard on successful authentication/linking
-          // Add debug headers as backup (can't be stripped)
-          const response = NextResponse.redirect(redirectUrl);
-          response.headers.set("X-Debug-EnrichLogs", enrichLogs && enrichLogs.length > 0 ? "yes" : "no");
-          response.headers.set("X-Debug-LogsCount", String(enrichLogs?.length || 0));
-          response.headers.set("X-Debug-HasTestParam", redirectUrl.searchParams.has("_enrichTest") ? "yes" : "no");
-          return response;
+          return NextResponse.redirect(redirectUrl);
         }
 
         // Validate and sanitize redirect URL to prevent open redirects
@@ -349,42 +253,26 @@ export async function GET(request: NextRequest) {
         const redirectUrl = new URL(redirectPath, baseUrl);
         return NextResponse.redirect(redirectUrl);
       } else {
-        console.error("[OAuth Callback] No session created after exchangeCodeForSession");
         const baseUrl = getBaseUrl(request);
-        const response = NextResponse.redirect(
+        return NextResponse.redirect(
           new URL("/auth?error=auth_failed&details=No session created", baseUrl)
         );
-        response.headers.set("X-Debug-Error", "no_session");
-        response.headers.set("X-Debug-RouteExecuted", "yes");
-        return response;
       }
     } catch (err) {
-      console.error("[OAuth Callback] Exception in code handler", { error: err instanceof Error ? err.message : String(err) });
       const baseUrl = getBaseUrl(request);
-      const response = NextResponse.redirect(
+      return NextResponse.redirect(
         new URL("/auth?error=auth_failed", baseUrl)
       );
-      response.headers.set("X-Debug-Error", "exception");
-      response.headers.set("X-Debug-RouteExecuted", "yes");
-      response.headers.set("X-Debug-Exception", err instanceof Error ? err.message : String(err));
-      return response;
     }
   }
   
   // If there's no code, redirect to auth page with error
-  console.error("[OAuth Callback] No code parameter - redirecting to auth with error");
   const baseUrl = getBaseUrl(request);
-  const errorUrl = new URL(
-    "/auth?error=linkedin_auth_failed&details=No authorization code received from LinkedIn. Please try again.",
-    baseUrl
+  return NextResponse.redirect(
+    new URL(
+      "/auth?error=linkedin_auth_failed&details=No authorization code received from LinkedIn. Please try again.",
+      baseUrl
+    )
   );
-  
-  const response = NextResponse.redirect(errorUrl);
-  response.headers.set("X-Debug-NoCode", "true");
-  response.headers.set("X-Debug-RouteExecuted", "yes");
-  console.error("[OAuth Callback] No code response", {
-    redirectUrl: errorUrl.toString(),
-  });
-  return response;
 }
 
