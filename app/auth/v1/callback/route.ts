@@ -134,6 +134,7 @@ export async function GET(request: NextRequest) {
           // Use the same Supabase client instance that has the session from exchangeCodeForSession
           // This ensures RLS policies work correctly and session context is available
           // The session cookies are set by exchangeCodeForSession and available to this client instance
+          let enrichLogs: any[] = [];
           try {
             const linkedinProfileData = {
               sub: profileBootstrapData.sub || linkedinIdentity.id,
@@ -148,53 +149,89 @@ export async function GET(request: NextRequest) {
 
             // Pass the existing Supabase client that has the session context from exchangeCodeForSession
             // This ensures RLS policies can read auth.uid() correctly
-            const enrichLogs = await enrichProfileFromLinkedIn(user.id, linkedinProfileData, supabase);
+            enrichLogs = await enrichProfileFromLinkedIn(user.id, linkedinProfileData, supabase) || [];
 
             // Mark any pending sub as used (if it exists)
             await markLinkedInSubAsUsed();
-
-            // Validate and sanitize redirect URL to prevent open redirects
-            let redirectPath = "/dashboard";
-            if (isLinking) {
-              redirectPath = "/dashboard?linked=success";
-            } else if (next) {
-              // Only allow relative paths (starting with /) to prevent open redirects
-              const nextPath = next.startsWith("/") ? next : "/dashboard";
-              // Additional validation: ensure it's a valid path (no protocol, no host)
-              if (!nextPath.includes("://") && !nextPath.includes("//")) {
-                redirectPath = nextPath;
-              }
-            }
-
-            // Add enrichment logs to URL for client-side display (base64 encoded)
-            const redirectUrl = new URL(redirectPath, baseUrl);
-            if (enrichLogs && enrichLogs.length > 0) {
-              try {
-                const logsJson = JSON.stringify(enrichLogs);
-                const logsBase64 = Buffer.from(logsJson).toString("base64url");
-                redirectUrl.searchParams.set("enrichLogs", logsBase64);
-              } catch (encodeError) {
-                // If encoding fails, skip adding logs (don't break the redirect)
-              }
-            }
-
-            // Redirect to dashboard on successful authentication/linking
-            return NextResponse.redirect(redirectUrl);
           } catch (enrichError) {
             // Don't fail the auth flow if enrichment fails
-            // Still redirect to dashboard
-            let redirectPath = "/dashboard";
-            if (isLinking) {
-              redirectPath = "/dashboard?linked=success";
-            } else if (next) {
-              const nextPath = next.startsWith("/") ? next : "/dashboard";
-              if (!nextPath.includes("://") && !nextPath.includes("//")) {
-                redirectPath = nextPath;
+            // Add error to logs if available
+            if (enrichLogs && Array.isArray(enrichLogs)) {
+              enrichLogs.push({
+                level: "error" as const,
+                message: "Enrichment failed with exception",
+                data: {
+                  error: enrichError instanceof Error ? enrichError.message : String(enrichError),
+                },
+                timestamp: new Date().toISOString(),
+              });
+            }
+          }
+
+          // Validate and sanitize redirect URL to prevent open redirects
+          let redirectPath = "/dashboard";
+          if (isLinking) {
+            redirectPath = "/dashboard?linked=success";
+          } else if (next) {
+            // Only allow relative paths (starting with /) to prevent open redirects
+            const nextPath = next.startsWith("/") ? next : "/dashboard";
+            // Additional validation: ensure it's a valid path (no protocol, no host)
+            if (!nextPath.includes("://") && !nextPath.includes("//")) {
+              redirectPath = nextPath;
+            }
+          }
+
+          // Add enrichment logs to URL for client-side display (base64 encoded)
+          const redirectUrl = new URL(redirectPath, baseUrl);
+          if (enrichLogs && enrichLogs.length > 0) {
+            try {
+              const logsJson = JSON.stringify(enrichLogs);
+              // Limit log size to prevent URL length issues (max ~2000 chars for base64)
+              const maxLogSize = 1500; // Leave room for other params
+              const truncatedLogs = logsJson.length > maxLogSize 
+                ? enrichLogs.slice(0, Math.floor((enrichLogs.length * maxLogSize) / logsJson.length))
+                : enrichLogs;
+              
+              const finalLogsJson = JSON.stringify(truncatedLogs);
+              const logsBase64 = Buffer.from(finalLogsJson).toString("base64url");
+              
+              // Check if URL would be too long (browsers typically limit to ~2000 chars)
+              const testUrl = new URL(redirectPath, baseUrl);
+              testUrl.searchParams.set("enrichLogs", logsBase64);
+              if (testUrl.toString().length < 2000) {
+                redirectUrl.searchParams.set("enrichLogs", logsBase64);
+              } else {
+                // If still too long, add a truncated version with a note
+                const truncatedBase64 = Buffer.from(JSON.stringify([
+                  {
+                    level: "warn" as const,
+                    message: "Logs truncated due to URL length limits",
+                    data: { totalLogs: enrichLogs.length, displayedLogs: truncatedLogs.length },
+                    timestamp: new Date().toISOString(),
+                  },
+                  ...truncatedLogs.slice(-5), // Last 5 logs
+                ])).toString("base64url");
+                redirectUrl.searchParams.set("enrichLogs", truncatedBase64);
+              }
+            } catch (encodeError) {
+              // If encoding fails, add a minimal error log
+              try {
+                const errorLog = [{
+                  level: "error" as const,
+                  message: "Failed to encode logs for URL",
+                  data: { error: encodeError instanceof Error ? encodeError.message : String(encodeError) },
+                  timestamp: new Date().toISOString(),
+                }];
+                const errorLogBase64 = Buffer.from(JSON.stringify(errorLog)).toString("base64url");
+                redirectUrl.searchParams.set("enrichLogs", errorLogBase64);
+              } catch {
+                // If even error log encoding fails, skip (don't break the redirect)
               }
             }
-            const redirectUrl = new URL(redirectPath, baseUrl);
-            return NextResponse.redirect(redirectUrl);
           }
+
+          // Redirect to dashboard on successful authentication/linking
+          return NextResponse.redirect(redirectUrl);
         }
 
         // Validate and sanitize redirect URL to prevent open redirects

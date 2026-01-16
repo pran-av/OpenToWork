@@ -43,6 +43,12 @@ export default function DashboardPage() {
   useEffect(() => {
     const enrichLogsParam = searchParams.get("enrichLogs");
     if (enrichLogsParam) {
+      // Log that we received the parameter (helps debug if client code is running)
+      console.log("🔍 Received enrichLogs parameter", { 
+        paramLength: enrichLogsParam.length,
+        hasParam: !!enrichLogsParam 
+      });
+      
       try {
         // Decode base64url (convert to standard base64: - -> +, _ -> /)
         const base64 = enrichLogsParam.replace(/-/g, "+").replace(/_/g, "/");
@@ -51,18 +57,22 @@ export default function DashboardPage() {
         const logsJson = atob(padded);
         const logs = JSON.parse(logsJson);
         
-        console.group("🔍 Profile Enrichment Logs");
-        logs.forEach((log: any) => {
-          const logMessage = `[${log.timestamp}] ${log.message}`;
-          if (log.level === "error") {
-            console.error(logMessage, log.data);
-          } else if (log.level === "warn") {
-            console.warn(logMessage, log.data);
-          } else {
-            console.log(logMessage, log.data);
-          }
-        });
-        console.groupEnd();
+        if (Array.isArray(logs) && logs.length > 0) {
+          console.group("🔍 Profile Enrichment Logs");
+          logs.forEach((log: any) => {
+            const logMessage = `[${log.timestamp}] ${log.message}`;
+            if (log.level === "error") {
+              console.error(logMessage, log.data);
+            } else if (log.level === "warn") {
+              console.warn(logMessage, log.data);
+            } else {
+              console.log(logMessage, log.data);
+            }
+          });
+          console.groupEnd();
+        } else {
+          console.warn("🔍 Profile Enrichment Logs: Received empty or invalid logs array", logs);
+        }
         
         // Clean URL after logging
         const newSearchParams = new URLSearchParams(searchParams.toString());
@@ -72,7 +82,17 @@ export default function DashboardPage() {
           : window.location.pathname;
         router.replace(newUrl);
       } catch (error) {
-        console.error("Failed to parse enrichment logs:", error);
+        console.error("🔍 Failed to parse enrichment logs:", error, {
+          paramLength: enrichLogsParam.length,
+          paramPreview: enrichLogsParam.substring(0, 50),
+        });
+        // Still clean URL even if parsing failed
+        const newSearchParams = new URLSearchParams(searchParams.toString());
+        newSearchParams.delete("enrichLogs");
+        const newUrl = newSearchParams.toString()
+          ? `${window.location.pathname}?${newSearchParams.toString()}`
+          : window.location.pathname;
+        router.replace(newUrl);
       }
     }
   }, [searchParams, router]);
