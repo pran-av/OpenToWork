@@ -18,7 +18,9 @@
 - View Public Campaign Flows as an Authenticated User without generating a new identity when Social Login is present
 - Added Retries and Delays on Profile Enrichment to avoid race conditions
 - Added sizes param for Images
+- auth/callback implements auth/v1/callback functionalities (might require refactoring)
 - P1: Back Navigation Strip hides the Header Dropdown (Pending)
+- P1: No Loader when user being redirected to dashboard post auth via Magic Link or OAuth (Pending)
 - P2: On Click Link Linkedin via Dialog CTA - no loader is displayed (Pending)
 
 ## v1.5.0
