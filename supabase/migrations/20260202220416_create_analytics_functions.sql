@@ -39,8 +39,8 @@ ALTER VIEW public.campaign_analytics_view OWNER TO postgres;
 -- This function allows inserting into internal.sessions with proper permissions
 CREATE OR REPLACE FUNCTION public.create_analytics_session(
   p_session_id UUID,
-  p_user_id UUID DEFAULT NULL,
   p_project_id UUID,
+  p_user_id UUID DEFAULT NULL,
   p_campaign_id UUID DEFAULT NULL,
   p_user_agent_hash TEXT DEFAULT NULL
 ) RETURNS TABLE (
@@ -86,6 +86,7 @@ END;
 $$;
 
 -- Grant execute permissions for session creation
+-- Note: Parameter order: session_id, project_id, user_id, campaign_id, user_agent_hash
 REVOKE EXECUTE ON FUNCTION public.create_analytics_session(UUID, UUID, UUID, UUID, TEXT) FROM public;
 REVOKE EXECUTE ON FUNCTION public.create_analytics_session(UUID, UUID, UUID, UUID, TEXT) FROM anon;
 GRANT EXECUTE ON FUNCTION public.create_analytics_session(UUID, UUID, UUID, UUID, TEXT) TO authenticated;
@@ -200,8 +201,8 @@ CREATE OR REPLACE FUNCTION public.insert_analytics_event(
   p_event_id UUID,
   p_session_id UUID,
   p_event_type internal.event_type_enum,
-  p_metadata JSONB DEFAULT NULL,
-  p_timestamp TIMESTAMPTZ
+  p_timestamp TIMESTAMPTZ,
+  p_metadata JSONB DEFAULT NULL
 ) RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -302,8 +303,8 @@ END;
 $$;
 
 -- Grant execute permissions for worker functions (service role will use these)
-REVOKE EXECUTE ON FUNCTION public.insert_analytics_event(UUID, UUID, internal.event_type_enum, JSONB, TIMESTAMPTZ) FROM public;
-REVOKE EXECUTE ON FUNCTION public.insert_analytics_event(UUID, UUID, internal.event_type_enum, JSONB, TIMESTAMPTZ) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.insert_analytics_event(UUID, UUID, internal.event_type_enum, TIMESTAMPTZ, JSONB) FROM public;
+REVOKE EXECUTE ON FUNCTION public.insert_analytics_event(UUID, UUID, internal.event_type_enum, TIMESTAMPTZ, JSONB) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.update_analytics_session(UUID, INTEGER, internal.session_flag_enum) FROM public;
 REVOKE EXECUTE ON FUNCTION public.update_analytics_session(UUID, INTEGER, internal.session_flag_enum) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.get_analytics_session_for_flag_update(UUID) FROM public;
@@ -316,7 +317,7 @@ REVOKE EXECUTE ON FUNCTION public.get_analytics_session_for_flag_update(UUID) FR
 COMMENT ON FUNCTION public.check_campaign_ownership(UUID) IS 'Checks if the current authenticated user owns the campaign. Returns true if user owns the project that contains the campaign.';
 COMMENT ON FUNCTION public.get_campaign_analytics(UUID) IS 'Returns aggregated analytics data for a campaign. Only accessible by campaign owners. Returns total_actual_sessions, total_engaged_sessions, and total_time_spent (seconds).';
 COMMENT ON VIEW public.campaign_analytics_view IS 'View that joins internal.sessions and internal.events for analytics queries. Access controlled via RPC functions with ownership checks.';
-COMMENT ON FUNCTION public.insert_analytics_event(UUID, UUID, internal.event_type_enum, JSONB, TIMESTAMPTZ) IS 'Inserts an analytics event into internal.events. Used by Edge Function worker. Handles deduplication via UNIQUE constraint.';
+COMMENT ON FUNCTION public.insert_analytics_event(UUID, UUID, internal.event_type_enum, TIMESTAMPTZ, JSONB) IS 'Inserts an analytics event into internal.events. Used by Edge Function worker. Handles deduplication via UNIQUE constraint.';
 COMMENT ON FUNCTION public.update_analytics_session(UUID, INTEGER, internal.session_flag_enum) IS 'Updates session active_time_spent and optionally session_flag. Used by Edge Function worker for heartbeat processing.';
 COMMENT ON FUNCTION public.get_analytics_session_for_flag_update(UUID) IS 'Gets session data needed for flag update logic. Returns session info including whether it has events. Used by Edge Function worker.';
 

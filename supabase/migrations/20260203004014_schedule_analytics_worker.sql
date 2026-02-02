@@ -88,7 +88,7 @@ BEGIN
     PERFORM cron.schedule(
       'analytics-worker',                    -- Job name
       '*/30 * * * * *',                     -- Schedule: every 30 seconds
-      $$SELECT public.invoke_analytics_worker()$$  -- SQL to execute
+      'SELECT public.invoke_analytics_worker()'  -- SQL to execute
     );
     RAISE NOTICE 'Scheduled analytics-worker cron job (every 30 seconds)';
   ELSE
