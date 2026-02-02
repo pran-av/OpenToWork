@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ensureAnonymousAuth } from "@/lib/utils/auth";
 import ClientSummaryPage from "@/components/campaign/ClientSummaryPage";
 import { useCampaignFlow } from "@/hooks/useCampaignFlow";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import type { CampaignData, ClientService, CaseStudy } from "@/lib/db/campaigns";
 import type { WidgetData } from "@/lib/db/widgets";
 
@@ -39,6 +40,13 @@ export default function CampaignFlowClient({
   );
   const [isClient, setIsClient] = useState(false);
   const supabase = createClient();
+
+  // Initialize analytics tracking
+  // Only track for public campaign views (project pages)
+  const { session, isInitialized: isAnalyticsInitialized } = useAnalytics({
+    projectId: campaign.project_id,
+    enabled: true, // Enable analytics tracking
+  });
 
   // Initialize anonymous authentication on component mount
   // PRD Requirement: Check if permanent user exists first, then check for anonymous user, then sign in anonymously

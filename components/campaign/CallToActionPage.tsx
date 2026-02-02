@@ -207,6 +207,9 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
           {ctaConfig.schedule_meeting && (
             <button
               onClick={() => handleCtaClick("schedule_meeting")}
+              data-track-id="Schedule a Meeting"
+              data-track-location="step3"
+              data-track-external="true"
               className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-6 transition-all hover:border-blue-400 hover:bg-blue-50"
             >
               <Calendar className="h-6 w-6 text-gray-700" />
@@ -219,6 +222,8 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
           {ctaConfig.mailto && (
             <button
               onClick={() => handleCtaClick("mailto")}
+              data-track-id="Send an Email"
+              data-track-location="step3"
               className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-6 transition-all hover:border-blue-400 hover:bg-blue-50 relative"
             >
               <Mail className="h-6 w-6 text-gray-700" />
@@ -236,6 +241,9 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
           {ctaConfig.linkedin && (
             <button
               onClick={() => handleCtaClick("linkedin")}
+              data-track-id="Connect on Linkedin"
+              data-track-location="step3"
+              data-track-external="true"
               className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-6 transition-all hover:border-blue-400 hover:bg-blue-50"
             >
               <Linkedin className="h-6 w-6 text-gray-700" />
@@ -248,6 +256,8 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
           {ctaConfig.phone && (
             <button
               onClick={() => handleCtaClick("phone")}
+              data-track-id="Connect on Chat/Phone Call"
+              data-track-location="step3"
               className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-6 transition-all hover:border-blue-400 hover:bg-blue-50 relative"
             >
               <MessageCircle className="h-6 w-6 text-gray-700" />
@@ -369,6 +379,8 @@ export default function CallToActionPage({ campaign }: CallToActionPageProps) {
           <button
             type="submit"
             disabled={isSubmitting}
+            data-track-id="Submit"
+            data-track-location="step3"
             className="w-full rounded-lg bg-gray-800 px-6 py-3 font-semibold text-white transition-colors hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? "SUBMITTING..." : "SUBMIT"}

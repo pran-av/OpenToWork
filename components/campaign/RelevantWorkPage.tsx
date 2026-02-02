@@ -73,6 +73,9 @@ export default function RelevantWorkPage({
               <div
                 key={study.case_id}
                 onClick={() => handleCardClick(study.case_study_url)}
+                data-track-id={study.case_name}
+                data-track-location="step2"
+                data-track-external={hasUrl ? "true" : undefined}
                 className={`rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-all ${
                   hasUrl
                     ? "cursor-pointer hover:border-blue-400 hover:shadow-md"
@@ -110,6 +113,8 @@ export default function RelevantWorkPage({
       <div className="flex justify-end">
         <button
           onClick={onConnect}
+          data-track-id="Connect"
+          data-track-location="step2"
           className="rounded-lg bg-gray-800 px-8 py-3 font-semibold text-white transition-colors hover:bg-gray-900"
         >
           CONNECT

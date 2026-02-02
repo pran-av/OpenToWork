@@ -55,6 +55,8 @@ export default function ClientSummaryPage({
           <button
             key={service.client_service_id}
             onClick={() => onServiceSelect(service.client_service_id)}
+            data-track-id={service.client_service_name}
+            data-track-location="step1"
             className="rounded-lg border border-gray-200 bg-gray-50 px-6 py-4 text-left transition-all hover:border-blue-400 hover:bg-blue-50 hover:shadow-sm"
           >
             <span className="text-base font-medium text-gray-900">

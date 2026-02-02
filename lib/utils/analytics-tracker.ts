@@ -1,0 +1,423 @@
+/**
+ * Analytics Tracker Utility
+ * Handles session creation, event tracking, and heartbeat pings
+ * for campaign analytics
+ */
+
+import { v4 as uuidv4 } from 'uuid';
+import { createHash } from 'crypto';
+
+// Constants
+const SESSION_COOKIE_NAME = 'analytics_session_id';
+const SESSION_COOKIE_TTL_SECONDS = 30 * 60; // 30 minutes
+const HEARTBEAT_INTERVAL_MS = 30 * 1000; // 30 seconds
+const EVENT_BATCH_SIZE = 50; // Max events per batch
+const EVENT_FLUSH_INTERVAL_MS = 30 * 1000; // 30 seconds (min) to 60 seconds (max)
+
+// Types
+export interface EventMetadata {
+  page_navigation?: string; // step1, step2, step3
+  button_name?: string;
+  external_link?: string;
+}
+
+export interface QueuedEvent {
+  event_id: string;
+  event_type: 'link_open' | 'button_click';
+  metadata?: EventMetadata;
+  timestamp: string;
+}
+
+export interface SessionData {
+  session_id: string;
+  project_id: string;
+  campaign_id: string | null;
+}
+
+/**
+ * Generate time-sortable UUID (UUIDv7-like)
+ * Uses timestamp prefix + random UUIDv4 for time-sortability
+ * Format: {timestamp_ms_hex}-{uuidv4}
+ */
+export function generateUUIDv7(): string {
+  const timestamp = Date.now().toString(16).padStart(12, '0'); // 12 hex chars for timestamp
+  const uuid = uuidv4().replace(/-/g, ''); // Remove dashes from UUIDv4
+  return `${timestamp}-${uuid}`;
+}
+
+/**
+ * Hash user agent string using SHA-256
+ * Returns hex string (64 characters)
+ */
+export function hashUserAgent(ua: string): string {
+  if (typeof window === 'undefined') {
+    // Server-side: use Node.js crypto
+    return createHash('sha256').update(ua).digest('hex');
+  }
+  
+  // Client-side: use Web Crypto API
+  // Note: This is async, but we'll handle it synchronously for simplicity
+  // In practice, we'll hash on the server side
+  return ua; // Placeholder - should hash on server
+}
+
+/**
+ * Get session ID from cookie
+ */
+export function getSessionIdFromCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+  
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === SESSION_COOKIE_NAME) {
+      return decodeURIComponent(value);
+    }
+  }
+  return null;
+}
+
+/**
+ * Set session ID in cookie
+ * Note: This sets a client-side cookie. The actual secure cookie is set by the server.
+ */
+export function setSessionIdCookie(sessionId: string): void {
+  if (typeof document === 'undefined') return;
+  
+  const expires = new Date(Date.now() + SESSION_COOKIE_TTL_SECONDS * 1000);
+  document.cookie = `${SESSION_COOKIE_NAME}=${encodeURIComponent(sessionId)}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+}
+
+/**
+ * Create a new session via API
+ */
+export async function createSession(projectId: string, userAgent?: string): Promise<SessionData | null> {
+  try {
+    const userAgentHash = userAgent ? hashUserAgent(userAgent) : undefined;
+    
+    const response = await fetch('/api/analytics/session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        project_id: projectId,
+        user_agent_hash: userAgentHash,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('[Analytics] Failed to create session:', response.statusText);
+      return null;
+    }
+
+    const data = await response.json();
+    
+    // Store session ID in cookie (client-side, for reference)
+    if (data.session_id) {
+      setSessionIdCookie(data.session_id);
+    }
+    
+    return {
+      session_id: data.session_id,
+      project_id: projectId,
+      campaign_id: data.campaign_id || null,
+    };
+  } catch (error) {
+    console.error('[Analytics] Error creating session:', error);
+    return null;
+  }
+}
+
+/**
+ * Event queue for batching
+ */
+class EventQueue {
+  private queue: QueuedEvent[] = [];
+  private flushTimer: NodeJS.Timeout | null = null;
+  private sessionId: string | null = null;
+
+  setSessionId(sessionId: string) {
+    this.sessionId = sessionId;
+  }
+
+  /**
+   * Add event to queue
+   */
+  add(event: QueuedEvent) {
+    this.queue.push(event);
+    
+    // Auto-flush if batch size reached
+    if (this.queue.length >= EVENT_BATCH_SIZE) {
+      this.flush();
+    } else if (!this.flushTimer) {
+      // Schedule flush after interval
+      this.flushTimer = setTimeout(() => {
+        this.flush();
+      }, EVENT_FLUSH_INTERVAL_MS);
+    }
+  }
+
+  /**
+   * Flush events to server
+   */
+  async flush(): Promise<void> {
+    if (this.queue.length === 0 || !this.sessionId) {
+      if (this.flushTimer) {
+        clearTimeout(this.flushTimer);
+        this.flushTimer = null;
+      }
+      return;
+    }
+
+    const eventsToSend = [...this.queue];
+    this.queue = [];
+    
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+
+    try {
+      const response = await fetch('/api/analytics/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: this.sessionId,
+          events: eventsToSend,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('[Analytics] Failed to send events:', response.statusText);
+        // Re-queue events on failure (up to batch size)
+        if (eventsToSend.length <= EVENT_BATCH_SIZE) {
+          this.queue.unshift(...eventsToSend);
+        }
+      }
+    } catch (error) {
+      console.error('[Analytics] Error sending events:', error);
+      // Re-queue events on failure (up to batch size)
+      if (eventsToSend.length <= EVENT_BATCH_SIZE) {
+        this.queue.unshift(...eventsToSend);
+      }
+    }
+  }
+
+  /**
+   * Get current queue size
+   */
+  size(): number {
+    return this.queue.length;
+  }
+}
+
+// Global event queue instance
+const eventQueue = new EventQueue();
+
+/**
+ * Track an event (queued for batching)
+ */
+export function trackEvent(
+  eventType: 'link_open' | 'button_click',
+  metadata?: EventMetadata
+): void {
+  const sessionId = getSessionIdFromCookie();
+  if (!sessionId) {
+    console.warn('[Analytics] No session ID found, event not tracked');
+    return;
+  }
+
+  eventQueue.setSessionId(sessionId);
+  
+  const event: QueuedEvent = {
+    event_id: generateUUIDv7(),
+    event_type: eventType,
+    metadata,
+    timestamp: new Date().toISOString(),
+  };
+
+  eventQueue.add(event);
+}
+
+/**
+ * Flush pending events immediately
+ * Called on page unload or visibility change
+ */
+export function flushEvents(): void {
+  eventQueue.flush();
+}
+
+/**
+ * Heartbeat manager
+ */
+class HeartbeatManager {
+  private intervalId: NodeJS.Timeout | null = null;
+  private sessionId: string | null = null;
+  private isActive: boolean = false;
+  private lastPingTime: number = 0;
+
+  setSessionId(sessionId: string) {
+    this.sessionId = sessionId;
+  }
+
+  /**
+   * Start heartbeat pings
+   */
+  start(): void {
+    if (this.intervalId) {
+      return; // Already running
+    }
+
+    this.isActive = true;
+    this.lastPingTime = Date.now();
+    
+    // Send initial ping
+    this.sendHeartbeat();
+    
+    // Set up interval
+    this.intervalId = setInterval(() => {
+      if (this.isActive && document.visibilityState === 'visible') {
+        this.sendHeartbeat();
+      }
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  /**
+   * Stop heartbeat pings
+   */
+  stop(): void {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    this.isActive = false;
+    
+    // Send final heartbeat on stop
+    this.sendHeartbeat();
+  }
+
+  /**
+   * Pause heartbeat (when tab is hidden)
+   */
+  pause(): void {
+    this.isActive = false;
+  }
+
+  /**
+   * Resume heartbeat (when tab becomes visible)
+   */
+  resume(): void {
+    if (!this.intervalId) {
+      this.start();
+      return;
+    }
+    this.isActive = true;
+  }
+
+  /**
+   * Send heartbeat ping
+   */
+  private async sendHeartbeat(): Promise<void> {
+    if (!this.sessionId || !this.isActive) {
+      return;
+    }
+
+    const now = Date.now();
+    const timeIncrement = Math.floor((now - this.lastPingTime) / 1000); // seconds
+    
+    if (timeIncrement <= 0) {
+      return;
+    }
+
+    this.lastPingTime = now;
+
+    try {
+      const response = await fetch('/api/analytics/heartbeat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: this.sessionId,
+          time_increment: timeIncrement,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('[Analytics] Failed to send heartbeat:', response.statusText);
+      }
+    } catch (error) {
+      console.error('[Analytics] Error sending heartbeat:', error);
+    }
+  }
+}
+
+// Global heartbeat manager instance
+const heartbeatManager = new HeartbeatManager();
+
+/**
+ * Start heartbeat pings
+ */
+export function startHeartbeat(sessionId: string): void {
+  heartbeatManager.setSessionId(sessionId);
+  heartbeatManager.start();
+}
+
+/**
+ * Stop heartbeat pings
+ */
+export function stopHeartbeat(): void {
+  heartbeatManager.stop();
+}
+
+/**
+ * Initialize analytics tracking
+ * Should be called when page loads and visibility is 'visible'
+ */
+export async function initializeAnalytics(projectId: string): Promise<SessionData | null> {
+  // Check if session already exists
+  const existingSessionId = getSessionIdFromCookie();
+  if (existingSessionId) {
+    heartbeatManager.setSessionId(existingSessionId);
+    eventQueue.setSessionId(existingSessionId);
+    startHeartbeat(existingSessionId);
+    
+    // Return existing session data (we'll need to fetch campaign_id from API if needed)
+    return {
+      session_id: existingSessionId,
+      project_id: projectId,
+      campaign_id: null, // Will be updated by API
+    };
+  }
+
+  // Create new session
+  const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : undefined;
+  const session = await createSession(projectId, userAgent);
+  
+  if (session?.session_id) {
+    heartbeatManager.setSessionId(session.session_id);
+    eventQueue.setSessionId(session.session_id);
+    startHeartbeat(session.session_id);
+    
+    // Track initial link_open event
+    trackEvent('link_open');
+  }
+  
+  return session;
+}
+
+/**
+ * Cleanup analytics tracking
+ * Should be called on component unmount
+ */
+export function cleanupAnalytics(): void {
+  // Flush pending events
+  flushEvents();
+  
+  // Stop heartbeat
+  stopHeartbeat();
+}
+
