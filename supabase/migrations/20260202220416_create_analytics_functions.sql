@@ -192,8 +192,131 @@ REVOKE EXECUTE ON FUNCTION public.get_campaign_analytics(UUID) FROM anon;
 GRANT EXECUTE ON FUNCTION public.check_campaign_ownership(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_campaign_analytics(UUID) TO authenticated;
 
--- Step 6: Add comments for documentation
+-- Step 6: Create RPC functions for worker to write to internal schema
+-- These functions are used by the Edge Function worker to process events and heartbeats
+
+-- Function to insert analytics event (used by worker)
+CREATE OR REPLACE FUNCTION public.insert_analytics_event(
+  p_event_id UUID,
+  p_session_id UUID,
+  p_event_type internal.event_type_enum,
+  p_metadata JSONB DEFAULT NULL,
+  p_timestamp TIMESTAMPTZ
+) RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  -- Sanitize inputs
+  IF p_event_id IS NULL OR p_session_id IS NULL OR p_event_type IS NULL OR p_timestamp IS NULL THEN
+    RAISE EXCEPTION 'event_id, session_id, event_type, and timestamp are required';
+  END IF;
+
+  -- Insert event (UNIQUE constraint handles deduplication)
+  INSERT INTO internal.events (
+    event_id,
+    session_id,
+    event_type,
+    metadata,
+    timestamp
+  ) VALUES (
+    p_event_id,
+    p_session_id,
+    p_event_type,
+    p_metadata,
+    p_timestamp
+  )
+  ON CONFLICT (session_id, event_id) DO NOTHING;
+
+  RETURN p_event_id;
+END;
+$$;
+
+-- Function to update session time and flag (used by worker)
+CREATE OR REPLACE FUNCTION public.update_analytics_session(
+  p_session_id UUID,
+  p_time_increment INTEGER DEFAULT 0,
+  p_session_flag internal.session_flag_enum DEFAULT NULL
+) RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_current_time INTEGER;
+  v_current_flag internal.session_flag_enum;
+BEGIN
+  -- Sanitize inputs
+  IF p_session_id IS NULL THEN
+    RETURN false;
+  END IF;
+
+  -- Get current session data
+  SELECT active_time_spent, session_flag INTO v_current_time, v_current_flag
+  FROM internal.sessions
+  WHERE session_id = p_session_id;
+
+  IF v_current_time IS NULL THEN
+    RETURN false; -- Session not found
+  END IF;
+
+  -- Update session
+  UPDATE internal.sessions
+  SET 
+    active_time_spent = v_current_time + COALESCE(p_time_increment, 0),
+    session_flag = COALESCE(p_session_flag, v_current_flag),
+    updated_at = NOW()
+  WHERE session_id = p_session_id;
+
+  RETURN true;
+END;
+$$;
+
+-- Function to get session for flag update check (used by worker)
+CREATE OR REPLACE FUNCTION public.get_analytics_session_for_flag_update(
+  p_session_id UUID
+) RETURNS TABLE (
+  session_id UUID,
+  active_time_spent INTEGER,
+  session_flag internal.session_flag_enum,
+  has_events BOOLEAN
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+STABLE
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    s.session_id,
+    s.active_time_spent,
+    s.session_flag,
+    EXISTS(
+      SELECT 1 FROM internal.events e WHERE e.session_id = s.session_id
+    ) as has_events
+  FROM internal.sessions s
+  WHERE s.session_id = p_session_id;
+END;
+$$;
+
+-- Grant execute permissions for worker functions (service role will use these)
+REVOKE EXECUTE ON FUNCTION public.insert_analytics_event(UUID, UUID, internal.event_type_enum, JSONB, TIMESTAMPTZ) FROM public;
+REVOKE EXECUTE ON FUNCTION public.insert_analytics_event(UUID, UUID, internal.event_type_enum, JSONB, TIMESTAMPTZ) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.update_analytics_session(UUID, INTEGER, internal.session_flag_enum) FROM public;
+REVOKE EXECUTE ON FUNCTION public.update_analytics_session(UUID, INTEGER, internal.session_flag_enum) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.get_analytics_session_for_flag_update(UUID) FROM public;
+REVOKE EXECUTE ON FUNCTION public.get_analytics_session_for_flag_update(UUID) FROM anon;
+
+-- Note: These functions are intended for service role (Edge Function worker) use only
+-- They are not granted to authenticated/anon as they should only be called by the worker
+
+-- Step 7: Add comments for documentation
 COMMENT ON FUNCTION public.check_campaign_ownership(UUID) IS 'Checks if the current authenticated user owns the campaign. Returns true if user owns the project that contains the campaign.';
 COMMENT ON FUNCTION public.get_campaign_analytics(UUID) IS 'Returns aggregated analytics data for a campaign. Only accessible by campaign owners. Returns total_actual_sessions, total_engaged_sessions, and total_time_spent (seconds).';
 COMMENT ON VIEW public.campaign_analytics_view IS 'View that joins internal.sessions and internal.events for analytics queries. Access controlled via RPC functions with ownership checks.';
+COMMENT ON FUNCTION public.insert_analytics_event(UUID, UUID, internal.event_type_enum, JSONB, TIMESTAMPTZ) IS 'Inserts an analytics event into internal.events. Used by Edge Function worker. Handles deduplication via UNIQUE constraint.';
+COMMENT ON FUNCTION public.update_analytics_session(UUID, INTEGER, internal.session_flag_enum) IS 'Updates session active_time_spent and optionally session_flag. Used by Edge Function worker for heartbeat processing.';
+COMMENT ON FUNCTION public.get_analytics_session_for_flag_update(UUID) IS 'Gets session data needed for flag update logic. Returns session info including whether it has events. Used by Edge Function worker.';
 
