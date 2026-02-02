@@ -35,6 +35,62 @@ ALTER VIEW public.campaign_analytics_view OWNER TO postgres;
 -- Note: RLS on views requires policies on underlying tables
 -- We'll create a function that checks ownership instead
 
+-- Step 2.5: Create RPC function for creating analytics sessions
+-- This function allows inserting into internal.sessions with proper permissions
+CREATE OR REPLACE FUNCTION public.create_analytics_session(
+  p_session_id UUID,
+  p_user_id UUID DEFAULT NULL,
+  p_project_id UUID,
+  p_campaign_id UUID DEFAULT NULL,
+  p_user_agent_hash TEXT DEFAULT NULL
+) RETURNS TABLE (
+  session_id UUID,
+  campaign_id UUID
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  -- Sanitize inputs
+  IF p_session_id IS NULL OR p_project_id IS NULL THEN
+    RAISE EXCEPTION 'session_id and project_id are required';
+  END IF;
+
+  -- Insert session into internal.sessions
+  INSERT INTO internal.sessions (
+    session_id,
+    user_id,
+    project_id,
+    campaign_id,
+    user_agent_hash,
+    started_at
+  ) VALUES (
+    p_session_id,
+    p_user_id,
+    p_project_id,
+    p_campaign_id,
+    p_user_agent_hash,
+    NOW()
+  )
+  ON CONFLICT (session_id) DO NOTHING;
+
+  -- Return the session data
+  RETURN QUERY
+  SELECT 
+    s.session_id,
+    s.campaign_id
+  FROM internal.sessions s
+  WHERE s.session_id = p_session_id;
+END;
+$$;
+
+-- Grant execute permissions for session creation
+REVOKE EXECUTE ON FUNCTION public.create_analytics_session(UUID, UUID, UUID, UUID, TEXT) FROM public;
+REVOKE EXECUTE ON FUNCTION public.create_analytics_session(UUID, UUID, UUID, UUID, TEXT) FROM anon;
+GRANT EXECUTE ON FUNCTION public.create_analytics_session(UUID, UUID, UUID, UUID, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_analytics_session(UUID, UUID, UUID, UUID, TEXT) TO anon;
+
 -- Step 3: Create function to check campaign ownership
 -- This function is used to verify that the current user owns the campaign
 CREATE OR REPLACE FUNCTION public.check_campaign_ownership(
