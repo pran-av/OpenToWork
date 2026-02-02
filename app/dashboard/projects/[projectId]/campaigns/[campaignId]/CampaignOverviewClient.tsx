@@ -6,7 +6,9 @@ import type { CampaignData, ClientService, CaseStudy } from "@/lib/db/campaigns"
 import type { ProjectData } from "@/lib/db/projects";
 import { Accordion } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Plus, X, Trash2 } from "lucide-react";
+import { Plus, X, Trash2, RefreshCw } from "lucide-react";
+import { useCampaignAnalytics } from "@/hooks/useCampaignAnalytics";
+import AnalyticsCards from "@/components/dashboard/AnalyticsCards";
 
 interface ServiceWithCaseStudies extends ClientService {
   caseStudies: CaseStudy[];
@@ -1198,37 +1200,17 @@ export default function CampaignOverviewClient({
     ? currentSummary 
     : summaryLines.slice(0, 4).join("\n");
 
+  // Analytics hook - only fetch for ACTIVE/PAUSED campaigns
+  const shouldShowAnalytics = campaign.campaign_status === "ACTIVE" || campaign.campaign_status === "PAUSED";
+  const { analytics, isLoading: isAnalyticsLoading, error: analyticsError, refresh: refreshAnalytics } = useCampaignAnalytics(
+    shouldShowAnalytics ? campaign.campaign_id : ""
+  );
+
   return (
     <div className="space-y-6">
-      {/* Action Buttons - Above Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-        {shouldShowPrimaryCTA() && (
-          <button
-            onClick={() => {
-              if (campaign.campaign_status === "ACTIVE") {
-                handleSwitchCampaign();
-              } else if (campaign.campaign_status === "PAUSED") {
-                handleSwitchCampaign();
-              } else if (campaign.campaign_status === "DRAFT" && hasActiveCampaign) {
-                // DRAFT with active campaign = Switch to Current
-                handleSwitchCampaign();
-              } else {
-                // DRAFT without active campaign = Publish
-                handlePublish();
-              }
-            }}
-            disabled={
-              (campaign.campaign_status === "DRAFT" && !hasActiveCampaign && !isPublishable) ||
-              isPublishing ||
-              isSwitching ||
-              project.is_archived
-            }
-            className="w-full rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
-          >
-            {(isPublishing || isSwitching) ? "Processing..." : getPrimaryCTALabel()}
-          </button>
-        )}
-        {isEditMode && (
+      {/* Action Buttons - Above Header (Save button for edit mode only) */}
+      {isEditMode && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
           <button
             onClick={handleSave}
             disabled={isSaving || project.is_archived}
@@ -1236,8 +1218,8 @@ export default function CampaignOverviewClient({
           >
             {isSaving ? "Saving..." : "Save Campaign"}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Header Section */}
       <div className="rounded-lg border border-orange-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
@@ -1275,11 +1257,63 @@ export default function CampaignOverviewClient({
         {/* Toast notifications moved to fixed position */}
       </div>
 
-      {/* Campaign Structure Section */}
+      {/* Performance Section - Only for ACTIVE/PAUSED campaigns */}
+      {shouldShowAnalytics && (
+        <div className="rounded-lg border border-orange-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-black dark:text-zinc-50">Performance</h3>
+            <button
+              onClick={refreshAnalytics}
+              disabled={isAnalyticsLoading}
+              className="flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            >
+              <RefreshCw className={`h-4 w-4 ${isAnalyticsLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
+          <AnalyticsCards
+            analytics={analytics}
+            isLoading={isAnalyticsLoading}
+            error={analyticsError}
+          />
+        </div>
+      )}
+
+      {/* Content Section */}
       <div className="rounded-lg border border-orange-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <h3 className="mb-4 text-lg font-semibold text-black dark:text-zinc-50">
-          Campaign Structure
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-black dark:text-zinc-50">Content</h3>
+          {shouldShowPrimaryCTA() && (
+            <button
+              onClick={() => {
+                if (campaign.campaign_status === "ACTIVE") {
+                  handleSwitchCampaign();
+                } else if (campaign.campaign_status === "PAUSED") {
+                  handleSwitchCampaign();
+                } else if (campaign.campaign_status === "DRAFT" && hasActiveCampaign) {
+                  handleSwitchCampaign();
+                } else {
+                  handlePublish();
+                }
+              }}
+              disabled={
+                (campaign.campaign_status === "DRAFT" && !hasActiveCampaign && !isPublishable) ||
+                isPublishing ||
+                isSwitching ||
+                project.is_archived
+              }
+              className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+            >
+              {(isPublishing || isSwitching) ? "Processing..." : getPrimaryCTALabel()}
+            </button>
+          )}
+        </div>
+
+          {/* Campaign Structure Section */}
+        <div className="mt-6">
+          <h3 className="mb-4 text-lg font-semibold text-black dark:text-zinc-50">
+            Campaign Structure
+          </h3>
         <div className="space-y-4">
           {/* Client Name */}
           <div>
@@ -1445,10 +1479,10 @@ export default function CampaignOverviewClient({
             )}
           </div>
         </div>
-      </div>
+        </div>
 
-      {/* Client Services Section */}
-      <ClientServicesSection
+        {/* Client Services Section */}
+        <ClientServicesSection
         services={services}
         setServices={setServices}
         openAccordions={openAccordions}
@@ -1532,6 +1566,7 @@ export default function CampaignOverviewClient({
           }
         }}
       />
+      </div>
 
       {/* Add Service Modal */}
       <Dialog open={isAddServiceModalOpen} onOpenChange={setIsAddServiceModalOpen}>
