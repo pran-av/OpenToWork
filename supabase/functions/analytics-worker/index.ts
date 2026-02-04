@@ -297,7 +297,7 @@ async function processHeartbeats() {
 
 /**
  * Update session flag based on activity
- * new_session -> actual_session (>10s) -> engaged_session (actual + events)
+ * new_session -> actual_session (>10s) -> engaged_session (actual + more than one event)
  */
 async function updateSessionFlag(sessionId: string) {
   try {
@@ -314,7 +314,7 @@ async function updateSessionFlag(sessionId: string) {
     const session = sessionData[0];
     const currentFlag = session.session_flag;
     const timeSpent = session.active_time_spent || 0;
-    const hasEvents = session.has_events || false;
+    const eventCount = session.event_count || 0;
 
     // Check if session should be upgraded to actual_session (>10 seconds)
     if (currentFlag === 'new_session' && timeSpent >= ACTUAL_SESSION_THRESHOLD_SECONDS) {
@@ -333,8 +333,8 @@ async function updateSessionFlag(sessionId: string) {
       return;
     }
 
-    // Check if session should be upgraded to engaged_session (actual + has events)
-    if (currentFlag === 'actual_session' && hasEvents) {
+    // Check if session should be upgraded to engaged_session (actual + more than one event)
+    if (currentFlag === 'actual_session' && eventCount > 1) {
       const { error: updateError } = await supabase.rpc(
         'update_analytics_session',
         {

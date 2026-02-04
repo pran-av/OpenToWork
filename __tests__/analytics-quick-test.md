@@ -9,18 +9,18 @@ A streamlined testing guide for quick validation before migrations.
 2. Open DevTools → Network tab
 3. Verify:
    - ✅ POST `/api/analytics/session` returns 200 - WORKING
-   - ✅ Cookie `analytics_session_id` is set - PRESENT (deletes after 30 mins but no new cookie visible)
-   - ✅ Initial `link_open` event is sent
+   - ✅ Cookie `analytics_session_id` is set - PRESENT
+   - ✅ Initial `link_open` event is sent - WORKING
 4. Click a service button
 5. Verify:
-   - ✅ Event is sent (may be batched)
-   - ✅ Event metadata is correct
+   - ✅ Event is sent (may be batched) - WORKING
+   - ✅ Event metadata is correct - WORKING
 
 ### Step 2: Heartbeat (1 minute)
 1. Keep page active for 30 seconds
 2. Verify:
    - ✅ POST `/api/analytics/heartbeat` sent after 30s - WORKING
-   - ✅ `time_increment`: 30 - 
+   - ✅ `time_increment`: 30 - WORKING
 
 ### Step 3: Dashboard (2 minutes)
 1. Open campaign dashboard (ACTIVE campaign)
