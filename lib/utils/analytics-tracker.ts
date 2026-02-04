@@ -11,7 +11,7 @@ import { createHash } from 'crypto';
 const SESSION_COOKIE_NAME = 'analytics_session_id';
 const SESSION_COOKIE_TTL_SECONDS = 30 * 60; // 30 minutes
 const HEARTBEAT_INTERVAL_MS = 30 * 1000; // 30 seconds
-const EVENT_BATCH_SIZE = 50; // Max events per batch
+const EVENT_BATCH_SIZE = 10; // Max events per batch (reduced from 50)
 const EVENT_FLUSH_INTERVAL_MS = 30 * 1000; // 30 seconds (min) to 60 seconds (max)
 
 // Types
@@ -145,6 +145,16 @@ class EventQueue {
    * Add event to queue
    */
   add(event: QueuedEvent) {
+    if (typeof window !== 'undefined') {
+      // Debug log for event enqueue
+      // eslint-disable-next-line no-console
+      console.log('[Analytics] Queuing event', {
+        type: event.event_type,
+        hasSessionId: !!this.sessionId,
+        queueSizeBefore: this.queue.length,
+      });
+    }
+
     this.queue.push(event);
     
     // Auto-flush if batch size reached
@@ -162,6 +172,14 @@ class EventQueue {
    * Flush events to server
    */
   async flush(): Promise<void> {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log('[Analytics] Flush called', {
+        queueSize: this.queue.length,
+        hasSessionId: !!this.sessionId,
+      });
+    }
+
     if (this.queue.length === 0 || !this.sessionId) {
       if (this.flushTimer) {
         clearTimeout(this.flushTimer);

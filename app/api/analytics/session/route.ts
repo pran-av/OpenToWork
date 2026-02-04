@@ -18,14 +18,16 @@ function hashUserAgent(ua: string): string {
 
 /**
  * Get cookie options for session cookie
+ * Note: httpOnly is false because client-side JavaScript needs to read this cookie
+ * for event tracking. Security is maintained via Secure flag (HTTPS) and SameSite.
  */
 function getSessionCookieOptions() {
   const isProduction = process.env.ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production';
   
   return {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: 'lax' as const,
+    httpOnly: false, // Must be false for client-side access via document.cookie
+    secure: isProduction, // HTTPS only in production
+    sameSite: 'lax' as const, // CSRF protection
     path: '/',
     maxAge: SESSION_COOKIE_TTL_SECONDS,
   };
