@@ -1,7 +1,11 @@
 -- Update get_analytics_session_for_flag_update to return event_count instead of has_events
 -- This allows checking for more than one event (event_count > 1) for engaged_session flag
 
-CREATE OR REPLACE FUNCTION public.get_analytics_session_for_flag_update(
+-- Drop the existing function first (can't change return type with CREATE OR REPLACE)
+DROP FUNCTION IF EXISTS public.get_analytics_session_for_flag_update(UUID);
+
+-- Recreate with new return type
+CREATE FUNCTION public.get_analytics_session_for_flag_update(
   p_session_id UUID
 ) RETURNS TABLE (
   session_id UUID,
