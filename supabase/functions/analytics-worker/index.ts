@@ -113,7 +113,10 @@ async function processEvents() {
       '>' // Read new messages
     ]) as any;
 
+    console.log('[Worker] XREADGROUP events response:', JSON.stringify(messages));
+
     if (!messages || (Array.isArray(messages) && messages.length === 0)) {
+      console.log('[Worker] No events to process');
       return { processed: 0, failed: 0 };
     }
 
@@ -250,7 +253,10 @@ async function processHeartbeats() {
       '>' // Read new messages
     ]) as any;
 
+    console.log('[Worker] XREADGROUP heartbeats response:', JSON.stringify(messages));
+
     if (!messages || (Array.isArray(messages) && messages.length === 0)) {
+      console.log('[Worker] No heartbeats to process');
       return { processed: 0, failed: 0 };
     }
 
@@ -443,14 +449,23 @@ async function updateSessionFlag(sessionId: string) {
  */
 Deno.serve(async (req: Request) => {
   try {
+    console.log('[Worker] Starting worker invocation');
+    
     // Initialize consumer groups on first run
     await initializeConsumerGroups();
+    console.log('[Worker] Consumer groups initialized');
 
     // Process events and heartbeats
+    console.log('[Worker] Processing events and heartbeats...');
     const [eventsResult, heartbeatsResult] = await Promise.all([
       processEvents(),
       processHeartbeats(),
     ]);
+
+    console.log('[Worker] Processing complete:', {
+      events: { processed: eventsResult.processed, failed: eventsResult.failed },
+      heartbeats: { processed: heartbeatsResult.processed, failed: heartbeatsResult.failed },
+    });
 
     return new Response(
       JSON.stringify({
