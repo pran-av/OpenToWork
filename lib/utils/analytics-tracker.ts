@@ -420,15 +420,50 @@ export function stopHeartbeatWithFlush(): void {
 }
 
 /**
+ * Ensure valid session exists (check and renew if needed)
+ * Returns true if session is valid, false if new session was created
+ */
+export async function ensureValidSession(projectId: string): Promise<boolean> {
+  const existingSessionId = getSessionIdFromCookie();
+  
+  // If no cookie, create new session
+  if (!existingSessionId) {
+    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : undefined;
+    const session = await createSession(projectId, userAgent);
+    
+    if (session?.session_id) {
+      heartbeatManager.setSessionId(session.session_id);
+      eventQueue.setSessionId(session.session_id);
+      return false; // New session created
+    }
+    return false;
+  }
+  
+  // Cookie exists, assume session is valid (server will handle expiry)
+  heartbeatManager.setSessionId(existingSessionId);
+  eventQueue.setSessionId(existingSessionId);
+  return true; // Existing session
+}
+
+/**
  * Start heartbeat using session ID from cookie
  * Used when tab/window gains focus or becomes visible
  * This restarts the heartbeat with a fresh baseline
+ * Automatically creates new session if cookie expired
  */
-export function startHeartbeatFromCookie(): void {
+export async function startHeartbeatFromCookie(projectId: string): Promise<void> {
   const sessionId = getSessionIdFromCookie();
   if (sessionId) {
     heartbeatManager.setSessionId(sessionId);
     heartbeatManager.start();
+  } else {
+    // Cookie expired, create new session and start heartbeat
+    await ensureValidSession(projectId);
+    const newSessionId = getSessionIdFromCookie();
+    if (newSessionId) {
+      heartbeatManager.setSessionId(newSessionId);
+      heartbeatManager.start();
+    }
   }
 }
 

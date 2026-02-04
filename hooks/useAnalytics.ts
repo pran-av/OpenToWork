@@ -12,6 +12,7 @@ import {
   SessionData,
   stopHeartbeatWithFlush,
   startHeartbeatFromCookie,
+  ensureValidSession,
 } from '@/lib/utils/analytics-tracker';
 import {
   initializeAnalyticsListener,
@@ -121,14 +122,15 @@ export function useAnalytics({
       typeof navigator !== 'undefined' ? navigator.userAgent : ''
     );
 
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = async () => {
       if (document.visibilityState === 'hidden') {
         // Page is hidden - flush events and heartbeat immediately
         flushEvents();
         stopHeartbeatWithFlush(); // Flushes accumulated time and stops heartbeat
       } else if (document.visibilityState === 'visible') {
-        // Page visible again - restart heartbeat with fresh baseline
-        startHeartbeatFromCookie();
+        // Page visible again - ensure valid session and restart heartbeat
+        await ensureValidSession(projectId);
+        await startHeartbeatFromCookie(projectId);
       }
     };
 
@@ -138,9 +140,10 @@ export function useAnalytics({
       stopHeartbeatWithFlush(); // Flushes accumulated time and stops heartbeat
     };
 
-    const handlePageShow = () => {
-      // Page shown again (mobile) - restart heartbeat with fresh baseline
-      startHeartbeatFromCookie();
+    const handlePageShow = async () => {
+      // Page shown again (mobile) - ensure valid session and restart heartbeat
+      await ensureValidSession(projectId);
+      await startHeartbeatFromCookie(projectId);
     };
 
     // Desktop-only: window focus/blur events
@@ -151,10 +154,11 @@ export function useAnalytics({
       }
     };
 
-    const handleWindowFocus = () => {
+    const handleWindowFocus = async () => {
       if (!isMobile) {
-        // Window gained focus (desktop) - restart heartbeat with fresh baseline
-        startHeartbeatFromCookie();
+        // Window gained focus (desktop) - ensure valid session and restart heartbeat
+        await ensureValidSession(projectId);
+        await startHeartbeatFromCookie(projectId);
       }
     };
 
@@ -181,7 +185,26 @@ export function useAnalytics({
         window.removeEventListener('focus', handleWindowFocus);
       }
     };
-  }, [enabled, isInitialized]);
+  }, [enabled, isInitialized, projectId]);
+
+  // Periodic session validation (every 5 minutes)
+  useEffect(() => {
+    if (!enabled || !isInitialized) {
+      return;
+    }
+
+    const validateSession = async () => {
+      await ensureValidSession(projectId);
+    };
+
+    // Check immediately, then every 5 minutes
+    validateSession();
+    const intervalId = setInterval(validateSession, 5 * 60 * 1000); // 5 minutes
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [enabled, isInitialized, projectId]);
 
   return {
     session,
