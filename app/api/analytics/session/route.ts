@@ -4,6 +4,7 @@ import { noStoreJsonResponse } from '@/lib/utils/api-cache';
 import { checkFixedWindowRateLimit, getClientIP } from '@/lib/utils/rate-limit';
 import { createHash } from 'crypto';
 import { cookies } from 'next/headers';
+import { v7 as uuidv7 } from 'uuid';
 
 const SESSION_COOKIE_NAME = 'analytics_session_id';
 const SESSION_COOKIE_TTL_SECONDS = 30 * 60; // 30 minutes
@@ -63,6 +64,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Hash user agent server-side (always store SHA-256 hex)
+    const uaHash = user_agent_hash && typeof user_agent_hash === 'string'
+      ? hashUserAgent(user_agent_hash)
+      : null;
+
     // Get Supabase client
     const supabase = await createServerClient();
     
@@ -81,20 +87,18 @@ export async function POST(request: NextRequest) {
       campaignId = campaignData[0].campaign_id;
     }
 
-    // Generate session ID (UUIDv7-like, time-sortable)
-    const timestamp = Date.now().toString(16).padStart(12, '0');
-    const random = Math.random().toString(36).substring(2, 15);
-    const sessionId = `${timestamp}-${random}-${Math.random().toString(36).substring(2, 15)}`;
+    // Generate session ID using UUIDv7 (time-sortable, valid UUID)
+    const sessionId = uuidv7();
 
     // Create session in database using RPC function
     const { data: sessionData, error: insertError } = await supabase.rpc(
       'create_analytics_session',
       {
         p_session_id: sessionId,
-        p_user_id: userId,
         p_project_id: project_id,
+        p_user_id: userId,
         p_campaign_id: campaignId,
-        p_user_agent_hash: user_agent_hash || null,
+        p_user_agent_hash: uaHash,
       }
     );
 
