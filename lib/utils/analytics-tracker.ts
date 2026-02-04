@@ -4,7 +4,7 @@
  * for campaign analytics
  */
 
-import { v4 as uuidv4 } from 'uuid';
+import { v7 as uuidv7 } from 'uuid';
 import { createHash } from 'crypto';
 
 // Constants
@@ -35,14 +35,11 @@ export interface SessionData {
 }
 
 /**
- * Generate time-sortable UUID (UUIDv7-like)
- * Uses timestamp prefix + random UUIDv4 for time-sortability
- * Format: {timestamp_ms_hex}-{uuidv4}
+ * Generate time-sortable UUID (UUIDv7)
+ * Uses the uuid package's v7 implementation for proper UUIDv7 format
  */
 export function generateUUIDv7(): string {
-  const timestamp = Date.now().toString(16).padStart(12, '0'); // 12 hex chars for timestamp
-  const uuid = uuidv4().replace(/-/g, ''); // Remove dashes from UUIDv4
-  return `${timestamp}-${uuid}`;
+  return uuidv7();
 }
 
 /**

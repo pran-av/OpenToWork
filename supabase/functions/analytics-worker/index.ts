@@ -21,6 +21,7 @@ const STREAM_HEARTBEATS = 'analytics:heartbeats';
 const BATCH_SIZE = 10; // Process 10 messages at a time
 const SESSION_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
 const ACTUAL_SESSION_THRESHOLD_SECONDS = 10; // 10 seconds for actual session
+const STREAM_MAX_LENGTH = 10000; // Keep max 10k messages in stream (XTRIM)
 
 // Initialize Supabase client with service role key
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -98,40 +99,103 @@ async function initializeConsumerGroups() {
 }
 
 /**
- * Process events from Redis Stream
+ * Read messages from a stream (both pending and new)
  */
-async function processEvents() {
+async function readStreamMessages(stream: string): Promise<Array<[string, string[]]>> {
+  const allMessages: Array<[string, string[]]> = [];
+  
+  // First, read pending messages (previously delivered but not acknowledged)
   try {
-    // Read events from stream
-    // Use REST API directly for XREADGROUP command
-    const messages = await redisCommand([
+    const pendingMessages = await redisCommand([
       'XREADGROUP',
       'GROUP', CONSUMER_GROUP,
       CONSUMER_NAME,
       'COUNT', BATCH_SIZE.toString(),
-      'STREAMS', STREAM_EVENTS,
+      'STREAMS', stream,
+      '0' // Read pending messages
+    ]) as any;
+    
+    if (pendingMessages && Array.isArray(pendingMessages) && pendingMessages.length > 0) {
+      const streamData = pendingMessages[0];
+      if (streamData && Array.isArray(streamData) && streamData.length >= 2) {
+        const messages = streamData[1] as Array<[string, string[]]>;
+        if (messages && messages.length > 0) {
+          console.log(`[Worker] Found ${messages.length} pending messages in ${stream}`);
+          allMessages.push(...messages);
+        }
+      }
+    }
+  } catch (error) {
+    console.error(`[Worker] Error reading pending messages from ${stream}:`, error);
+  }
+  
+  // Then, read new messages
+  try {
+    const newMessages = await redisCommand([
+      'XREADGROUP',
+      'GROUP', CONSUMER_GROUP,
+      CONSUMER_NAME,
+      'COUNT', BATCH_SIZE.toString(),
+      'STREAMS', stream,
       '>' // Read new messages
     ]) as any;
+    
+    if (newMessages && Array.isArray(newMessages) && newMessages.length > 0) {
+      const streamData = newMessages[0];
+      if (streamData && Array.isArray(streamData) && streamData.length >= 2) {
+        const messages = streamData[1] as Array<[string, string[]]>;
+        if (messages && messages.length > 0) {
+          console.log(`[Worker] Found ${messages.length} new messages in ${stream}`);
+          allMessages.push(...messages);
+        }
+      }
+    }
+  } catch (error) {
+    console.error(`[Worker] Error reading new messages from ${stream}:`, error);
+  }
+  
+  return allMessages;
+}
 
-    console.log('[Worker] XREADGROUP events response:', JSON.stringify(messages));
+/**
+ * Acknowledge messages and trim stream to max length
+ */
+async function acknowledgeAndTrimStream(stream: string, messageIds: string[]): Promise<void> {
+  if (messageIds.length === 0) return;
+  
+  try {
+    // Acknowledge messages (marks them as processed)
+    await redisCommand(['XACK', stream, CONSUMER_GROUP, ...messageIds]);
+    console.log(`[Worker] Acknowledged ${messageIds.length} messages from ${stream}`);
+    
+    // Trim stream to max length (keeps most recent messages, removes old ones)
+    // Using ~ for approximate trimming (more efficient)
+    await redisCommand(['XTRIM', stream, 'MAXLEN', '~', STREAM_MAX_LENGTH.toString()]);
+    console.log(`[Worker] Trimmed ${stream} to max length ${STREAM_MAX_LENGTH}`);
+  } catch (error) {
+    console.error(`[Worker] Error acknowledging/trimming ${stream}:`, error);
+  }
+}
 
-    if (!messages || (Array.isArray(messages) && messages.length === 0)) {
+/**
+ * Process events from Redis Stream
+ */
+async function processEvents() {
+  try {
+    // Read both pending and new events
+    const streamMessages = await readStreamMessages(STREAM_EVENTS);
+
+    if (streamMessages.length === 0) {
       console.log('[Worker] No events to process');
       return { processed: 0, failed: 0 };
     }
+
+    console.log(`[Worker] Processing ${streamMessages.length} events`);
 
     let processed = 0;
     let failed = 0;
     const messageIds: string[] = [];
 
-    // Parse messages - format: [[stream, [[id, [field1, val1, field2, val2, ...]], ...]]]
-    // Redis Streams return fields as flat array: [field1, value1, field2, value2, ...]
-    const streamData = Array.isArray(messages) && messages.length > 0 ? messages[0] : null;
-    if (!streamData || !Array.isArray(streamData) || streamData.length < 2) {
-      return { processed: 0, failed: 0 };
-    }
-
-    const streamMessages = streamData[1] as Array<[string, string[]]>;
     for (const [messageId, fieldArray] of streamMessages) {
       try {
         // Convert flat array [field1, val1, field2, val2, ...] to object
@@ -157,9 +221,7 @@ async function processEvents() {
           metadata = null;
         }
 
-        // Insert event into database using RPC function (UNIQUE constraint handles deduplication)
-        // Function signature: insert_analytics_event(p_event_id, p_session_id, p_event_type, p_timestamp, p_metadata)
-        // Ensure all required parameters are valid
+        // Validate required fields
         if (!eventId || !sessionId || !eventType || !timestamp) {
           console.error(`[Worker] Missing required fields for event ${messageId}:`, {
             eventId,
@@ -167,6 +229,8 @@ async function processEvents() {
             eventType,
             timestamp,
           });
+          // Still acknowledge invalid messages to remove them from queue
+          messageIds.push(messageId);
           failed++;
           continue;
         }
@@ -212,23 +276,20 @@ async function processEvents() {
         // Update session flag if needed
         await updateSessionFlag(sessionId);
 
-        // Acknowledge message
+        // Mark message for deletion
         messageIds.push(messageId);
         processed++;
+        console.log(`[Worker] Event processed: ${eventId}`);
       } catch (error) {
         console.error(`[Worker] Error processing event ${messageId}:`, error);
+        // Still acknowledge failed messages to prevent infinite retry
+        messageIds.push(messageId);
         failed++;
       }
     }
 
-    // Acknowledge processed messages
-    if (messageIds.length > 0) {
-      try {
-        await redisCommand(['XACK', STREAM_EVENTS, CONSUMER_GROUP, ...messageIds]);
-      } catch (error) {
-        console.error('[Worker] Error acknowledging events:', error);
-      }
-    }
+    // Acknowledge and trim stream
+    await acknowledgeAndTrimStream(STREAM_EVENTS, messageIds);
 
     return { processed, failed };
   } catch (error) {
@@ -242,37 +303,22 @@ async function processEvents() {
  */
 async function processHeartbeats() {
   try {
-    // Read heartbeats from stream
-    // Use REST API directly for XREADGROUP command
-    const messages = await redisCommand([
-      'XREADGROUP',
-      'GROUP', CONSUMER_GROUP,
-      CONSUMER_NAME,
-      'COUNT', BATCH_SIZE.toString(),
-      'STREAMS', STREAM_HEARTBEATS,
-      '>' // Read new messages
-    ]) as any;
+    // Read both pending and new heartbeats
+    const streamMessages = await readStreamMessages(STREAM_HEARTBEATS);
 
-    console.log('[Worker] XREADGROUP heartbeats response:', JSON.stringify(messages));
-
-    if (!messages || (Array.isArray(messages) && messages.length === 0)) {
+    if (streamMessages.length === 0) {
       console.log('[Worker] No heartbeats to process');
       return { processed: 0, failed: 0 };
     }
 
+    console.log(`[Worker] Processing ${streamMessages.length} heartbeats`);
+
     let processed = 0;
     let failed = 0;
+    let expired = 0;
     const messageIds: string[] = [];
     const sessionTimeIncrements: Record<string, number> = {};
 
-    // Parse messages - format: [[stream, [[id, [field1, val1, field2, val2, ...]], ...]]]
-    // Redis Streams return fields as flat array: [field1, value1, field2, value2, ...]
-    const streamData = Array.isArray(messages) && messages.length > 0 ? messages[0] : null;
-    if (!streamData || !Array.isArray(streamData) || streamData.length < 2) {
-      return { processed: 0, failed: 0 };
-    }
-
-    const streamMessages = streamData[1] as Array<[string, string[]]>;
     // Accumulate time increments per session
     for (const [messageId, fieldArray] of streamMessages) {
       try {
@@ -294,6 +340,7 @@ async function processHeartbeats() {
         messageIds.push(messageId);
       } catch (error) {
         console.error(`[Worker] Error parsing heartbeat ${messageId}:`, error);
+        messageIds.push(messageId); // Still mark for deletion
         failed++;
       }
     }
@@ -301,26 +348,21 @@ async function processHeartbeats() {
     // Update sessions with accumulated time
     for (const [sessionId, totalIncrement] of Object.entries(sessionTimeIncrements)) {
       try {
-        // Check if session exists and is not expired
-        // Use RPC function to query internal.sessions (Supabase client can't query internal schema directly)
+        // Check if session exists
         const { data: sessionData, error: sessionError } = await supabase.rpc(
           'get_analytics_session',
           { p_session_id: sessionId }
         );
 
         if (sessionError) {
-          // Log the actual error to debug
-          console.error(`[Worker] Error fetching session ${sessionId}:`, {
-            error: sessionError.message,
-            code: sessionError.code,
-            details: sessionError.details,
-            hint: sessionError.hint,
-          });
+          console.error(`[Worker] Error fetching session ${sessionId}:`, sessionError.message);
+          failed++;
           continue;
         }
 
         if (!sessionData || sessionData.length === 0) {
           console.log(`[Worker] Session not found: ${sessionId}`);
+          failed++;
           continue;
         }
 
@@ -332,27 +374,38 @@ async function processHeartbeats() {
         const timeSinceStart = now.getTime() - startedAt.getTime();
 
         if (timeSinceStart > SESSION_EXPIRY_MS) {
-          // Session expired, end it using RPC function
-          const { error: endError } = await supabase.rpc(
-            'end_analytics_session',
-            { p_session_id: sessionId }
-          );
-          
-          if (endError) {
-            console.error(`[Worker] Error ending expired session:`, endError);
-          } else {
-            console.log(`[Worker] Session expired and ended (${Math.floor(timeSinceStart / 1000)}s old): ${sessionId}`);
+          // Session expired - still update time spent before ending
+          if (session.ended_at === null) {
+            // Update time spent first
+            await supabase.rpc('update_analytics_session', {
+              p_session_id: sessionId,
+              p_time_increment: totalIncrement,
+              p_session_flag: null,
+            });
+            
+            // Then end the session
+            const { error: endError } = await supabase.rpc(
+              'end_analytics_session',
+              { p_session_id: sessionId }
+            );
+            
+            if (endError) {
+              console.error(`[Worker] Error ending expired session:`, endError);
+            } else {
+              console.log(`[Worker] Session expired and ended (${Math.floor(timeSinceStart / 1000)}s old, +${totalIncrement}s): ${sessionId}`);
+            }
           }
+          expired++;
           continue;
         }
 
-        // Increment active_time_spent using RPC function
+        // Session is active - increment active_time_spent
         const { data: updateSuccess, error: updateError } = await supabase.rpc(
           'update_analytics_session',
           {
             p_session_id: sessionId,
             p_time_increment: totalIncrement,
-            p_session_flag: null, // Don't update flag here, do it separately
+            p_session_flag: null,
           }
         );
 
@@ -364,25 +417,20 @@ async function processHeartbeats() {
         await updateSessionFlag(sessionId);
 
         processed++;
+        console.log(`[Worker] Heartbeat processed for session ${sessionId}: +${totalIncrement}s`);
       } catch (error) {
         console.error(`[Worker] Error processing heartbeat for session ${sessionId}:`, error);
         failed++;
       }
     }
 
-    // Acknowledge processed messages
-    if (messageIds.length > 0) {
-      try {
-        await redisCommand(['XACK', STREAM_HEARTBEATS, CONSUMER_GROUP, ...messageIds]);
-      } catch (error) {
-        console.error('[Worker] Error acknowledging heartbeats:', error);
-      }
-    }
+    // Acknowledge and trim stream
+    await acknowledgeAndTrimStream(STREAM_HEARTBEATS, messageIds);
 
-    return { processed, failed };
+    return { processed, failed, expired };
   } catch (error) {
     console.error('[Worker] Error processing heartbeats:', error);
-    return { processed: 0, failed: 0 };
+    return { processed: 0, failed: 0, expired: 0 };
   }
 }
 
@@ -462,9 +510,10 @@ Deno.serve(async (req: Request) => {
       processHeartbeats(),
     ]);
 
+    const heartbeatsExpired = (heartbeatsResult as any).expired || 0;
     console.log('[Worker] Processing complete:', {
       events: { processed: eventsResult.processed, failed: eventsResult.failed },
-      heartbeats: { processed: heartbeatsResult.processed, failed: heartbeatsResult.failed },
+      heartbeats: { processed: heartbeatsResult.processed, failed: heartbeatsResult.failed, expired: heartbeatsExpired },
     });
 
     return new Response(
@@ -477,6 +526,7 @@ Deno.serve(async (req: Request) => {
         heartbeats: {
           processed: heartbeatsResult.processed,
           failed: heartbeatsResult.failed,
+          expired: heartbeatsExpired,
         },
       }),
       {
