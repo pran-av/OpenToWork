@@ -305,34 +305,42 @@ class HeartbeatManager {
 
   /**
    * Stop heartbeat pings
+   * Clears interval and sends final heartbeat if active
    */
   stop(): void {
+    // Flush accumulated time before stopping (if active)
+    if (this.isActive) {
+      this.flushHeartbeat();
+    }
+    
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
     this.isActive = false;
-    
-    // Send final heartbeat on stop
-    this.sendHeartbeat();
   }
 
   /**
-   * Pause heartbeat (when tab is hidden)
+   * Flush accumulated time increment immediately
+   * Used when stopping heartbeat (tab hidden, window blur, pagehide)
    */
-  pause(): void {
-    this.isActive = false;
-  }
-
-  /**
-   * Resume heartbeat (when tab becomes visible)
-   */
-  resume(): void {
-    if (!this.intervalId) {
-      this.start();
+  flushHeartbeat(): void {
+    if (!this.sessionId || !this.isActive) {
       return;
     }
-    this.isActive = true;
+
+    const now = Date.now();
+    const timeIncrement = Math.floor((now - this.lastPingTime) / 1000); // seconds
+    
+    if (timeIncrement <= 0) {
+      return;
+    }
+
+    // Update lastPingTime before sending (to prevent double-counting)
+    this.lastPingTime = now;
+
+    // Send heartbeat immediately (fire and forget)
+    this.sendHeartbeatSync(timeIncrement);
   }
 
   /**
@@ -351,6 +359,17 @@ class HeartbeatManager {
     }
 
     this.lastPingTime = now;
+
+    await this.sendHeartbeatSync(timeIncrement);
+  }
+
+  /**
+   * Send heartbeat to server (synchronous wrapper)
+   */
+  private async sendHeartbeatSync(timeIncrement: number): Promise<void> {
+    if (!this.sessionId) {
+      return;
+    }
 
     try {
       const response = await fetch('/api/analytics/heartbeat', {
@@ -389,6 +408,28 @@ export function startHeartbeat(sessionId: string): void {
  */
 export function stopHeartbeat(): void {
   heartbeatManager.stop();
+}
+
+/**
+ * Stop heartbeat and flush accumulated time
+ * Used when tab/window loses focus or becomes hidden
+ * This is an alias for stopHeartbeat() for semantic clarity
+ */
+export function stopHeartbeatWithFlush(): void {
+  heartbeatManager.stop();
+}
+
+/**
+ * Start heartbeat using session ID from cookie
+ * Used when tab/window gains focus or becomes visible
+ * This restarts the heartbeat with a fresh baseline
+ */
+export function startHeartbeatFromCookie(): void {
+  const sessionId = getSessionIdFromCookie();
+  if (sessionId) {
+    heartbeatManager.setSessionId(sessionId);
+    heartbeatManager.start();
+  }
 }
 
 /**

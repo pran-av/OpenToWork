@@ -10,6 +10,8 @@ import {
   cleanupAnalytics,
   flushEvents,
   SessionData,
+  stopHeartbeatWithFlush,
+  startHeartbeatFromCookie,
 } from '@/lib/utils/analytics-tracker';
 import {
   initializeAnalyticsListener,
@@ -108,30 +110,76 @@ export function useAnalytics({
     };
   }, [projectId, enabled]);
 
-  // Handle visibility changes (pause/resume heartbeat)
+  // Handle visibility changes and focus/blur (pause/resume heartbeat)
   useEffect(() => {
     if (!enabled || !isInitialized) {
       return;
     }
 
+    // Detect if device is mobile (simplified check)
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      typeof navigator !== 'undefined' ? navigator.userAgent : ''
+    );
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        // Page is hidden - flush events immediately
+        // Page is hidden - flush events and heartbeat immediately
         flushEvents();
+        stopHeartbeatWithFlush(); // Flushes accumulated time and stops heartbeat
+      } else if (document.visibilityState === 'visible') {
+        // Page visible again - restart heartbeat with fresh baseline
+        startHeartbeatFromCookie();
       }
     };
 
     const handlePageHide = () => {
-      // Page is unloading - flush events immediately
+      // Page is unloading - flush events and heartbeat immediately
       flushEvents();
+      stopHeartbeatWithFlush(); // Flushes accumulated time and stops heartbeat
     };
 
+    const handlePageShow = () => {
+      // Page shown again (mobile) - restart heartbeat with fresh baseline
+      startHeartbeatFromCookie();
+    };
+
+    // Desktop-only: window focus/blur events
+    const handleWindowBlur = () => {
+      if (!isMobile) {
+        // Window lost focus (desktop) - flush heartbeat and stop
+        stopHeartbeatWithFlush(); // Flushes accumulated time and stops heartbeat
+      }
+    };
+
+    const handleWindowFocus = () => {
+      if (!isMobile) {
+        // Window gained focus (desktop) - restart heartbeat with fresh baseline
+        startHeartbeatFromCookie();
+      }
+    };
+
+    // Always listen to visibilitychange (works for both desktop and mobile)
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('pagehide', handlePageHide);
+    
+    // Mobile: use pagehide/pageshow
+    if (isMobile) {
+      window.addEventListener('pagehide', handlePageHide);
+      window.addEventListener('pageshow', handlePageShow);
+    } else {
+      // Desktop: use focus/blur
+      window.addEventListener('blur', handleWindowBlur);
+      window.addEventListener('focus', handleWindowFocus);
+    }
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('pagehide', handlePageHide);
+      if (isMobile) {
+        window.removeEventListener('pagehide', handlePageHide);
+        window.removeEventListener('pageshow', handlePageShow);
+      } else {
+        window.removeEventListener('blur', handleWindowBlur);
+        window.removeEventListener('focus', handleWindowFocus);
+      }
     };
   }, [enabled, isInitialized]);
 
