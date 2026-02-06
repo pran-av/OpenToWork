@@ -262,6 +262,14 @@ async function processEvents() {
             processed++;
             continue;
           }
+          // Check if it's a foreign key violation (session doesn't exist)
+          if (insertError.code === '23503' || insertError.message?.includes('foreign key constraint') || insertError.message?.includes('events_session_id_fkey')) {
+            // Session doesn't exist (likely from DB reset), skip but acknowledge
+            console.log(`[Worker] Orphaned event skipped (session not found): ${eventId} for session ${sessionId}`);
+            messageIds.push(messageId);
+            processed++;
+            continue;
+          }
           throw insertError;
         }
 
