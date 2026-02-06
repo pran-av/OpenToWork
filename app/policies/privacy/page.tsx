@@ -6,7 +6,7 @@ import PolicyHeader from "../PolicyHeader";
 
 async function getPrivacyPolicyContent() {
   try {
-    const filePath = join(process.cwd(), "policies", "privacy", "v0.2.0-2026-01-15.md");
+    const filePath = join(process.cwd(), "policies", "privacy", "v0.3.0-2026-02-06.md");
     const fileContents = await readFile(filePath, "utf8");
     return fileContents;
   } catch (error) {
