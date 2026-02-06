@@ -16,7 +16,7 @@ export default function BackButton() {
   };
 
   return (
-    <div className="border-b border-orange-100 bg-white/80 backdrop-blur-sm dark:border-orange-900/30 dark:bg-zinc-900/80">
+    <div className="relative z-10 border-b border-orange-100 bg-white/80 backdrop-blur-sm dark:border-orange-900/30 dark:bg-zinc-900/80">
       <div className="container mx-auto px-4 py-2">
         <button
           onClick={handleBack}

@@ -96,7 +96,7 @@ export default function DashboardHeader() {
   };
 
   return (
-    <header className="border-b border-orange-100 bg-white/80 backdrop-blur-sm dark:border-orange-900/30 dark:bg-zinc-900/80">
+    <header className="relative z-20 border-b border-orange-100 bg-white/80 backdrop-blur-sm dark:border-orange-900/30 dark:bg-zinc-900/80">
       <div className="container mx-auto flex items-center justify-between px-4 py-4">
         <div className="flex items-center gap-4">
           {/* Logo */}
