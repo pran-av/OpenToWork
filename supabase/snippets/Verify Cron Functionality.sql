@@ -14,3 +14,8 @@ SELECT
     error_msg         -- Error if the request failed to send
 FROM net._http_response
 WHERE id = 4;
+
+--
+SELECT * FROM cron.job_run_details 
+WHERE jobid = (SELECT jobid FROM cron.job WHERE jobname = 'analytics-worker')
+ORDER BY start_time DESC LIMIT 5;
