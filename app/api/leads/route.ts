@@ -1,9 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { createLead } from "@/lib/db/campaigns";
+import { checkFixedWindowRateLimit, getClientIP } from "@/lib/utils/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting: 5 lead submissions per minute per IP
+    const clientIP = getClientIP(request);
+    const rateLimit = await checkFixedWindowRateLimit(
+      `leads:${clientIP}`,
+      5,
+      60 // 1 minute
+    );
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded", resetAt: rateLimit.resetAt },
+        { status: 429 }
+      );
+    }
+
     // Verify user authentication with Supabase Auth server (more secure than getSession)
     const supabase = await createServerClient();
     const { data: { user }, error: userError } = await supabase.auth.getUser();
