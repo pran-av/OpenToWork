@@ -10,7 +10,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts"
  * Processes events and heartbeats from Redis Streams
  * Writes to internal.sessions and internal.events tables
  * Updates session flags based on activity
- */
+*/ 
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Redis } from 'https://deno.land/x/upstash_redis@v1.19.3/mod.ts';
@@ -495,6 +495,7 @@ async function updateSessionFlag(sessionId: string) {
 /**
  * Main handler function
  */
+
 Deno.serve(async (req: Request) => {
   try {
     console.log('[Worker] Starting worker invocation');
