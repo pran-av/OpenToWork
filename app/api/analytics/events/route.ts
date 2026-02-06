@@ -14,7 +14,7 @@ const MAX_PAYLOAD_SIZE = 100 * 1024; // 100KB
 export async function POST(request: NextRequest) {
   try {
     // Debug log: entry into events API
-    console.log('[Analytics Events] POST /api/analytics/events called');
+    // console.log('[Analytics Events] POST /api/analytics/events called');
     // Rate limiting: 50 requests per 10 seconds per IP
     const clientIP = getClientIP(request);
     const rateLimit = await checkSlidingWindowRateLimit(
@@ -33,14 +33,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { session_id, events } = body;
 
-    console.log('[Analytics Events] Payload received', {
-      hasSessionId: !!session_id,
-      eventsCount: Array.isArray(events) ? events.length : 'not-array',
-    });
+    // console.log('[Analytics Events] Payload received', {
+    //   hasSessionId: !!session_id,
+    //   eventsCount: Array.isArray(events) ? events.length : 'not-array',
+    // });
 
     // Validate required fields
     if (!session_id || typeof session_id !== 'string') {
-      console.warn('[Analytics Events] Missing or invalid session_id');
+      // console.warn('[Analytics Events] Missing or invalid session_id');
       return NextResponse.json(
         { error: 'session_id is required' },
         { status: 400 }
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!Array.isArray(events)) {
-      console.warn('[Analytics Events] events is not an array');
+      // console.warn('[Analytics Events] events is not an array');
       return NextResponse.json(
         { error: 'events must be an array' },
         { status: 400 }
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     // Validate batch size
     if (events.length === 0) {
-      console.warn('[Analytics Events] events array is empty');
+      // console.warn('[Analytics Events] events array is empty');
       return NextResponse.json(
         { error: 'events array cannot be empty' },
         { status: 400 }
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (events.length > MAX_EVENTS_PER_BATCH) {
-      console.warn('[Analytics Events] Batch too large', { eventsLength: events.length });
+      // console.warn('[Analytics Events] Batch too large', { eventsLength: events.length });
       return NextResponse.json(
         { error: `Maximum ${MAX_EVENTS_PER_BATCH} events per batch` },
         { status: 400 }
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     // Validate payload size
     const payloadSize = JSON.stringify(body).length;
     if (payloadSize > MAX_PAYLOAD_SIZE) {
-      console.warn('[Analytics Events] Payload too large', { payloadSize });
+      // console.warn('[Analytics Events] Payload too large', { payloadSize });
       return NextResponse.json(
         { error: 'Payload too large' },
         { status: 400 }
@@ -122,10 +122,10 @@ export async function POST(request: NextRequest) {
     let acceptedCount = 0;
     let failedCount = 0;
 
-    console.log('[Analytics Events] Validated events', {
-      validatedCount: validatedEvents.length,
-      rejectedCount: rejectedEvents.length,
-    });
+    // console.log('[Analytics Events] Validated events', {
+    //   validatedCount: validatedEvents.length,
+    //   rejectedCount: rejectedEvents.length,
+    // });
 
     if (validatedEvents.length > 0) {
       // Retry logic: try up to 2 times
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
         } catch (error) {
           retries--;
           if (retries < 0) {
-            console.error('[Analytics Events] Failed to send events to Redis after retries:', error);
+            // console.error('[Analytics Events] Failed to send events to Redis after retries:', error);
             failedCount = validatedEvents.length;
           } else {
             // Wait a bit before retry
@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('[Analytics Events] Error:', error);
+    // console.error('[Analytics Events] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

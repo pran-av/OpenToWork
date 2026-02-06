@@ -1,6 +1,23 @@
 # CHANGELOG
 
-## v1.6.0 (Current)
+## v1.7.0 (Current)
+(Jan 16, 2026 - Feb 06, 2026)
+
+- Analytics: End-to-end session, event, and heartbeat tracking wired via Supabase worker and Upstash Redis streams. Implemented Supabase Cron to trigger worker every 30 seconds.
+- Campaign Performance: Actual vs Engaged Sessions and Time Spent cards added to Campaign Overview
+- Campaign Performance: Analytics cards, loading, and error states refined for Studio dark mode
+- Leads API: Upstash Redis rate limiting for campaign flow lead submissions (5 requests/minute per IP)
+- Auth: Anonymous sign-in moved to server-side route with secure HttpOnly cookies
+- Profile: `api/profile` now returns `profile: null` for new users instead of failing
+
+### Fixes:
+- Analytics: Fixed UUID generation and SQL/RPC mismatches for analytics sessions and events
+- Analytics: Resolved worker Redis stream issues so queued events and heartbeats process reliably with stream trimming
+- Analytics: Corrected heartbeat and session cookie handling for accurate engaged session and time spent calculations
+- Security: Tightened permissions on analytics RPCs and `campaign_analytics_view` so only campaign owners can see their metrics
+- Header: Profile update dropdown now renders above the back navigation strip in Studio
+
+## v1.6.0
 (Jan 10,2026 - Jan 15, 2026)
 
 - Linkedin OAuth Integration

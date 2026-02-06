@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (insertError) {
-      console.error('[Analytics Session] Error creating session:', insertError);
+      // console.error('[Analytics Session] Error creating session:', insertError);
       return NextResponse.json(
         { error: 'Failed to create session' },
         { status: 500 }
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
       campaign_id: campaignId,
     });
   } catch (error) {
-    console.error('[Analytics Session] Error:', error);
+    // console.error('[Analytics Session] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

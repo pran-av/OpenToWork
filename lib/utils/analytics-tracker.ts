@@ -104,7 +104,7 @@ export async function createSession(projectId: string, userAgent?: string): Prom
     });
 
     if (!response.ok) {
-      console.error('[Analytics] Failed to create session:', response.statusText);
+      // console.error('[Analytics] Failed to create session:', response.statusText);
       return null;
     }
 
@@ -121,7 +121,8 @@ export async function createSession(projectId: string, userAgent?: string): Prom
       campaign_id: data.campaign_id || null,
     };
   } catch (error) {
-    console.error('[Analytics] Error creating session:', error);
+    // eslint-disable-next-line no-console
+    // console.error('[Analytics] Error creating session:', error);
     return null;
   }
 }
@@ -145,11 +146,11 @@ class EventQueue {
     if (typeof window !== 'undefined') {
       // Debug log for event enqueue
       // eslint-disable-next-line no-console
-      console.log('[Analytics] Queuing event', {
-        type: event.event_type,
-        hasSessionId: !!this.sessionId,
-        queueSizeBefore: this.queue.length,
-      });
+      // console.log('[Analytics] Queuing event', {
+      //   type: event.event_type,
+      //   hasSessionId: !!this.sessionId,
+      //   queueSizeBefore: this.queue.length,
+      // });
     }
 
     this.queue.push(event);
@@ -171,10 +172,10 @@ class EventQueue {
   async flush(): Promise<void> {
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line no-console
-      console.log('[Analytics] Flush called', {
-        queueSize: this.queue.length,
-        hasSessionId: !!this.sessionId,
-      });
+      // console.log('[Analytics] Flush called', {
+      //   queueSize: this.queue.length,
+      //   hasSessionId: !!this.sessionId,
+      // });
     }
 
     if (this.queue.length === 0 || !this.sessionId) {
@@ -206,14 +207,14 @@ class EventQueue {
       });
 
       if (!response.ok) {
-        console.error('[Analytics] Failed to send events:', response.statusText);
+        // console.error('[Analytics] Failed to send events:', response.statusText);
         // Re-queue events on failure (up to batch size)
         if (eventsToSend.length <= EVENT_BATCH_SIZE) {
           this.queue.unshift(...eventsToSend);
         }
       }
     } catch (error) {
-      console.error('[Analytics] Error sending events:', error);
+      // console.error('[Analytics] Error sending events:', error);
       // Re-queue events on failure (up to batch size)
       if (eventsToSend.length <= EVENT_BATCH_SIZE) {
         this.queue.unshift(...eventsToSend);
@@ -241,7 +242,7 @@ export function trackEvent(
 ): void {
   const sessionId = getSessionIdFromCookie();
   if (!sessionId) {
-    console.warn('[Analytics] No session ID found, event not tracked');
+    // console.warn('[Analytics] No session ID found, event not tracked');
     return;
   }
 
@@ -381,10 +382,10 @@ class HeartbeatManager {
       });
 
       if (!response.ok) {
-        console.error('[Analytics] Failed to send heartbeat:', response.statusText);
+        // console.error('[Analytics] Failed to send heartbeat:', response.statusText);
       }
     } catch (error) {
-      console.error('[Analytics] Error sending heartbeat:', error);
+      // console.error('[Analytics] Error sending heartbeat:', error);
     }
   }
 }

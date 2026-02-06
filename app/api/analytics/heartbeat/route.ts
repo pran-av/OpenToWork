@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
       return noStoreJsonResponse({ success: true });
     } catch (error) {
-      console.error('[Analytics Heartbeat] Error sending to Redis:', error);
+      // console.error('[Analytics Heartbeat] Error sending to Redis:', error);
       // Return 202 even on error - heartbeat is best-effort
       return NextResponse.json(
         { success: false, error: 'Failed to process heartbeat' },
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('[Analytics Heartbeat] Error:', error);
+    // console.error('[Analytics Heartbeat] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

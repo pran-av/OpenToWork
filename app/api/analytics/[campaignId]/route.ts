@@ -44,7 +44,7 @@ export async function GET(
     );
 
     if (error) {
-      console.error('[Analytics] Error fetching analytics:', error);
+      // console.error('[Analytics] Error fetching analytics:', error);
       return NextResponse.json(
         { error: 'Failed to fetch analytics' },
         { status: 500 }
@@ -67,7 +67,7 @@ export async function GET(
       total_time_spent: Number(analytics.total_time_spent) || 0,
     });
   } catch (error) {
-    console.error('[Analytics] Error:', error);
+    // console.error('[Analytics] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
