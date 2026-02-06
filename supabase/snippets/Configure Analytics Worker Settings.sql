@@ -5,12 +5,12 @@
 -- Step 1: Set Supabase URL
 -- Replace YOUR_PROJECT_REF with your actual project reference
 -- Example: https://abcdefghijklmn.supabase.co
-ALTER DATABASE postgres SET app.settings.supabase_url TO 'https://YOUR_PROJECT_REF.supabase.co';
+ALTER DATABASE postgres SET app.settings.supabase_url TO 'http://host.docker.internal:54321';
 
 -- Step 2: Set Service Role Key
 -- Replace YOUR_SERVICE_ROLE_KEY with your actual service role key
 -- Find it in: Supabase Dashboard → Settings → API → service_role (secret)
-ALTER DATABASE postgres SET app.settings.service_role_key TO 'YOUR_SERVICE_ROLE_KEY';
+ALTER DATABASE postgres SET app.settings.service_role_key TO 'SERVICE_ROLE_KEY';
 
 -- Step 3: Verify settings are configured
 SELECT 
