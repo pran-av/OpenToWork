@@ -116,54 +116,44 @@ export async function ensureAnonymousAuth(
     // Step 3: PRD Requirement - If cookies for neither guest nor permanent user exist, sign in anonymously
     // console.log(`[${context}] No valid session found (neither server-side nor client-side), signing in anonymously...`);
     
-    // Sign in anonymously (this will set cookies via @supabase/ssr)
-    const { data: signInData, error: signInError } = await supabase.auth.signInAnonymously();
-    
-    if (signInError) {
-      // console.error(`[${context}] Error signing in anonymously:`, {
-      //   message: signInError.message,
-      //   status: signInError.status,
-      //   name: signInError.name,
-      //   fullError: signInError,
-      // });
-      return false;
-    }
-    
-    if (signInData?.session) {
-      // console.log(`[${context}] Anonymous sign-in successful:`, {
-      //   user_id: signInData.session.user?.id,
-      //   email: signInData.session.user?.email,
-      //   is_anonymous: signInData.session.user?.is_anonymous,
-      //   access_token: signInData.session.access_token ? "present" : "missing",
-      //   expires_at: signInData.session.expires_at,
-      // });
+    // Sign in anonymously via server-side API route (sets httpOnly cookies)
+    // This ensures cookies are set with httpOnly: true, secure: true (production), sameSite: strict
+    try {
+      const signInResponse = await fetch("/api/auth/anonymous-signin", {
+        method: "POST",
+        credentials: "include", // Include cookies in request
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
       
-      // Decode JWT to verify is_anonymous claim
-      try {
-        const jwtPayload = JSON.parse(atob(signInData.session.access_token.split('.')[1]));
-        // console.log(`[${context}] JWT payload after anonymous sign-in:`, {
-        //   sub: jwtPayload.sub,
-        //   email: jwtPayload.email,
-        //   is_anonymous: jwtPayload.is_anonymous,
-        //   role: jwtPayload.role,
-        //   exp: jwtPayload.exp,
+      if (!signInResponse.ok) {
+        const errorData = await signInResponse.json().catch(() => ({}));
+        // console.error(`[${context}] Error signing in anonymously:`, {
+        //   status: signInResponse.status,
+        //   error: errorData.error || "Unknown error",
         // });
-        
-        // if (jwtPayload.is_anonymous !== true) {
-        //   console.warn(`[${context}] WARNING: is_anonymous claim is not true in JWT!`);
-        // }
-        
-        // PRD Note: Cookie is set automatically by @supabase/ssr
-        // Cookie name: 'sb-{project-ref}-auth-token' (same for both anonymous and permanent users)
-        // This is expected behavior - Supabase uses same cookie structure for both
-        // console.log(`[${context}] Session cookie should be set by @supabase/ssr automatically`);
-      } catch (jwtError) {
-        // console.error(`[${context}] Error decoding JWT after sign-in:`, jwtError);
+        return false;
       }
       
-      return true;
-    } else {
-      // console.warn(`[${context}] Sign-in returned no session data`);
+      const signInData = await signInResponse.json();
+      
+      if (signInData.success) {
+        // console.log(`[${context}] Anonymous sign-in successful:`, {
+        //   userId: signInData.userId,
+        //   isAnonymous: signInData.isAnonymous,
+        //   expiresAt: signInData.expiresAt,
+        // });
+        
+        // Cookies are set server-side with httpOnly: true, secure: true (production), sameSite: strict
+        // The browser will automatically include these cookies in subsequent requests
+        return true;
+      } else {
+        // console.warn(`[${context}] Sign-in returned success: false`, signInData);
+        return false;
+      }
+    } catch (fetchError) {
+      // console.error(`[${context}] Error calling anonymous sign-in API:`, fetchError);
       return false;
     }
   } catch (error) {

@@ -28,7 +28,14 @@ export async function GET(request: NextRequest) {
       .eq("user_id", user.id)
       .single();
 
+    // If no profile row exists yet, return a 200 with null profile instead of 500
+    // PGRST116: "The result contains 0 rows" when .single() finds nothing
     if (profileError) {
+      if ((profileError as any).code === "PGRST116") {
+        // New or anonymous user without a profile row
+        return noStoreJsonResponse({ profile: null });
+      }
+
       console.error("Error fetching user profile:", profileError);
       return noStoreJsonResponse(
         { error: "Failed to fetch profile" },
