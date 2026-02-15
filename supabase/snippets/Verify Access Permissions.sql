@@ -71,3 +71,13 @@ WHERE
     AND t.table_type = 'BASE TABLE'
 ORDER BY 
     t.table_name, r.rolname;
+
+-- Verify Extensions
+
+SELECT 
+    e.extname AS extension_name, 
+    e.extversion AS version, 
+    n.nspname AS schema_name
+FROM pg_extension e
+JOIN pg_namespace n ON e.extnamespace = n.oid
+ORDER BY schema_name;

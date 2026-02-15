@@ -12,6 +12,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { DashboardResumeSection } from "@/components/dashboard/DashboardResumeSection";
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<ProjectData[]>([]);
@@ -177,8 +178,15 @@ export default function DashboardPage() {
     );
   }
 
+  const showToast = (message: string, type: "success" | "error") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 5000);
+  };
+
   return (
     <div className="space-y-6">
+      <DashboardResumeSection onToast={showToast} />
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">
