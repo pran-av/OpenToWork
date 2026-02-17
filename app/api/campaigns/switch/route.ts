@@ -3,9 +3,16 @@ import { createServerClient } from "@/lib/supabase/server";
 import { getCampaignById } from "@/lib/db/campaigns";
 import { getProjectById } from "@/lib/db/projects";
 import { switchCampaign } from "@/lib/db/campaigns";
+import { checkAndFlushAnonymousAuth } from "@/lib/utils/anonymous-auth-check";
 
 export async function POST(request: NextRequest) {
   try {
+    // Check for anonymous users and flush cookies if needed
+    const anonymousCheck = await checkAndFlushAnonymousAuth("/auth", true);
+    if (anonymousCheck.isAnonymous && anonymousCheck.redirectResponse) {
+      return anonymousCheck.redirectResponse;
+    }
+
     const { projectId, targetCampaignId } = await request.json();
 
     if (!projectId || !targetCampaignId) {
