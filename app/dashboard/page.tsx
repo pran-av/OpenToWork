@@ -113,6 +113,17 @@ export default function DashboardPage() {
   const fetchProjects = async () => {
     try {
       const res = await fetch("/api/projects");
+      
+      // Check for anonymous auth redirect
+      if (res.status === 401) {
+        const data = await res.json();
+        if (data.redirect && data.message) {
+          setToast({ message: data.message, type: "error" });
+          router.push(data.redirect);
+          return;
+        }
+      }
+      
       const data = await res.json();
       if (res.ok) {
         setProjects(data.projects || []);
@@ -146,6 +157,17 @@ export default function DashboardPage() {
         },
         body: JSON.stringify({ projectName: projectName.trim() }),
       });
+
+      // Check for anonymous auth redirect
+      if (res.status === 401) {
+        const redirectData = await res.json();
+        if (redirectData.redirect && redirectData.message) {
+          setToast({ message: redirectData.message, type: "error" });
+          router.push(redirectData.redirect);
+          setIsCreating(false);
+          return;
+        }
+      }
 
       const data = await res.json();
 

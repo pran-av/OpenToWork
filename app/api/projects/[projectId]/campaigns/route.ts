@@ -7,6 +7,7 @@ import {
 } from "@/lib/db/campaigns";
 import { getProjectById } from "@/lib/db/projects";
 import { cachedPrivateJsonResponse } from "@/lib/utils/api-cache";
+import { checkAndFlushAnonymousAuth } from "@/lib/utils/anonymous-auth-check";
 
 export const runtime = "edge";
 
@@ -19,6 +20,12 @@ export async function GET(
   { params }: RouteParams
 ) {
   try {
+    // Check for anonymous users and flush cookies if needed
+    const anonymousCheck = await checkAndFlushAnonymousAuth("/auth", true);
+    if (anonymousCheck.isAnonymous && anonymousCheck.redirectResponse) {
+      return anonymousCheck.redirectResponse;
+    }
+
     const { projectId } = await params;
     const supabase = await createServerClient();
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -51,6 +58,12 @@ export async function POST(
   { params }: RouteParams
 ) {
   try {
+    // Check for anonymous users and flush cookies if needed
+    const anonymousCheck = await checkAndFlushAnonymousAuth("/auth", true);
+    if (anonymousCheck.isAnonymous && anonymousCheck.redirectResponse) {
+      return anonymousCheck.redirectResponse;
+    }
+
     const { projectId } = await params;
     const { campaignName } = await request.json();
 

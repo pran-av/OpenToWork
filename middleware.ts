@@ -45,22 +45,60 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  // Skip middleware processing for API routes (they handle auth themselves)
+  const isApiRoute = request.nextUrl.pathname.startsWith("/api");
+  
   // Refresh session if expired - required for Server Components
+  // Only call getUser for non-API routes to avoid interfering with API route handlers
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = isApiRoute ? { data: { user: null } } : await supabase.auth.getUser();
 
-  // Protect dashboard routes
-  if (request.nextUrl.pathname.startsWith("/dashboard")) {
+  // Protect dashboard routes (page routes only, not API routes)
+  if (request.nextUrl.pathname.startsWith("/dashboard") && !isApiRoute) {
     if (!user) {
       const url = request.nextUrl.clone();
       url.pathname = "/auth";
       return NextResponse.redirect(url);
     }
+
+    // Check if user is anonymous - if so, flush cookies and redirect to auth
+    // Skip this check for API routes - they handle anonymous checks themselves
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        let isAnonymous = false;
+        try {
+          // Use atob for edge runtime compatibility
+          const base64Url = session.access_token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+          const decoded = atob(padded);
+          const jwtPayload = JSON.parse(decoded);
+          isAnonymous = jwtPayload.is_anonymous === true;
+        } catch (jwtError) {
+          // Fall back to user object flags if JWT decode fails
+          isAnonymous = session.user?.is_anonymous === true;
+        }
+
+        if (isAnonymous) {
+          // Flush anonymous cookies
+          await supabase.auth.signOut();
+          
+          // Redirect to auth page
+          const url = request.nextUrl.clone();
+          url.pathname = "/auth";
+          return NextResponse.redirect(url);
+        }
+      }
+    } catch (error) {
+      // On error, continue with normal flow to avoid blocking legitimate users
+      console.error("[middleware] Error checking anonymous auth:", error);
+    }
   }
 
-  // Redirect authenticated users away from auth page
-  if (request.nextUrl.pathname.startsWith("/auth") && user) {
+  // Redirect authenticated users away from auth page (page routes only)
+  if (request.nextUrl.pathname.startsWith("/auth") && !isApiRoute && user) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
