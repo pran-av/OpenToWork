@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createProject, getUserProjects } from "@/lib/db/projects";
 import { cachedPrivateJsonResponse } from "@/lib/utils/api-cache";
+import { checkAndFlushAnonymousAuth } from "@/lib/utils/anonymous-auth-check";
 
 export const runtime = "edge";
 
 export async function GET() {
   try {
+    // Check for anonymous users and flush cookies if needed
+    const anonymousCheck = await checkAndFlushAnonymousAuth("/auth", true);
+    if (anonymousCheck.isAnonymous && anonymousCheck.redirectResponse) {
+      return anonymousCheck.redirectResponse;
+    }
+
     const projects = await getUserProjects();
     return cachedPrivateJsonResponse({ projects });
   } catch (error) {
@@ -19,6 +26,12 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check for anonymous users and flush cookies if needed
+    const anonymousCheck = await checkAndFlushAnonymousAuth("/auth", true);
+    if (anonymousCheck.isAnonymous && anonymousCheck.redirectResponse) {
+      return anonymousCheck.redirectResponse;
+    }
+
     const { projectName } = await request.json();
 
     if (!projectName || typeof projectName !== "string" || !projectName.trim()) {

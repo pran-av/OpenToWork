@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProjectById, archiveProject } from "@/lib/db/projects";
+import { checkAndFlushAnonymousAuth } from "@/lib/utils/anonymous-auth-check";
 
 interface RouteParams {
   params: Promise<{ projectId: string }>;
@@ -10,6 +11,12 @@ export async function POST(
   { params }: RouteParams
 ) {
   try {
+    // Check for anonymous users and flush cookies if needed
+    const anonymousCheck = await checkAndFlushAnonymousAuth("/auth", true);
+    if (anonymousCheck.isAnonymous && anonymousCheck.redirectResponse) {
+      return anonymousCheck.redirectResponse;
+    }
+
     const { projectId } = await params;
 
     // Ensure project exists and belongs to user (RLS enforced inside)

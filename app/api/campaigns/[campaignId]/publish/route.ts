@@ -3,6 +3,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { getCampaignById } from "@/lib/db/campaigns";
 import { getProjectById } from "@/lib/db/projects";
 import { publishCampaign } from "@/lib/db/campaigns";
+import { checkAndFlushAnonymousAuth } from "@/lib/utils/anonymous-auth-check";
 
 interface RouteParams {
   params: Promise<{ campaignId: string }>;
@@ -13,6 +14,12 @@ export async function POST(
   { params }: RouteParams
 ) {
   try {
+    // Check for anonymous users and flush cookies if needed
+    const anonymousCheck = await checkAndFlushAnonymousAuth("/auth", true);
+    if (anonymousCheck.isAnonymous && anonymousCheck.redirectResponse) {
+      return anonymousCheck.redirectResponse;
+    }
+
     const { campaignId } = await params;
     const supabase = await createServerClient();
     const { data: { user }, error: userError } = await supabase.auth.getUser();
