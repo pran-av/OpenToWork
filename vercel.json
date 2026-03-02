@@ -1,25 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/auth/v1/authorize",
-      "destination": "https://SUPABASE_PROJECT_ID.supabase.co/auth/v1/authorize"
-    },
-    {
-      "source": "/auth/v1/token",
-      "destination": "https://SUPABASE_PROJECT_ID.supabase.co/auth/v1/token"
-    },
-    {
-      "source": "/auth/v1/user",
-      "destination": "https://SUPABASE_PROJECT_ID.supabase.co/auth/v1/user"
-    },
-    {
       "source": "/auth/v1/verify",
       "destination": "https://SUPABASE_PROJECT_ID.supabase.co/auth/v1/verify"
-    },
-    {
-      "source": "/auth/v1/logout",
-      "destination": "https://SUPABASE_PROJECT_ID.supabase.co/auth/v1/logout"
     }
   ]
 }
-
