@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/auth/v1/verify",
-      "destination": "https://SUPABASE_PROJECT_ID.supabase.co/auth/v1/verify"
+      "destination": "https://auclxctmtyzosafbyxff.supabase.co/auth/v1/verify"
     }
   ]
 }
