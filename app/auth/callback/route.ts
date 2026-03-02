@@ -33,17 +33,16 @@ export async function GET(request: NextRequest) {
   }
 
   // Handle direct token (if Supabase redirects with token instead of code)
-  // This shouldn't normally happen, but we'll handle it as a fallback
+  // This shouldn't normally happen, but we'll handle it as a fallback.
+  // Instead of redirecting the client to Supabase directly, we proxy through
+  // our own API route to avoid exposing the Supabase project URL.
   if (token && type === "magiclink" && !code) {
     try {
-      const supabase = await createServerClient();
-      // Try to verify the token - Supabase should handle this via their verify endpoint
-      // But if we get here, we'll redirect to Supabase's verify endpoint
-      const verifyUrl = new URL(
-        `/auth/v1/verify?token=${token}&type=${type}&redirect_to=${encodeURIComponent(requestUrl.origin + "/auth/callback")}`,
-        process.env.NEXT_PUBLIC_SUPABASE_URL
-      );
-      return NextResponse.redirect(verifyUrl.toString());
+      const verifyProxyUrl = new URL("/api/auth/verify", requestUrl.origin);
+      verifyProxyUrl.searchParams.set("token", token);
+      verifyProxyUrl.searchParams.set("type", type);
+      verifyProxyUrl.searchParams.set("redirect_to", `${requestUrl.origin}/auth/callback`);
+      return NextResponse.redirect(verifyProxyUrl.toString());
     } catch (err) {
       console.error("Error handling token:", err);
       return NextResponse.redirect(
