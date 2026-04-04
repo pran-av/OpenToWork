@@ -22,7 +22,7 @@ export function LandingFeatureBento({
       className="relative z-10 px-4 sm:px-6 lg:px-8 py-12 md:py-16 border-t border-[#E8E4DC]/80"
     >
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-6 gap-4 md:gap-6">
-        {/* Document — large white card; hint pinned to bottom of card (md+ row stretch) */}
+        {/* Document — large white card */}
         <div
           className="flex min-h-0 flex-col rounded-2xl p-5 shadow-lg border sm:p-6 md:col-span-4 md:h-full md:p-8"
           style={{
@@ -42,12 +42,6 @@ export function LandingFeatureBento({
           </div>
           <div className="mt-12 flex flex-1 flex-col max-md:min-h-[min(420px,58svh)] md:mt-8 md:min-h-0">
             <div className="relative w-full flex-1 min-h-[min(360px,50svh)] md:min-h-0">{documentStories}</div>
-            <p
-              className="mt-auto shrink-0 pt-4 text-center font-inter text-xs hidden sm:block"
-              style={{ color: landingTheme.muted }}
-            >
-              Click the left or right side of the stack to rotate stories
-            </p>
           </div>
         </div>
 
