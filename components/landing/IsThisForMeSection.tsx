@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { landingTheme } from "./landing-tokens";
 
 const USER_TYPES = [
   {
@@ -29,12 +30,15 @@ export function IsThisForMeSection() {
   const selected = USER_TYPES.find((u) => u.id === active) ?? USER_TYPES[0];
 
   return (
-    <section className="relative z-10 py-14 md:py-20 px-4 sm:px-6 lg:px-8 border-t border-orange-100/80">
+    <section className="relative z-10 py-14 md:py-20 px-4 sm:px-6 lg:px-8 border-t border-[#E8E4DC]/80">
       <div className="max-w-7xl mx-auto">
-        <h2 className="font-poppins font-semibold text-2xl sm:text-3xl md:text-4xl text-gray-900 text-center">
+        <h2
+          className="font-poppins font-semibold text-2xl sm:text-3xl md:text-4xl text-center"
+          style={{ color: landingTheme.ink }}
+        >
           Is This for Me
         </h2>
-        <p className="font-inter text-center text-[#74777F] mt-3 max-w-2xl mx-auto text-sm sm:text-base">
+        <p className="font-inter text-center mt-3 max-w-2xl mx-auto text-sm sm:text-base" style={{ color: landingTheme.muted }}>
           Choose a profile to see how Pitch Like This fits your situation.
         </p>
 
@@ -47,9 +51,14 @@ export function IsThisForMeSection() {
                 onClick={() => setActive(u.id)}
                 className={`text-left rounded-xl border px-4 py-3 font-poppins text-sm sm:text-base font-medium transition-colors ${
                   active === u.id
-                    ? "border-[#FF8C00] bg-orange-50 text-gray-900 shadow-sm"
-                    : "border-orange-100 bg-white text-[#74777F] hover:border-orange-200"
+                    ? "shadow-md bg-white"
+                    : "bg-white/80 hover:border-[#D8D5DE]"
                 }`}
+                style={
+                  active === u.id
+                    ? { borderColor: landingTheme.brown, color: landingTheme.ink }
+                    : { borderColor: "#E8E4DC", color: landingTheme.muted }
+                }
               >
                 {u.label}
               </button>
@@ -57,11 +66,16 @@ export function IsThisForMeSection() {
           </nav>
 
           <article
-            className="flex-1 rounded-2xl border border-orange-100 bg-white/90 shadow-md p-6 sm:p-8 min-h-[200px]"
+            className="flex-1 rounded-2xl border bg-white shadow-md p-6 sm:p-8 min-h-[200px]"
+            style={{ borderColor: "#E8E4DC" }}
             aria-live="polite"
           >
-            <h3 className="font-poppins font-semibold text-lg text-[#E07B39]">{selected.label}</h3>
-            <p className="font-inter text-[#74777F] mt-4 leading-relaxed">{selected.body}</p>
+            <h3 className="font-poppins font-semibold text-lg" style={{ color: landingTheme.brown }}>
+              {selected.label}
+            </h3>
+            <p className="font-inter mt-4 leading-relaxed" style={{ color: landingTheme.muted }}>
+              {selected.body}
+            </p>
           </article>
         </div>
       </div>
