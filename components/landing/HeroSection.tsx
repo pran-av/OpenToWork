@@ -16,48 +16,19 @@ const SKILL_CARDS_RIGHT = [
   { src: "/landing/prototyping.png", alt: "Prototyping" },
 ];
 
-function SkillTile({ src, alt }: { src: string; alt: string }) {
-  /* PNGs were mislabeled as .svg; use native img so dimensions stay reliable. */
+/** One cell in the collage: fills an equal slice of column height, image flush (no gaps). */
+function CollageImage({ src, alt }: { src: string; alt: string }) {
   return (
-    <div className="rounded-2xl border border-[#E8E4DC] bg-white shadow-md overflow-hidden flex items-center justify-center aspect-[4/3] p-2">
+    <div className="flex-1 min-h-0 min-w-0 overflow-hidden flex items-stretch justify-center">
       <img
         src={src}
         alt={alt}
         width={300}
         height={450}
-        className="max-h-full w-auto max-w-full object-contain"
+        className="block h-full w-full min-h-0 object-contain object-center pointer-events-none"
         loading="eager"
         decoding="async"
       />
-    </div>
-  );
-}
-
-function SkillFan({ cards }: { cards: { src: string; alt: string }[] }) {
-  return (
-    <div className="relative h-[min(420px,55vw)] w-full max-w-[280px] mx-auto lg:mx-0 lg:max-w-none">
-      {cards.map((card, i) => (
-        <div
-          key={card.src}
-          className="absolute w-[min(200px,42%)] rounded-2xl border border-[#E8E4DC] bg-white shadow-lg overflow-hidden p-2 flex items-center justify-center"
-          style={{
-            right: `${8 + i * 18}px`,
-            top: `${12 + i * 36}px`,
-            transform: `rotate(${-3 + i * 2.5}deg)`,
-            zIndex: 10 - i,
-          }}
-        >
-          <img
-            src={card.src}
-            alt={card.alt}
-            width={300}
-            height={450}
-            className="w-full h-auto object-contain max-h-[120px] sm:max-h-[140px]"
-            loading="eager"
-            decoding="async"
-          />
-        </div>
-      ))}
     </div>
   );
 }
@@ -71,19 +42,34 @@ export function HeroSection() {
     }
   }, []);
 
+  const imageColumns = (
+    <div
+      className={[
+        "flex gap-0 w-full max-w-[280px] sm:max-w-[300px] mx-auto lg:mx-0 lg:ml-auto",
+        "h-[min(22rem,52svh)] max-h-[22rem]",
+        "sm:h-[min(24rem,54svh)] sm:max-h-[24rem]",
+        "lg:h-[min(31rem,calc(100svh-9.5rem))] lg:max-h-[31rem]",
+      ].join(" ")}
+    >
+      <div className="flex flex-1 flex-col gap-0 min-h-0 min-w-0">
+        {SKILL_CARDS_LEFT.map((card) => (
+          <CollageImage key={card.src} src={card.src} alt={card.alt} />
+        ))}
+      </div>
+      <div className="flex flex-1 flex-col gap-0 min-h-0 min-w-0">
+        {SKILL_CARDS_RIGHT.map((card) => (
+          <CollageImage key={card.src} src={card.src} alt={card.alt} />
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <section className="relative z-10 pt-24 md:pt-28 pb-16 md:pb-24 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 xl:gap-12 items-center">
-          {/* Left skill column — desktop */}
-          <div className="hidden lg:flex flex-col gap-3 xl:gap-4 lg:col-span-2">
-            {SKILL_CARDS_LEFT.map((card) => (
-              <SkillTile key={card.src} src={card.src} alt={card.alt} />
-            ))}
-          </div>
-
           {/* Copy + CTAs */}
-          <div className="lg:col-span-5 xl:col-span-5 space-y-6 md:space-y-8 text-center lg:text-left">
+          <div className="lg:col-span-6 space-y-6 md:space-y-8 text-center lg:text-left">
             <h1
               className="font-poppins font-semibold text-3xl sm:text-4xl md:text-5xl leading-tight"
               style={{ color: landingTheme.ink }}
@@ -96,14 +82,6 @@ export function HeroSection() {
             >
               Convert Your Next Job or Client using Pitch Like This.
             </p>
-
-            <div className="flex lg:hidden flex-wrap justify-center gap-3 max-w-lg mx-auto">
-              {[...SKILL_CARDS_LEFT, ...SKILL_CARDS_RIGHT].map((card) => (
-                <div key={card.src} className="w-[calc(50%-6px)] sm:w-[140px]">
-                  <SkillTile src={card.src} alt={card.alt} />
-                </div>
-              ))}
-            </div>
 
             <div className="flex flex-col sm:flex-row lg:justify-start items-stretch sm:items-center justify-center gap-3 sm:gap-4 pt-2">
               <Link
@@ -141,10 +119,8 @@ export function HeroSection() {
             </div>
           </div>
 
-          {/* Right fan — desktop */}
-          <div className="hidden lg:block lg:col-span-5 xl:col-span-5">
-            <SkillFan cards={SKILL_CARDS_RIGHT} />
-          </div>
+          {/* Collage: two columns, images edge-to-edge, height-capped to hero */}
+          <div className="lg:col-span-6">{imageColumns}</div>
         </div>
       </div>
     </section>
