@@ -62,7 +62,7 @@ const CASE_STUDIES: CaseStudy[] = [
 ];
 
 function MetricIcon({ kind }: { kind: "chart" | "users" | "clock" }) {
-  const cls = "w-4 h-4 text-[#FF8C00] shrink-0";
+  const cls = "h-5 w-5 text-[#5D4A3A] shrink-0";
   if (kind === "chart") {
     return (
       <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -102,63 +102,74 @@ export function CaseStudyCardStack() {
   }, [n]);
 
   return (
-    <div className="relative w-full max-w-xl mx-auto min-h-[260px] sm:min-h-[280px] mb-6 sm:mb-10">
+    <div className="relative mx-auto h-full min-h-0 w-full max-w-xl px-2 sm:px-4">
       <button
         type="button"
         aria-label="Show previous case study"
-        className="absolute left-0 top-0 bottom-0 w-[28%] z-30 cursor-w-resize rounded-l-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8C00]"
+        className="absolute bottom-0 left-0 top-0 z-30 w-[28%] cursor-w-resize rounded-l-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8C00]"
         onClick={prev}
       />
       <button
         type="button"
         aria-label="Show next case study"
-        className="absolute right-0 top-0 bottom-0 w-[28%] z-30 cursor-e-resize rounded-r-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8C00]"
+        className="absolute bottom-0 right-0 top-0 z-30 w-[28%] cursor-e-resize rounded-r-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8C00]"
         onClick={next}
       />
 
-      <div className="absolute inset-0 flex items-center justify-center perspective-[1000px]">
+      <div className="perspective-[1200px] relative flex h-full min-h-[min(300px,48svh)] w-full items-center justify-center sm:min-h-[300px] md:min-h-[280px]">
         {CASE_STUDIES.map((card, i) => {
           const offset = (i - active + n) % n;
           const isFront = offset === 0;
           const depth = offset;
-          const translateX = depth === 0 ? 0 : depth === 1 ? 14 : depth === 2 ? 26 : 34;
-          const translateY = depth * 5;
-          const scale = 1 - depth * 0.04;
-          const rotateY = depth === 0 ? 0 : -6;
-          const opacity = depth > 2 ? 0.35 : 0.55 + (3 - depth) * 0.15;
+
+          /* Deck offset; horizontal nudge scales down on narrow viewports in CSS via smaller multiplier */
+          const translateX = depth * 20;
+          const translateY = depth * 10;
+          const scale = 1 - depth * 0.045;
+          const rotateY = depth === 0 ? 0 : -5 - depth * 2;
+          const opacity =
+            depth === 0 ? 1 : depth === 1 ? 0.92 : depth === 2 ? 0.78 : Math.max(0.5, 0.72 - depth * 0.08);
           const z = 20 - depth;
 
           return (
             <article
               key={card.id}
-              className="absolute w-[92%] max-w-lg rounded-xl border-2 border-orange-100 bg-white shadow-xl overflow-hidden transition-all duration-300 ease-out"
+              className="absolute left-1/2 top-0 w-[90%] max-w-lg overflow-hidden rounded-2xl border border-[#E8E4DC] bg-white shadow-[0_20px_50px_-12px_rgba(45,36,25,0.22)] transition-all duration-300 ease-out max-sm:top-3"
               style={{
-                transform: `translateX(${translateX}px) translateY(${translateY}px) scale(${scale}) rotateY(${rotateY}deg)`,
+                transform: `translateX(calc(-50% + ${translateX}px)) translateY(${translateY}px) scale(${scale}) rotateY(${rotateY}deg)`,
                 zIndex: z,
-                opacity: isFront ? 1 : opacity,
+                opacity,
                 pointerEvents: isFront ? "auto" : "none",
+                boxShadow:
+                  depth > 0
+                    ? `0 ${8 + depth * 4}px ${24 + depth * 8}px -8px rgba(45,36,25,${0.12 + depth * 0.04})`
+                    : undefined,
               }}
             >
-              <div className="relative aspect-[16/10] flex flex-col p-4 sm:p-5 bg-gradient-to-br from-white to-orange-50/40">
-                <p className="font-poppins text-xs sm:text-sm font-semibold text-[#E07B39] text-right">
-                  {card.role}
-                </p>
-                <h4 className="font-poppins font-semibold text-base sm:text-lg text-gray-900 mt-1 pr-16 sm:pr-24">
+              <div className="flex min-h-[240px] flex-col bg-gradient-to-br from-white via-[#FFFBF2] to-orange-50/50 p-4 sm:p-5 sm:min-h-[268px] md:min-h-[288px]">
+                <p className="text-right font-poppins text-xs font-semibold text-[#E07B39] sm:text-sm">{card.role}</p>
+                <h4 className="mt-1 pr-4 font-poppins text-base font-semibold leading-snug text-[#2C2419] sm:text-lg">
                   {card.title}
                 </h4>
-                <p className="font-inter text-xs sm:text-sm text-[#74777F] mt-2 line-clamp-3 flex-1">
+                <p className="font-inter mt-2 line-clamp-2 text-xs leading-relaxed text-[#74777F] sm:text-sm">
                   {card.description}
                 </p>
-                <div className="flex flex-wrap gap-2 sm:gap-3 mt-3 pt-3 border-t border-orange-100">
+
+                {/* Metrics — stacked rows on mobile, 3 columns from sm */}
+                <div className="mt-4 grid min-h-0 flex-1 grid-cols-1 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3">
                   {card.metrics.map((m) => (
                     <div
                       key={m.label}
-                      className="flex items-center gap-1.5 rounded-lg bg-white/90 border border-orange-100 px-2 py-1"
+                      className="flex flex-row items-center gap-3 rounded-xl border border-[#E8E4DC] bg-white/90 px-3 py-3 text-left shadow-sm sm:flex-col sm:items-center sm:justify-center sm:gap-2 sm:px-3 sm:py-5 sm:text-center"
                     >
-                      <MetricIcon kind={m.icon} />
-                      <div className="leading-tight">
-                        <p className="font-inter text-[10px] sm:text-xs text-[#74777F]">{m.label}</p>
-                        <p className="font-inter text-[11px] sm:text-sm font-semibold text-gray-800">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FFFBF2] ring-1 ring-[#E8E4DC] sm:h-12 sm:w-12">
+                        <MetricIcon kind={m.icon} />
+                      </div>
+                      <div className="min-w-0 flex-1 sm:flex-none sm:text-center">
+                        <p className="font-inter text-[10px] font-medium uppercase tracking-wide text-[#74777F] sm:text-[11px]">
+                          {m.label}
+                        </p>
+                        <p className="font-poppins text-sm font-semibold leading-tight text-[#2C2419] sm:text-base">
                           {m.value}
                         </p>
                       </div>
@@ -170,10 +181,6 @@ export function CaseStudyCardStack() {
           );
         })}
       </div>
-
-      <p className="absolute -bottom-8 left-0 right-0 text-center font-inter text-xs text-[#74777F] hidden sm:block">
-        Click the left or right side of the stack to rotate stories
-      </p>
     </div>
   );
 }
