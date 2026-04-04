@@ -1,3 +1,5 @@
+import { landingTheme } from "./landing-tokens";
+
 const BLOCKS = [
   {
     title: "Pitch even better soon",
@@ -25,9 +27,12 @@ const BLOCKS = [
 
 export function WhySignUpSection() {
   return (
-    <section className="relative z-10 py-14 md:py-20 px-4 sm:px-6 lg:px-8 border-t border-orange-100/80 bg-orange-50/30">
+    <section
+      className="relative z-10 py-14 md:py-20 px-4 sm:px-6 lg:px-8 border-t border-[#E8E4DC]/80"
+      style={{ backgroundColor: landingTheme.creamDark }}
+    >
       <div className="max-w-7xl mx-auto">
-        <h2 className="font-poppins font-semibold text-2xl sm:text-3xl md:text-4xl text-gray-900 text-center">
+        <h2 className="font-poppins font-semibold text-2xl sm:text-3xl md:text-4xl text-center" style={{ color: landingTheme.ink }}>
           Why Should I Sign Up
         </h2>
 
@@ -35,13 +40,16 @@ export function WhySignUpSection() {
           {BLOCKS.map((block) => (
             <div
               key={block.title}
-              className="rounded-2xl border border-orange-100 bg-white p-6 shadow-sm"
+              className="rounded-2xl border bg-white p-6 shadow-sm"
+              style={{ borderColor: "#E8E4DC" }}
             >
-              <h3 className="font-poppins font-semibold text-lg text-gray-900">{block.title}</h3>
+              <h3 className="font-poppins font-semibold text-lg" style={{ color: landingTheme.ink }}>
+                {block.title}
+              </h3>
               <ul className="mt-4 space-y-2">
                 {block.points.map((p) => (
-                  <li key={p} className="font-inter text-sm sm:text-base text-[#74777F] flex gap-2">
-                    <span className="text-[#FF8C00] font-bold shrink-0" aria-hidden>
+                  <li key={p} className="font-inter text-sm sm:text-base flex gap-2" style={{ color: landingTheme.muted }}>
+                    <span className="font-bold shrink-0" style={{ color: landingTheme.brown }} aria-hidden>
                       ·
                     </span>
                     <span>{p}</span>
