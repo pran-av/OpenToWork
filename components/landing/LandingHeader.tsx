@@ -23,16 +23,26 @@ export function LandingHeader() {
           borderColor: "#E8E4DC",
         }}
       >
-        <div className="flex items-center justify-between h-14 md:h-16">
-          <div className="relative h-8 md:h-10 w-32 md:w-40">
+        <div className="flex items-center justify-between h-14 md:h-16 gap-3">
+          <Link
+            href="/"
+            className="flex min-w-0 items-center gap-2 md:gap-3"
+          >
             <Image
               src="/pitchlikethis-logo.svg"
-              alt="Pitch Like This"
-              fill
-              className="object-contain object-left"
+              alt=""
+              width={24}
+              height={26}
+              className="h-8 w-auto shrink-0 object-contain object-left md:h-10"
               priority
             />
-          </div>
+            <span
+              className="font-poppins font-semibold text-base leading-tight tracking-tight md:text-lg truncate"
+              style={{ color: landingTheme.ink }}
+            >
+              Pitch Like This
+            </span>
+          </Link>
 
           <Link
             href={authUrl}
