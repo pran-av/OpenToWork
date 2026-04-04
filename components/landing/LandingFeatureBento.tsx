@@ -51,27 +51,9 @@ export function LandingFeatureBento({
           </div>
         </div>
 
-        {/* Track — brown card */}
+        {/* Campaigns — mustard (top row beside Document: was Track slot) */}
         <div
-          className="flex flex-col rounded-2xl p-6 text-white shadow-lg md:col-span-2 md:h-full md:min-h-0 md:p-8"
-          style={{
-            backgroundColor: landingTheme.brown,
-            boxShadow: "0 18px 40px -24px rgba(45, 36, 25, 0.35)",
-          }}
-        >
-          <h2 className="font-poppins font-semibold text-xl sm:text-2xl md:text-3xl leading-tight text-white">
-            Track the Impact of your Campaigns
-          </h2>
-          <p className="font-inter text-sm sm:text-base mt-3 leading-relaxed text-white/90">
-            Keep track of visitors on your campaigns, their actions, and time spent. Use this insight to create campaigns
-            that convert.
-          </p>
-          <div className="mt-6 flex-1 flex items-center min-h-[200px]">{trackImpact}</div>
-        </div>
-
-        {/* Campaigns — mustard */}
-        <div
-          className="md:col-span-3 rounded-2xl p-6 md:p-8 shadow-lg border border-black/5"
+          className="flex flex-col rounded-2xl border border-black/5 p-6 shadow-lg md:col-span-2 md:h-full md:min-h-0 md:p-8"
           style={{
             backgroundColor: landingTheme.mustard,
             boxShadow: "0 18px 40px -24px rgba(45, 36, 25, 0.2)",
@@ -80,11 +62,29 @@ export function LandingFeatureBento({
           <h2 className="font-poppins font-semibold text-xl sm:text-2xl md:text-3xl leading-tight" style={{ color: landingTheme.ink }}>
             Create Campaigns and Share them as Pitches
           </h2>
-          <p className="font-inter text-sm sm:text-base mt-3 leading-relaxed" style={{ color: landingTheme.ink, opacity: 0.85 }}>
+          <p className="font-inter mt-3 text-sm leading-relaxed sm:text-base" style={{ color: landingTheme.ink, opacity: 0.85 }}>
             Create campaigns from your Stories and Pitch those campaigns to hiring managers, founders, or decision makers
             with a one-time shareable link.
           </p>
-          <div className="mt-8 min-h-[200px]">{campaigns}</div>
+          <div className="mt-6 flex min-h-[200px] flex-1 items-center">{campaigns}</div>
+        </div>
+
+        {/* Track — brown card (second row beside Leads: was Campaigns width) */}
+        <div
+          className="flex flex-col rounded-2xl p-6 text-white shadow-lg md:col-span-3 md:h-full md:min-h-0 md:p-8"
+          style={{
+            backgroundColor: landingTheme.brown,
+            boxShadow: "0 18px 40px -24px rgba(45, 36, 25, 0.35)",
+          }}
+        >
+          <h2 className="font-poppins font-semibold text-xl sm:text-2xl md:text-3xl leading-tight text-white">
+            Track the Impact of your Campaigns
+          </h2>
+          <p className="font-inter mt-3 text-sm leading-relaxed text-white/90 sm:text-base">
+            Keep track of visitors on your campaigns, their actions, and time spent. Use this insight to create campaigns
+            that convert.
+          </p>
+          <div className="mt-6 flex min-h-[200px] flex-1 items-center">{trackImpact}</div>
         </div>
 
         {/* Leads — cool grey */}
