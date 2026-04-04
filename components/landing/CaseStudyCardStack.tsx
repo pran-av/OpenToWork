@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type CaseStudy = {
   id: string;
@@ -99,6 +99,30 @@ export function CaseStudyCardStack() {
 
   const next = useCallback(() => {
     setActive((i) => (i + 1) % n);
+  }, [n]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let id: number | undefined;
+
+    const arm = () => {
+      if (id !== undefined) {
+        clearInterval(id);
+        id = undefined;
+      }
+      if (mq.matches) return;
+      id = window.setInterval(() => {
+        setActive((i) => (i + 1) % n);
+      }, 3000);
+    };
+
+    arm();
+    mq.addEventListener("change", arm);
+    return () => {
+      mq.removeEventListener("change", arm);
+      if (id !== undefined) clearInterval(id);
+    };
   }, [n]);
 
   return (
