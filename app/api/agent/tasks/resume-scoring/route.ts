@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAgentAccessToken } from "@/lib/agent-auth";
 import { agentRequest } from "@/lib/agent-api";
+import { isResumeAgentFeaturesDisabled } from "@/lib/resume-agent-features";
 import { noStoreJsonResponse } from "@/lib/utils/api-cache";
 
 export async function POST(request: NextRequest) {
@@ -8,6 +9,13 @@ export async function POST(request: NextRequest) {
     const { token, error: authError } = await getAgentAccessToken();
     if (authError || !token) {
       return noStoreJsonResponse({ error: authError ?? "Authentication required" }, 401);
+    }
+
+    if (isResumeAgentFeaturesDisabled()) {
+      return noStoreJsonResponse(
+        { error: "Resume scoring is temporarily unavailable" },
+        503
+      );
     }
 
     const body = await request.json();

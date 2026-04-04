@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { isResumeAgentFeaturesDisabled } from "@/lib/resume-agent-features";
 
 interface ProfileData {
   user_first_name: string | null;
@@ -20,8 +21,8 @@ interface ResumeItem {
   created_at: string;
 }
 
-
 export default function ProfilePage() {
+  const resumeAgentDisabled = isResumeAgentFeaturesDisabled();
   const router = useRouter();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,7 +36,7 @@ export default function ProfilePage() {
     last_name: "",
   });
   const [resumes, setResumes] = useState<ResumeItem[]>([]);
-  const [resumesLoading, setResumesLoading] = useState(true);
+  const [resumesLoading, setResumesLoading] = useState(!resumeAgentDisabled);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadName, setUploadName] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -57,7 +58,7 @@ export default function ProfilePage() {
   useEffect(() => {
     fetchProfile();
     checkLinkedInStatus();
-    fetchResumes();
+    if (!resumeAgentDisabled) fetchResumes();
   }, [fetchResumes]);
 
   // Refresh profile when returning from LinkedIn OAuth (check URL params)
@@ -364,86 +365,87 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Resumes Section */}
-      <div id="resumes" className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900 scroll-mt-4">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-zinc-100 mb-4">Resumes</h3>
-        <p className="text-sm text-gray-600 dark:text-zinc-400 mb-4">
-          Add PDF resumes to your profile. Use them on the dashboard to score against job descriptions.
-        </p>
-        {resumesLoading ? (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Loading resumes...</p>
-        ) : (
-          <>
-            <ul className="space-y-2 mb-4">
-              {resumes.length === 0 ? (
-                <li className="text-sm text-zinc-500 dark:text-zinc-400">No resumes yet.</li>
-              ) : (
-                resumes.map((r) => (
-                  <li
-                    key={r.id}
-                    className="flex items-center justify-between rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800"
-                  >
-                    <div>
-                      <span className="font-medium text-gray-900 dark:text-zinc-100">
-                        {r.resume_name || r.file_name || "Resume"}
-                      </span>
-                      <span className="ml-2 text-xs text-zinc-500 dark:text-zinc-400">
-                        Uploaded {new Date(r.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveResume(r.id)}
-                      disabled={deletingId === r.id}
-                      className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-red-100 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                      title="Remove resume"
-                      aria-label="Remove resume"
+      {!resumeAgentDisabled && (
+        <div id="resumes" className="scroll-mt-4 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+          <h3 className="mb-4 text-lg font-medium text-gray-900 dark:text-zinc-100">Resumes</h3>
+          <p className="mb-4 text-sm text-gray-600 dark:text-zinc-400">
+            Add PDF resumes to your profile. Use them on the dashboard to score against job descriptions.
+          </p>
+          {resumesLoading ? (
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">Loading resumes...</p>
+          ) : (
+            <>
+              <ul className="mb-4 space-y-2">
+                {resumes.length === 0 ? (
+                  <li className="text-sm text-zinc-500 dark:text-zinc-400">No resumes yet.</li>
+                ) : (
+                  resumes.map((r) => (
+                    <li
+                      key={r.id}
+                      className="flex items-center justify-between rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  </li>
-                ))
-              )}
-            </ul>
-            <form onSubmit={handleResumeUpload} className="space-y-3">
-              <div>
-                <label htmlFor="profile-resume-file" className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
-                  Add new resume (PDF)
-                </label>
-                <input
-                  id="profile-resume-file"
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
-                  className="mt-1 block w-full text-sm text-zinc-600 file:mr-4 file:rounded-md file:border-0 file:bg-orange-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-orange-700 dark:file:bg-orange-900/30 dark:file:text-orange-400"
-                />
-              </div>
-              <div>
-                <label htmlFor="profile-resume-name" className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
-                  Resume name (optional)
-                </label>
-                <input
-                  id="profile-resume-name"
-                  type="text"
-                  value={uploadName}
-                  onChange={(e) => setUploadName(e.target.value)}
-                  placeholder="e.g. My Resume 2025"
-                  className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 focus:border-orange-500 focus:outline-none focus:ring-orange-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 sm:text-sm"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={uploading || !uploadFile}
-                className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {uploading ? "Uploading..." : "Add Resume"}
-              </button>
-            </form>
-          </>
-        )}
-      </div>
+                      <div>
+                        <span className="font-medium text-gray-900 dark:text-zinc-100">
+                          {r.resume_name || r.file_name || "Resume"}
+                        </span>
+                        <span className="ml-2 text-xs text-zinc-500 dark:text-zinc-400">
+                          Uploaded {new Date(r.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveResume(r.id)}
+                        disabled={deletingId === r.id}
+                        className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-red-100 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                        title="Remove resume"
+                        aria-label="Remove resume"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </li>
+                  ))
+                )}
+              </ul>
+              <form onSubmit={handleResumeUpload} className="space-y-3">
+                <div>
+                  <label htmlFor="profile-resume-file" className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
+                    Add new resume (PDF)
+                  </label>
+                  <input
+                    id="profile-resume-file"
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                    className="mt-1 block w-full text-sm text-zinc-600 file:mr-4 file:rounded-md file:border-0 file:bg-orange-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-orange-700 dark:file:bg-orange-900/30 dark:file:text-orange-400"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="profile-resume-name" className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
+                    Resume name (optional)
+                  </label>
+                  <input
+                    id="profile-resume-name"
+                    type="text"
+                    value={uploadName}
+                    onChange={(e) => setUploadName(e.target.value)}
+                    placeholder="e.g. My Resume 2025"
+                    className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 focus:border-orange-500 focus:outline-none focus:ring-orange-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 sm:text-sm"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={uploading || !uploadFile}
+                  className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {uploading ? "Uploading..." : "Add Resume"}
+                </button>
+              </form>
+            </>
+          )}
+        </div>
+      )}
 
       {/* LinkedIn Connection Section */}
       {!isLinkedInLinked && (

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAgentAccessToken } from "@/lib/agent-auth";
 import { agentRequest, getAgentApiBaseUrl } from "@/lib/agent-api";
+import { isResumeAgentFeaturesDisabled } from "@/lib/resume-agent-features";
 import { noStoreJsonResponse } from "@/lib/utils/api-cache";
 
 export async function GET(request: NextRequest) {
@@ -8,6 +9,10 @@ export async function GET(request: NextRequest) {
     const { token, error: authError } = await getAgentAccessToken();
     if (authError || !token) {
       return noStoreJsonResponse({ error: authError ?? "Authentication required" }, 401);
+    }
+
+    if (isResumeAgentFeaturesDisabled()) {
+      return noStoreJsonResponse({ resumes: [], total: 0 });
     }
 
     const includeInactive = request.nextUrl.searchParams.get("include_inactive") === "true";
@@ -36,6 +41,13 @@ export async function POST(request: NextRequest) {
     const { token, error: authError } = await getAgentAccessToken();
     if (authError || !token) {
       return noStoreJsonResponse({ error: authError ?? "Authentication required" }, 401);
+    }
+
+    if (isResumeAgentFeaturesDisabled()) {
+      return noStoreJsonResponse(
+        { error: "Resume upload is temporarily unavailable" },
+        503
+      );
     }
 
     const formData = await request.formData();

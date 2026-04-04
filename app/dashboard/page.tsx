@@ -13,6 +13,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { DashboardResumeSection } from "@/components/dashboard/DashboardResumeSection";
+import { isResumeAgentFeaturesDisabled } from "@/lib/resume-agent-features";
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<ProjectData[]>([]);
@@ -205,9 +206,11 @@ export default function DashboardPage() {
     setTimeout(() => setToast(null), 5000);
   };
 
+  const resumeAgentDisabled = isResumeAgentFeaturesDisabled();
+
   return (
     <div className="space-y-6">
-      <DashboardResumeSection onToast={showToast} />
+      {!resumeAgentDisabled && <DashboardResumeSection onToast={showToast} />}
 
       <div className="flex items-center justify-between">
         <div>
