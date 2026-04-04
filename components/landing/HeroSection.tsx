@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { SAMPLE_PITCH_URL, landingTheme } from "./landing-tokens";
+import { HeroSkillCollage } from "./HeroSkillCollage";
+import { HeroSkillMarqueeHorizontal } from "./HeroSkillMarqueeHorizontal";
 
 const SKILL_CARDS_LEFT = [
   { src: "/landing/root_cause_analysis.png", alt: "Root cause analysis" },
@@ -16,23 +18,6 @@ const SKILL_CARDS_RIGHT = [
   { src: "/landing/prototyping.png", alt: "Prototyping" },
 ];
 
-/** One cell in the collage: fills an equal slice of column height, image flush (no gaps). */
-function CollageImage({ src, alt }: { src: string; alt: string }) {
-  return (
-    <div className="flex-1 min-h-0 min-w-0 overflow-hidden flex items-stretch justify-center">
-      <img
-        src={src}
-        alt={alt}
-        width={300}
-        height={450}
-        className="block h-full w-full min-h-0 object-contain object-center pointer-events-none"
-        loading="eager"
-        decoding="async"
-      />
-    </div>
-  );
-}
-
 export function HeroSection() {
   const [authUrl, setAuthUrl] = useState("/auth");
 
@@ -42,34 +27,13 @@ export function HeroSection() {
     }
   }, []);
 
-  const imageColumns = (
-    <div
-      className={[
-        "flex gap-0 w-full max-w-[280px] sm:max-w-[300px] mx-auto lg:mx-0 lg:ml-auto",
-        "h-[min(22rem,52svh)] max-h-[22rem]",
-        "sm:h-[min(24rem,54svh)] sm:max-h-[24rem]",
-        "lg:h-[min(31rem,calc(100svh-9.5rem))] lg:max-h-[31rem]",
-      ].join(" ")}
-    >
-      <div className="flex flex-1 flex-col gap-0 min-h-0 min-w-0">
-        {SKILL_CARDS_LEFT.map((card) => (
-          <CollageImage key={card.src} src={card.src} alt={card.alt} />
-        ))}
-      </div>
-      <div className="flex flex-1 flex-col gap-0 min-h-0 min-w-0">
-        {SKILL_CARDS_RIGHT.map((card) => (
-          <CollageImage key={card.src} src={card.src} alt={card.alt} />
-        ))}
-      </div>
-    </div>
-  );
-
   return (
     <section className="relative z-10 pt-24 md:pt-28 pb-16 md:pb-24 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 xl:gap-12 items-center">
-          {/* Copy + CTAs */}
-          <div className="lg:col-span-6 space-y-6 md:space-y-8 text-center lg:text-left">
+        {/* Mobile / tablet: column, ~60% copy / ~40% marquee; lg+: grid unchanged */}
+        <div className="flex min-h-[calc(100svh-5.5rem)] flex-col items-stretch lg:min-h-0 lg:grid lg:grid-cols-12 lg:gap-8 xl:gap-12 lg:items-center">
+          {/* Copy + CTAs — flex-[3] ≈ 60% of hero column on small screens */}
+          <div className="flex min-h-0 flex-[3] flex-col justify-center space-y-6 text-center md:space-y-8 lg:col-span-6 lg:flex-none lg:text-left">
             <h1
               className="font-poppins font-semibold text-3xl sm:text-4xl md:text-5xl leading-tight"
               style={{ color: landingTheme.ink }}
@@ -119,8 +83,17 @@ export function HeroSection() {
             </div>
           </div>
 
-          {/* Collage: two columns, images edge-to-edge, height-capped to hero */}
-          <div className="lg:col-span-6">{imageColumns}</div>
+          {/* Horizontal marquee — min-height avoids flex min-content:0 collapse (Safari / Chrome) */}
+          <div className="flex w-full flex-[2] flex-col pt-6 min-h-[max(12.5rem,32svh)] lg:hidden">
+            <div className="flex min-h-[12.5rem] flex-1 flex-col sm:min-h-[14rem]">
+              <HeroSkillMarqueeHorizontal left={SKILL_CARDS_LEFT} right={SKILL_CARDS_RIGHT} />
+            </div>
+          </div>
+
+          {/* Desktop vertical collage */}
+          <div className="hidden min-h-0 w-full min-w-0 lg:col-span-6 lg:block">
+            <HeroSkillCollage left={SKILL_CARDS_LEFT} right={SKILL_CARDS_RIGHT} />
+          </div>
         </div>
       </div>
     </section>
