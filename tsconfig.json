@@ -31,5 +31,5 @@
     "**/*.mts",
     "types/**/*.d.ts"
   ],
-  "exclude": ["node_modules", "supabase/functions/analytics-worker"]
+  "exclude": ["node_modules"]
 }
