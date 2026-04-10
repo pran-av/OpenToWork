@@ -303,3 +303,35 @@ h6 {
 .dark .markdown-content code {
   background-color: oklch(0.269 0 0);
 }
+
+/* Landing hero — infinite vertical skill collage */
+@keyframes hero-skill-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, -50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-skill-marquee-track {
+    animation: none !important;
+  }
+}
+
+/* Landing hero — horizontal skill marquee (mobile / tablet) */
+@keyframes hero-skill-marquee-x {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-skill-marquee-x-track {
+    animation: none !important;
+  }
+}
