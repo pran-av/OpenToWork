@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { Lock } from "lucide-react";
 import { useState, useEffect } from "react";
-import { SAMPLE_PITCH_URL, landingTheme } from "./landing-tokens";
+import { landingTheme } from "./landing-tokens";
 import { HeroSkillCollage } from "./HeroSkillCollage";
 import { HeroSkillMarqueeHorizontal } from "./HeroSkillMarqueeHorizontal";
 
@@ -78,7 +79,7 @@ export function HeroSection() {
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row lg:justify-start items-stretch sm:items-center justify-center gap-3 sm:gap-4 pt-2">
+            <div className="mx-auto flex w-full min-w-0 max-w-md flex-col items-stretch gap-2 pt-2 sm:max-w-lg lg:mx-0 lg:w-fit lg:max-w-[min(100%,26rem)]">
               <Link
                 href={authUrl}
                 onClick={() => {
@@ -89,28 +90,18 @@ export function HeroSection() {
                     });
                   }
                 }}
-                className="font-inter font-semibold text-base md:text-lg px-8 md:px-10 py-3 md:py-4 rounded-2xl text-white transition-all shadow-lg hover:shadow-xl text-center hover:opacity-95"
+                className="inline-flex w-full min-w-0 items-center justify-center rounded-2xl px-6 py-3 font-inter text-base font-semibold text-white shadow-lg transition-all hover:shadow-xl hover:opacity-95 sm:px-9 sm:py-3.5 sm:text-lg md:px-10 md:py-4 md:text-lg lg:w-auto lg:min-w-[14rem]"
                 style={{ backgroundColor: landingTheme.brown }}
               >
                 Build My First Pitch
               </Link>
-              <a
-                href={SAMPLE_PITCH_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => {
-                  if (typeof window !== "undefined" && (window as unknown as { gtag?: (...a: unknown[]) => void }).gtag) {
-                    (window as unknown as { gtag: (...a: unknown[]) => void }).gtag("event", "click", {
-                      event_category: "CTA",
-                      event_label: "View Sample Pitch",
-                    });
-                  }
-                }}
-                className="font-inter font-semibold text-base md:text-lg px-8 md:px-10 py-3 md:py-4 rounded-2xl border-2 text-center transition-all shadow-md bg-white hover:bg-[#EEF0F4]/80"
-                style={{ borderColor: landingTheme.greyBorder, color: landingTheme.ink }}
+              <p
+                className="flex min-w-0 gap-1.5 text-left text-xs leading-snug sm:text-sm"
+                style={{ color: landingTheme.muted }}
               >
-                See a Sample Pitch
-              </a>
+                <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" strokeWidth={2} aria-hidden />
+                <span className="min-w-0 break-words">Private by default. Share only when you&apos;re ready.</span>
+              </p>
             </div>
           </div>
 
