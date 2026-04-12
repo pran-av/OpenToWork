@@ -76,42 +76,47 @@ export function IsThisForMeSection() {
 
   return (
     <section className="relative z-10 py-14 md:py-20 px-4 sm:px-6 lg:px-8 border-t border-[#E8E4DC]/80">
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full">
         <h2
           className="font-poppins font-semibold text-2xl sm:text-3xl md:text-4xl text-center"
           style={{ color: landingTheme.ink }}
         >
           Is This for Me
         </h2>
-        <p className="font-inter text-center mt-3 max-w-2xl mx-auto text-sm sm:text-base" style={{ color: landingTheme.muted }}>
-          Choose a profile to see how Pitch Like This fits your situation.
-        </p>
 
-        <div className="mt-10 flex flex-col lg:flex-row gap-6 lg:gap-10">
-          <nav className="flex flex-col gap-2 lg:w-72 shrink-0" aria-label="User types">
-            {USER_TYPES.map((u) => (
-              <button
-                key={u.id}
-                type="button"
-                onClick={() => setActive(u.id)}
-                className={`text-left rounded-xl border px-4 py-3 font-poppins text-sm sm:text-base font-medium transition-colors ${
-                  active === u.id
-                    ? "shadow-md bg-white"
-                    : "bg-white/80 hover:border-[#D8D5DE]"
-                }`}
-                style={
-                  active === u.id
-                    ? { borderColor: landingTheme.brown, color: landingTheme.ink }
-                    : { borderColor: "#E8E4DC", color: landingTheme.muted }
-                }
-              >
-                {u.label}
-              </button>
-            ))}
-          </nav>
+        <div className="mt-10 grid min-w-0 grid-cols-1 gap-8 lg:grid-cols-2 lg:items-start lg:gap-10 xl:gap-12">
+          <div className="min-w-0 space-y-6">
+            <p
+              className="font-inter text-center text-sm sm:text-base lg:text-left lg:max-w-md"
+              style={{ color: landingTheme.muted }}
+            >
+              Choose a profile to see how Pitch Like This fits your situation.
+            </p>
+            <nav className="flex w-full flex-col gap-2" aria-label="User types">
+              {USER_TYPES.map((u) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => setActive(u.id)}
+                  className={`text-left rounded-xl border px-4 py-3 font-poppins text-sm sm:text-base font-medium transition-colors ${
+                    active === u.id
+                      ? "shadow-md bg-white"
+                      : "bg-white/80 hover:border-[#D8D5DE]"
+                  }`}
+                  style={
+                    active === u.id
+                      ? { borderColor: landingTheme.brown, color: landingTheme.ink }
+                      : { borderColor: "#E8E4DC", color: landingTheme.muted }
+                  }
+                >
+                  {u.label}
+                </button>
+              ))}
+            </nav>
+          </div>
 
           <article
-            className="flex-1 rounded-2xl border bg-white shadow-md p-6 sm:p-8 min-h-[200px]"
+            className="w-full min-w-0 rounded-2xl border bg-white shadow-md p-6 sm:p-8 min-h-[200px]"
             style={{ borderColor: "#E8E4DC" }}
             aria-live="polite"
           >

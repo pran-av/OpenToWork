@@ -44,7 +44,7 @@ export function WhySignUpSection() {
       className="relative z-10 border-t border-[#E8E4DC]/80 py-14 md:py-20 px-4 sm:px-6 lg:px-8"
       style={{ backgroundColor: landingTheme.creamDark }}
     >
-      <div className="mx-auto max-w-7xl">
+      <div className="w-full">
         <h2 className="text-center font-poppins text-2xl font-semibold sm:text-3xl md:text-4xl" style={{ color: landingTheme.ink }}>
           Why Should I Sign Up
         </h2>
@@ -52,7 +52,7 @@ export function WhySignUpSection() {
           Where we are today and what we’re building toward—no guesswork.
         </p>
 
-        <div className="relative mx-auto mt-12 max-w-3xl lg:max-w-4xl">
+        <div className="relative mt-12 w-full">
           {/* Vertical spine */}
           <div
             className="absolute left-[1.125rem] top-6 bottom-6 w-px sm:left-5 md:left-[1.375rem]"
