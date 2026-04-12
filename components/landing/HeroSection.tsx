@@ -5,19 +5,7 @@ import { Lock } from "lucide-react";
 import { useState, useEffect } from "react";
 import { landingTheme } from "./landing-tokens";
 import { HeroSkillCollage } from "./HeroSkillCollage";
-import { HeroSkillMarqueeHorizontal } from "./HeroSkillMarqueeHorizontal";
-
-const SKILL_CARDS_LEFT = [
-  { src: "/landing/root_cause_analysis.png", alt: "Root cause analysis" },
-  { src: "/landing/product_strategy.png", alt: "Product strategy" },
-  { src: "/landing/databases.png", alt: "Databases" },
-];
-
-const SKILL_CARDS_RIGHT = [
-  { src: "/landing/go_to_market.png", alt: "Go to market" },
-  { src: "/landing/user_research.png", alt: "User research" },
-  { src: "/landing/prototyping.png", alt: "Prototyping" },
-];
+import { HERO_SKILL_CARDS_LEFT, HERO_SKILL_CARDS_RIGHT } from "./hero-skill-cards";
 
 const AUDIENCE_LABELS = ["For Engineers", "For Designers", "For Product Managers"] as const;
 
@@ -41,13 +29,13 @@ export function HeroSection() {
   }, []);
 
   return (
-    <section className="relative z-10 pt-24 md:pt-28 pb-16 md:pb-24 px-4 sm:px-6 lg:px-8">
+    <section className="relative z-10 px-4 pb-8 pt-28 sm:px-6 sm:pb-10 sm:pt-28 md:pb-12 md:pt-32 lg:px-8 lg:pb-24 lg:pt-28">
       <div className="max-w-7xl mx-auto">
-        {/* Mobile / tablet: column, ~60% copy / ~40% marquee; lg+: grid unchanged */}
-        <div className="flex min-h-[calc(100svh-5.5rem)] flex-col items-stretch lg:min-h-0 lg:grid lg:grid-cols-12 lg:gap-8 xl:gap-12 lg:items-center">
-          {/* Copy + CTAs — flex-[3] ≈ 60% of hero column on small screens */}
-          <div className="flex min-h-0 flex-[3] flex-col justify-center space-y-6 text-center md:space-y-8 lg:col-span-6 lg:flex-none lg:text-left">
-            <div className="space-y-4 md:space-y-5">
+        {/* Mobile / tablet: natural height so demo video can sit on first screen; lg+: full-height grid */}
+        <div className="flex min-h-0 flex-col items-stretch lg:grid lg:min-h-[calc(100svh-5.5rem)] lg:grid-cols-12 lg:gap-8 xl:gap-12 lg:items-center">
+          {/* Copy + CTAs — full column on small screens (marquee lives below demo video) */}
+          <div className="flex min-h-0 flex-col justify-center space-y-5 text-center md:space-y-6 lg:col-span-6 lg:flex-none lg:space-y-8 lg:text-left">
+            <div className="space-y-3.5 md:space-y-5">
               <p
                 className="font-inter text-sm sm:text-base font-medium flex justify-center lg:justify-start"
                 aria-live="polite"
@@ -105,16 +93,12 @@ export function HeroSection() {
             </div>
           </div>
 
-          {/* Horizontal marquee — min-height avoids flex min-content:0 collapse (Safari / Chrome) */}
-          <div className="flex w-full flex-[2] flex-col pt-6 min-h-[max(12.5rem,32svh)] lg:hidden">
-            <div className="flex min-h-[12.5rem] flex-1 flex-col sm:min-h-[14rem]">
-              <HeroSkillMarqueeHorizontal left={SKILL_CARDS_LEFT} right={SKILL_CARDS_RIGHT} />
-            </div>
-          </div>
-
           {/* Desktop vertical collage */}
           <div className="hidden min-h-0 w-full min-w-0 lg:col-span-6 lg:block">
-            <HeroSkillCollage left={SKILL_CARDS_LEFT} right={SKILL_CARDS_RIGHT} />
+            <HeroSkillCollage
+              left={[...HERO_SKILL_CARDS_LEFT]}
+              right={[...HERO_SKILL_CARDS_RIGHT]}
+            />
           </div>
         </div>
       </div>

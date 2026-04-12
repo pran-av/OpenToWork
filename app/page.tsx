@@ -2,6 +2,8 @@ import dynamic from "next/dynamic";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { HeroSection } from "@/components/landing/HeroSection";
+import { ProductDemoVideoSection } from "@/components/landing/ProductDemoVideoSection";
+import { HeroSkillMarqueeSection } from "@/components/landing/HeroSkillMarqueeSection";
 import { LandingFeatureBento } from "@/components/landing/LandingFeatureBento";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { FinalSignupCta } from "@/components/landing/FinalSignupCta";
@@ -76,6 +78,10 @@ export default function LandingPage() {
 
       <main className="flex-1 relative z-10 flex flex-col">
         <HeroSection />
+
+        <ProductDemoVideoSection />
+
+        <HeroSkillMarqueeSection />
 
         <LandingFeatureBento
           documentStories={<CaseStudyCardStack />}
