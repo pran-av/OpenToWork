@@ -3,8 +3,7 @@ import { LandingHeader } from "@/components/landing/LandingHeader";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { LandingFeatureBento } from "@/components/landing/LandingFeatureBento";
-import { IsThisForMeSection } from "@/components/landing/IsThisForMeSection";
-import { WhySignUpSection } from "@/components/landing/WhySignUpSection";
+import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { FinalSignupCta } from "@/components/landing/FinalSignupCta";
 import { landingTheme } from "@/components/landing/landing-tokens";
 
@@ -86,8 +85,7 @@ export default function LandingPage() {
           organise={<OrganiseCampaignsVisual />}
         />
 
-        <IsThisForMeSection />
-        <WhySignUpSection />
+        <HowItWorksSection />
         <FinalSignupCta />
       </main>
 
