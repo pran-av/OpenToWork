@@ -29,7 +29,10 @@ export function HeroSection() {
   }, []);
 
   return (
-    <section className="relative z-10 px-4 pb-8 pt-28 sm:px-6 sm:pb-10 sm:pt-28 md:pb-12 md:pt-32 lg:px-8 lg:pb-24 lg:pt-28">
+    <section
+      id="hero"
+      className="relative z-10 scroll-mt-28 px-4 pb-8 pt-28 sm:px-6 sm:pb-10 sm:pt-28 md:pb-12 md:pt-32 lg:scroll-mt-32 lg:px-8 lg:pb-24 lg:pt-28"
+    >
       <div className="max-w-7xl mx-auto">
         {/* Mobile / tablet: natural height so demo video can sit on first screen; lg+: full-height grid */}
         <div className="flex min-h-0 flex-col items-stretch lg:grid lg:min-h-[calc(100svh-5.5rem)] lg:grid-cols-12 lg:gap-8 xl:gap-12 lg:items-center">

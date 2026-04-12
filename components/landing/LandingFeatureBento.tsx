@@ -46,7 +46,7 @@ export function LandingFeatureBento({
   return (
     <section
       id="features"
-      className="relative z-10 px-4 sm:px-6 lg:px-8 py-12 md:py-16 border-t border-[#E8E4DC]/80"
+      className="relative z-10 scroll-mt-28 border-t border-[#E8E4DC]/80 px-4 py-12 sm:px-6 md:py-16 lg:scroll-mt-32 lg:px-8"
     >
       <div className="grid w-full grid-cols-1 gap-4 md:gap-6">
         {/* Document — large white card */}

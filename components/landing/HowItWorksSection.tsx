@@ -89,7 +89,7 @@ export function HowItWorksSection() {
   return (
     <section
       id="how-it-works"
-      className="relative z-10 border-t border-[#E8E4DC]/80 py-12 md:py-14 px-4 sm:px-6 lg:px-8"
+      className="relative z-10 scroll-mt-28 border-t border-[#E8E4DC]/80 py-12 md:py-14 px-4 sm:px-6 lg:scroll-mt-32 lg:px-8"
       style={{ backgroundColor: landingTheme.creamDark }}
     >
       <div className="mx-auto w-full max-w-3xl lg:max-w-4xl">
