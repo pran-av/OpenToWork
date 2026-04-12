@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { BarChart3, Clock, Users } from "lucide-react";
+import { TextWithArrow } from "./TextWithArrow";
 
 type CaseStudy = {
   id: string;
@@ -63,30 +65,9 @@ const CASE_STUDIES: CaseStudy[] = [
 
 function MetricIcon({ kind }: { kind: "chart" | "users" | "clock" }) {
   const cls = "h-5 w-5 text-[#5D4A3A] shrink-0";
-  if (kind === "chart") {
-    return (
-      <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M3 3v18h18" />
-        <path d="M7 16l4-6 4 3 5-8" />
-      </svg>
-    );
-  }
-  if (kind === "users") {
-    return (
-      <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </svg>
-    );
-  }
-  return (
-    <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 6v6l4 2" />
-    </svg>
-  );
+  if (kind === "chart") return <BarChart3 className={cls} strokeWidth={2} aria-hidden />;
+  if (kind === "users") return <Users className={cls} strokeWidth={2} aria-hidden />;
+  return <Clock className={cls} strokeWidth={2} aria-hidden />;
 }
 
 export function CaseStudyCardStack() {
@@ -126,7 +107,7 @@ export function CaseStudyCardStack() {
   }, [n]);
 
   return (
-    <div className="relative mx-auto h-full min-h-0 w-full max-w-xl px-2 sm:px-4">
+    <div className="relative mx-auto w-full min-w-0 max-w-full pl-1.5 pr-4 sm:pl-2 sm:pr-4 md:pl-2 md:pr-5 lg:px-0.5 xl:px-1">
       <button
         type="button"
         aria-label="Show previous case study"
@@ -140,7 +121,7 @@ export function CaseStudyCardStack() {
         onClick={next}
       />
 
-      <div className="perspective-[1200px] relative flex h-full min-h-[min(300px,48svh)] w-full items-center justify-center sm:min-h-[300px] md:min-h-[280px]">
+      <div className="perspective-[1200px] relative flex min-h-[20rem] w-full max-lg:-translate-x-1 items-center justify-center py-4 pb-10 sm:min-h-[22rem] md:min-h-[23rem] lg:min-h-[26rem] lg:translate-x-0 lg:py-6 lg:pb-14">
         {CASE_STUDIES.map((card, i) => {
           const offset = (i - active + n) % n;
           const isFront = offset === 0;
@@ -158,7 +139,7 @@ export function CaseStudyCardStack() {
           return (
             <article
               key={card.id}
-              className="absolute left-1/2 top-0 w-[90%] max-w-lg overflow-hidden rounded-2xl border border-[#E8E4DC] bg-white shadow-[0_20px_50px_-12px_rgba(45,36,25,0.22)] transition-all duration-300 ease-out max-sm:top-3"
+              className="absolute left-1/2 top-0 w-[88%] max-w-md overflow-hidden rounded-xl border border-[#E8E4DC] bg-white shadow-[0_20px_50px_-12px_rgba(45,36,25,0.22)] transition-all duration-300 ease-out max-sm:top-2 sm:rounded-2xl lg:max-w-lg"
               style={{
                 transform: `translateX(calc(-50% + ${translateX}px)) translateY(${translateY}px) scale(${scale}) rotateY(${rotateY}deg)`,
                 zIndex: z,
@@ -170,30 +151,32 @@ export function CaseStudyCardStack() {
                     : undefined,
               }}
             >
-              <div className="flex min-h-[240px] flex-col bg-gradient-to-br from-white via-[#FFFBF2] to-orange-50/50 p-4 sm:p-5 sm:min-h-[268px] md:min-h-[288px]">
-                <p className="text-right font-poppins text-xs font-semibold text-[#E07B39] sm:text-sm">{card.role}</p>
-                <h4 className="mt-1 pr-4 font-poppins text-base font-semibold leading-snug text-[#2C2419] sm:text-lg">
+              <div className="flex h-[16.25rem] flex-col gap-y-1.5 bg-gradient-to-br from-white via-[#FFFBF2] to-orange-50/50 p-3 sm:h-[17rem] sm:gap-y-2 sm:p-4 lg:h-[20.5rem] lg:gap-y-2 lg:p-5">
+                <p className="shrink-0 text-right font-poppins text-[10px] font-semibold text-[#E07B39] sm:text-xs lg:text-sm">{card.role}</p>
+                <h4 className="line-clamp-2 pr-2 font-poppins text-sm font-semibold leading-snug text-[#2C2419] sm:text-base lg:text-lg">
                   {card.title}
                 </h4>
-                <p className="font-inter mt-2 line-clamp-2 text-xs leading-relaxed text-[#74777F] sm:text-sm">
+                <p className="line-clamp-2 shrink-0 font-inter text-[10px] leading-relaxed text-[#74777F] sm:text-xs lg:text-sm">
                   {card.description}
                 </p>
 
-                {/* Metrics — stacked rows on mobile, 3 columns from sm */}
-                <div className="mt-4 grid min-h-0 flex-1 grid-cols-1 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3">
+                {/* One row of three metrics on all breakpoints — avoids mobile overlap with description */}
+                <div className="mt-auto grid min-h-0 w-full flex-1 grid-cols-3 content-end gap-1 sm:gap-2 lg:gap-3">
                   {card.metrics.map((m) => (
                     <div
                       key={m.label}
-                      className="flex flex-row items-center gap-3 rounded-xl border border-[#E8E4DC] bg-white/90 px-3 py-3 text-left shadow-sm sm:flex-col sm:items-center sm:justify-center sm:gap-2 sm:px-3 sm:py-5 sm:text-center"
+                      className="flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-md border border-[#E8E4DC] bg-white/90 px-1 py-1.5 text-center shadow-sm max-sm:py-2 sm:gap-1.5 sm:rounded-lg sm:px-2 sm:py-3 lg:rounded-xl lg:px-3 lg:py-4"
                     >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FFFBF2] ring-1 ring-[#E8E4DC] sm:h-12 sm:w-12">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#FFFBF2] ring-1 ring-[#E8E4DC] sm:h-9 sm:w-9 lg:h-11 lg:w-11">
                         <MetricIcon kind={m.icon} />
                       </div>
-                      <div className="min-w-0 flex-1 sm:flex-none sm:text-center">
-                        <p className="font-inter text-[10px] font-medium uppercase tracking-wide text-[#74777F] sm:text-[11px]">
-                          {m.label}
-                        </p>
-                        <p className="font-poppins text-sm font-semibold leading-tight text-[#2C2419] sm:text-base">
+                      <div className="min-w-0 text-center">
+                        <TextWithArrow
+                          text={m.label}
+                          className="font-inter text-[9px] font-medium uppercase tracking-wide text-[#74777F] sm:text-[10px] lg:text-xs"
+                          iconClassName="h-3 w-3 shrink-0 text-[#74777F] opacity-90 sm:h-3.5 sm:w-3.5 lg:h-3.5 lg:w-3.5"
+                        />
+                        <p className="line-clamp-2 font-poppins text-[10px] font-semibold leading-tight text-[#2C2419] sm:text-sm lg:text-base">
                           {m.value}
                         </p>
                       </div>

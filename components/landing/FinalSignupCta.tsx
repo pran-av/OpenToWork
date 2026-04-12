@@ -42,7 +42,7 @@ export function FinalSignupCta() {
           className="inline-flex font-inter font-semibold text-base md:text-lg px-10 py-4 mt-8 rounded-2xl text-white transition-all shadow-lg hover:shadow-xl hover:opacity-95"
           style={{ backgroundColor: landingTheme.brown }}
         >
-          Signup and Start Pitching
+          Build My First Pitch
         </Link>
       </div>
     </section>
