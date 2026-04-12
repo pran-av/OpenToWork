@@ -15,6 +15,12 @@ function embedSrcAutoplay() {
   return `${EMBED_BASE}&autoplay=1&mute=1`;
 }
 
+/** Narrowing `"requestIdleCallback" in window` makes the `else` branch `never` under current DOM typings. */
+type WindowWithIdle = Window & {
+  requestIdleCallback?: typeof window.requestIdleCallback;
+  cancelIdleCallback?: typeof window.cancelIdleCallback;
+};
+
 export function ProductDemoVideoSection() {
   const [showPlayer, setShowPlayer] = useState(false);
   const [posterReady, setPosterReady] = useState(false);
@@ -24,14 +30,15 @@ export function ProductDemoVideoSection() {
     const run = () => setPosterReady(true);
     let idleId: number | undefined;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    if ("requestIdleCallback" in window) {
-      idleId = window.requestIdleCallback(run, { timeout: 2500 });
+    const w = window as WindowWithIdle;
+    if (typeof w.requestIdleCallback === "function") {
+      idleId = w.requestIdleCallback(run, { timeout: 2500 });
     } else {
-      timeoutId = window.setTimeout(run, 300);
+      timeoutId = setTimeout(run, 300);
     }
     return () => {
-      if (idleId !== undefined && "cancelIdleCallback" in window) {
-        window.cancelIdleCallback(idleId);
+      if (idleId !== undefined && typeof w.cancelIdleCallback === "function") {
+        w.cancelIdleCallback(idleId);
       }
       if (timeoutId !== undefined) clearTimeout(timeoutId);
     };
