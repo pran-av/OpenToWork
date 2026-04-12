@@ -121,9 +121,9 @@ export function HowItWorksSection() {
                   flip ? "md:flex-row-reverse" : "",
                 ].join(" ")}
               >
-                <div className="flex flex-row items-start gap-3 md:w-[7.5rem] md:shrink-0 md:flex-col md:items-center md:gap-1.5">
+                <div className="flex flex-row items-center gap-3 md:w-[7.5rem] md:shrink-0 md:flex-col md:items-center md:gap-1.5">
                   <span
-                    className="mt-0.5 inline-flex rounded-full px-2 py-0.5 font-inter text-[10px] font-semibold uppercase tracking-wide md:mt-0 md:text-[11px]"
+                    className="inline-flex shrink-0 rounded-full px-2 py-0.5 font-inter text-[10px] font-semibold uppercase tracking-wide md:text-[11px]"
                     style={{
                       backgroundColor: "rgba(255, 140, 0, 0.14)",
                       color: landingTheme.brown,
