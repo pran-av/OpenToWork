@@ -1,4 +1,3 @@
-import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import CampaignFlowClient from "@/app/campaign/[id]/CampaignFlowClient";
 import {
@@ -6,6 +5,7 @@ import {
   getClientServicesByProjectIdPublic,
   getCaseStudiesByProjectIdPublic,
 } from "@/lib/db/campaigns";
+import { getAttachedExperienceCaseStudiesForCampaign } from "@/lib/db/experience";
 import { getWidgetByProjectIdPublic } from "@/lib/db/widgets";
 import type { CaseStudy } from "@/lib/db/campaigns";
 
@@ -72,57 +72,73 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ProjectPage({ params }: PageProps) {
   const { projectId } = await params;
-  
-  try {
-    // Get active campaign for this project (public access - campaigns have public RLS for ACTIVE status)
-    const activeCampaign = await getActiveCampaignByProjectIdPublic(projectId);
-    
-    // If no active campaign, show end-of-life message (covers archived projects)
-    if (!activeCampaign) {
-      return (
-        <div className="flex min-h-screen items-center justify-center bg-white">
-          <div className="text-center">
-            <h1 className="mb-4 text-2xl font-semibold text-zinc-900">
-              Owner has archieved this campaign
-            </h1>
-            <p className="text-zinc-600">
-              This project is not serving an active campaign at the moment.
-            </p>
-          </div>
-        </div>
-      );
-    }
-    
-    // Fetch services for this project (using projectId for security)
-    const services = await getClientServicesByProjectIdPublic(projectId);
-    
-    // Fetch case studies for this project (using projectId for security)
-    const allCaseStudies = await getCaseStudiesByProjectIdPublic(projectId);
-    
-    // Map case studies by service ID for component compatibility
-    const caseStudiesMap: Record<string, CaseStudy[]> = {};
-    for (const caseStudy of allCaseStudies) {
-      if (!caseStudiesMap[caseStudy.client_service_id]) {
-        caseStudiesMap[caseStudy.client_service_id] = [];
-      }
-      caseStudiesMap[caseStudy.client_service_id].push(caseStudy);
-    }
-    
-    // Fetch widget for this project (using projectId for security)
-    const widget = await getWidgetByProjectIdPublic(projectId);
-    
-    // Render the campaign flow directly (same as /campaign/[id])
+
+  // Get active campaign for this project (public access - campaigns have public RLS for ACTIVE status)
+  const activeCampaign = await getActiveCampaignByProjectIdPublic(projectId);
+
+  // If no active campaign, show end-of-life message (covers archived projects)
+  if (!activeCampaign) {
     return (
-      <CampaignFlowClient
-        campaign={activeCampaign}
-        services={services}
-        caseStudiesMap={caseStudiesMap}
-        widget={widget}
-      />
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <div className="text-center">
+          <h1 className="mb-4 text-2xl font-semibold text-zinc-900">
+            Owner has archieved this campaign
+          </h1>
+          <p className="text-zinc-600">
+            This project is not serving an active campaign at the moment.
+          </p>
+        </div>
+      </div>
     );
-  } catch (error) {
-    console.error("Error in ProjectPage:", error);
-    notFound();
   }
+
+  const services = await getClientServicesByProjectIdPublic(projectId);
+  const allCaseStudies = await getCaseStudiesByProjectIdPublic(projectId);
+
+  const caseStudiesMap: Record<string, CaseStudy[]> = {};
+  for (const caseStudy of allCaseStudies) {
+    if (!caseStudiesMap[caseStudy.client_service_id]) {
+      caseStudiesMap[caseStudy.client_service_id] = [];
+    }
+    caseStudiesMap[caseStudy.client_service_id].push(caseStudy);
+  }
+
+  const serviceIdByName = new Map(
+    services.map((service) => [service.client_service_name.trim().toLowerCase(), service.client_service_id])
+  );
+  const attachedExperienceCaseStudies = await getAttachedExperienceCaseStudiesForCampaign(
+    activeCampaign.campaign_id
+  );
+  for (const attachedCaseStudy of attachedExperienceCaseStudies) {
+    const mappedServiceId = serviceIdByName.get(attachedCaseStudy.service_class_name.trim().toLowerCase());
+    if (!mappedServiceId) continue;
+
+    const adaptedCaseStudy: CaseStudy = {
+      case_id: attachedCaseStudy.case_id,
+      client_service_id: mappedServiceId,
+      case_name: attachedCaseStudy.case_name,
+      case_summary: attachedCaseStudy.case_summary || "",
+      case_duration: attachedCaseStudy.case_duration,
+      case_highlights: attachedCaseStudy.case_highlights,
+      case_study_url: attachedCaseStudy.case_study_url || "",
+      created_at: attachedCaseStudy.created_at,
+    };
+
+    const current = caseStudiesMap[mappedServiceId] || [];
+    if (!current.some((entry) => entry.case_id === adaptedCaseStudy.case_id)) {
+      caseStudiesMap[mappedServiceId] = [...current, adaptedCaseStudy];
+    }
+  }
+
+  const widget = await getWidgetByProjectIdPublic(projectId);
+
+  return (
+    <CampaignFlowClient
+      campaign={activeCampaign}
+      services={services}
+      caseStudiesMap={caseStudiesMap}
+      widget={widget}
+    />
+  );
 }
 

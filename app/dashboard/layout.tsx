@@ -26,7 +26,11 @@ export default async function DashboardLayout({
         <DashboardHeader />
         <BackButton />
         <LinkIdentityBanner />
-        <main className="flex-1 container mx-auto px-4 py-8">{children}</main>
+        <main
+          className="flex-1 container mx-auto bg-orange-50 px-4 py-8 [background-image:radial-gradient(circle_at_center,rgba(120,53,9,0.11)_1px,transparent_1px)] [background-size:18px_18px] dark:bg-black dark:[background-image:radial-gradient(circle_at_center,rgba(244,244,245,0.07)_1px,transparent_1px)]"
+        >
+          {children}
+        </main>
         <DashboardFooter />
       </div>
     </ThemeProvider>

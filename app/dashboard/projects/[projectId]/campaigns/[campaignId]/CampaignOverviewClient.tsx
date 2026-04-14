@@ -276,6 +276,9 @@ function CaseStudyCard({
     if (!caseName.trim()) {
       return; // Validation will be shown
     }
+    if (!caseDuration.trim()) {
+      return;
+    }
     if (caseHighlights.length === 0 || !caseHighlights.some(h => h.trim())) {
       return; // At least one highlight required
     }
@@ -419,19 +422,28 @@ function CaseStudyCard({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
-            Case Duration
+            Case Duration <span className="text-red-600 dark:text-red-400">*</span>
           </label>
           <input
             type="text"
             value={caseDuration}
             onChange={(e) => setCaseDuration(e.target.value)}
             maxLength={50}
-            className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
+            className={`mt-1 block w-full rounded-md border bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:outline-none dark:bg-zinc-800 dark:text-zinc-50 sm:text-sm ${
+              !caseDuration.trim()
+                ? "border-red-300 focus:border-red-500 focus:ring-red-500 dark:border-red-700"
+                : "border-zinc-300 focus:border-zinc-500 focus:ring-zinc-500 dark:border-zinc-700 dark:focus:border-zinc-600 dark:focus:ring-zinc-600"
+            }`}
             placeholder="e.g., 12th Sep, 2024 to 13th Nov, 2024"
           />
           <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
             {caseDuration.length}/50 characters
           </p>
+          {!caseDuration.trim() ? (
+            <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+              Case duration is required
+            </p>
+          ) : null}
         </div>
 
         <div>
@@ -489,7 +501,7 @@ function CaseStudyCard({
         <div className="flex gap-2">
           <button
             onClick={handleSave}
-            disabled={!caseName.trim() || !caseHighlights.some(h => h.trim())}
+            disabled={!caseName.trim() || !caseDuration.trim() || !caseHighlights.some(h => h.trim())}
             className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
           >
             Save

@@ -333,20 +333,31 @@ export async function createCaseStudy(
   caseData: {
     case_name: string;
     case_summary?: string;
-    case_duration?: string;
+    case_duration: string;
     case_highlights: string;
     case_study_url?: string;
   }
 ): Promise<CaseStudy> {
   const supabase = await createServerClient();
+
+  if (!caseData.case_duration || !caseData.case_duration.trim()) {
+    throw new Error("Case duration is required");
+  }
   
   // Convert empty strings to null for nullable fields
-  const insertData: any = {
+  const insertData: {
+    client_service_id: string;
+    case_name: string;
+    case_highlights: string;
+    case_summary: string | null;
+    case_duration: string;
+    case_study_url: string | null;
+  } = {
     client_service_id: clientServiceId,
     case_name: caseData.case_name,
     case_highlights: caseData.case_highlights,
     case_summary: caseData.case_summary?.trim() || null,
-    case_duration: caseData.case_duration?.trim() || null,
+    case_duration: caseData.case_duration.trim(),
     case_study_url: caseData.case_study_url?.trim() || null,
   };
   
@@ -376,14 +387,23 @@ export async function updateCaseStudy(
   const supabase = await createServerClient();
   
   // Convert empty strings to null for nullable fields
-  const updateData: any = {};
+  const updateData: {
+    case_name?: string;
+    case_highlights?: string;
+    case_summary?: string | null;
+    case_duration?: string;
+    case_study_url?: string | null;
+  } = {};
   if (updates.case_name !== undefined) updateData.case_name = updates.case_name;
   if (updates.case_highlights !== undefined) updateData.case_highlights = updates.case_highlights;
   if (updates.case_summary !== undefined) {
     updateData.case_summary = updates.case_summary?.trim() || null;
   }
   if (updates.case_duration !== undefined) {
-    updateData.case_duration = updates.case_duration?.trim() || null;
+    if (!updates.case_duration.trim()) {
+      throw new Error("Case duration is required");
+    }
+    updateData.case_duration = updates.case_duration.trim();
   }
   if (updates.case_study_url !== undefined) {
     updateData.case_study_url = updates.case_study_url?.trim() || null;
