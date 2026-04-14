@@ -7,7 +7,7 @@ export type ExperienceCaseStudyCardModel = {
   service_class_name: string;
   case_name: string;
   case_summary: string | null;
-  case_duration: string;
+  case_duration: string | null;
   case_highlights: string;
   case_study_url: string | null;
 };
@@ -46,10 +46,12 @@ export function ExperienceCaseStudyCard({ study }: { study: ExperienceCaseStudyC
       }`}
     >
       <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">
-        {study.service_class_name}
+        {study.service_class_name.toUpperCase()}
       </p>
       <h3 className="mb-2 text-xl font-bold text-gray-900 dark:text-zinc-50">{study.case_name}</h3>
-      <p className="mb-3 text-sm text-gray-500 dark:text-zinc-400">{study.case_duration}</p>
+      {study.case_duration?.trim() ? (
+        <p className="mb-3 text-sm text-gray-500 dark:text-zinc-400">{study.case_duration}</p>
+      ) : null}
       {study.case_summary?.trim() ? (
         <p className="mb-4 text-base leading-relaxed text-gray-700 dark:text-zinc-300">{study.case_summary}</p>
       ) : null}

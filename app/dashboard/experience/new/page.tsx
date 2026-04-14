@@ -8,6 +8,8 @@ import { Plus, X } from "lucide-react";
 interface ServiceClassData {
   service_class_id: string;
   service_class_name: string;
+  is_system_default: boolean;
+  preset: string | null;
 }
 
 const inputClass =
@@ -82,8 +84,8 @@ export default function NewExperienceCaseStudyPage() {
       setError("Case name is required");
       return;
     }
-    if (!caseDuration.trim()) {
-      setError("Case duration is required");
+    if (caseSummary.trim().length > 700) {
+      setError("Case summary must be at most 700 characters");
       return;
     }
     if (!displayYear.trim() || Number.isNaN(Number(displayYear.trim()))) {
@@ -123,7 +125,7 @@ export default function NewExperienceCaseStudyPage() {
           service_class_id: serviceClassId,
           case_name: caseName.trim(),
           case_summary: caseSummary.trim(),
-          case_duration: caseDuration.trim(),
+          ...(caseDuration.trim() ? { case_duration: caseDuration.trim() } : {}),
           display_year: Number(displayYear.trim()),
           case_highlights: joinedHighlights,
           case_study_url: caseStudyUrl.trim(),
@@ -175,11 +177,28 @@ export default function NewExperienceCaseStudyPage() {
             className={inputClass}
           >
             <option value="">Select service class</option>
-            {serviceClasses.map((sc) => (
-              <option key={sc.service_class_id} value={sc.service_class_id}>
-                {sc.service_class_name}
-              </option>
-            ))}
+            {serviceClasses.some((sc) => sc.is_system_default === true) ? (
+              <optgroup label="Standard">
+                {serviceClasses
+                  .filter((sc) => sc.is_system_default === true)
+                  .map((sc) => (
+                    <option key={sc.service_class_id} value={sc.service_class_id}>
+                      {sc.service_class_name}
+                    </option>
+                  ))}
+              </optgroup>
+            ) : null}
+            {serviceClasses.some((sc) => sc.is_system_default !== true) ? (
+              <optgroup label="Custom">
+                {serviceClasses
+                  .filter((sc) => sc.is_system_default !== true)
+                  .map((sc) => (
+                    <option key={sc.service_class_id} value={sc.service_class_id}>
+                      {sc.service_class_name}
+                    </option>
+                  ))}
+              </optgroup>
+            ) : null}
           </select>
         </div>
 
@@ -205,7 +224,7 @@ export default function NewExperienceCaseStudyPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Case Duration (required)</label>
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Case Duration (optional)</label>
           <input
             value={caseDuration}
             onChange={(e) => setCaseDuration(e.target.value)}
@@ -230,7 +249,7 @@ export default function NewExperienceCaseStudyPage() {
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Case Summary</label>
           <textarea
             rows={5}
-            maxLength={150}
+            maxLength={700}
             value={caseSummary}
             onChange={(e) => setCaseSummary(e.target.value)}
             className={inputClass}

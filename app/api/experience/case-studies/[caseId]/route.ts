@@ -29,8 +29,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       is_archived: body.is_archived,
     };
 
-    if (updates.case_duration !== undefined && !String(updates.case_duration).trim()) {
-      return NextResponse.json({ error: "Case duration is required" }, { status: 400 });
+    if (updates.case_duration !== undefined && updates.case_duration !== null && typeof updates.case_duration !== "string") {
+      return NextResponse.json({ error: "Case duration must be a string when provided" }, { status: 400 });
+    }
+    if (updates.case_summary !== undefined && updates.case_summary !== null) {
+      const s = String(updates.case_summary).trim();
+      if (s.length > 700) {
+        return NextResponse.json({ error: "Case summary must be at most 700 characters" }, { status: 400 });
+      }
     }
     if (
       updates.display_year !== undefined &&
@@ -41,11 +47,26 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Display year must be between 1900 and 2099" }, { status: 400 });
     }
 
-    const caseStudy = await updateExperienceCaseStudy(caseId, {
-      ...updates,
-      display_year:
-        updates.display_year !== undefined ? Number(updates.display_year) : undefined,
-    });
+    const patch: {
+      case_name?: string;
+      case_summary?: string;
+      case_duration?: string;
+      display_year?: number;
+      case_highlights?: string;
+      case_study_url?: string;
+      is_archived?: boolean;
+    } = {};
+    if (updates.case_name !== undefined) patch.case_name = updates.case_name;
+    if (updates.case_summary !== undefined) patch.case_summary = updates.case_summary;
+    if (updates.case_duration !== undefined) patch.case_duration = updates.case_duration;
+    if (updates.case_highlights !== undefined) patch.case_highlights = updates.case_highlights;
+    if (updates.case_study_url !== undefined) patch.case_study_url = updates.case_study_url;
+    if (updates.is_archived !== undefined) patch.is_archived = updates.is_archived;
+    if (updates.display_year !== undefined) {
+      patch.display_year = Number(updates.display_year);
+    }
+
+    const caseStudy = await updateExperienceCaseStudy(caseId, patch);
     return NextResponse.json({ caseStudy });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update case study";

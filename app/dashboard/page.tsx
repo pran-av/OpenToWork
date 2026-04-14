@@ -10,7 +10,7 @@ interface ExperienceCaseStudy {
   service_class_name: string;
   case_name: string;
   case_summary: string | null;
-  case_duration: string;
+  case_duration: string | null;
   display_year: number;
   case_highlights: string;
   case_study_url: string | null;

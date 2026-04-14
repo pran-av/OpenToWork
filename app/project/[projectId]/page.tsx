@@ -118,7 +118,7 @@ export default async function ProjectPage({ params }: PageProps) {
       client_service_id: mappedServiceId,
       case_name: attachedCaseStudy.case_name,
       case_summary: attachedCaseStudy.case_summary || "",
-      case_duration: attachedCaseStudy.case_duration,
+      case_duration: attachedCaseStudy.case_duration ?? "",
       case_highlights: attachedCaseStudy.case_highlights,
       case_study_url: attachedCaseStudy.case_study_url || "",
       created_at: attachedCaseStudy.created_at,

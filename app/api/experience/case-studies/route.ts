@@ -54,8 +54,13 @@ export async function POST(request: NextRequest) {
     if (!case_name || typeof case_name !== "string" || !case_name.trim()) {
       return NextResponse.json({ error: "Case name is required" }, { status: 400 });
     }
-    if (!case_duration || typeof case_duration !== "string" || !case_duration.trim()) {
-      return NextResponse.json({ error: "Case duration is required" }, { status: 400 });
+    if (case_duration !== undefined && case_duration !== null && typeof case_duration !== "string") {
+      return NextResponse.json({ error: "Case duration must be a string when provided" }, { status: 400 });
+    }
+    const summaryStr =
+      case_summary === undefined || case_summary === null ? "" : String(case_summary).trim();
+    if (summaryStr.length > 700) {
+      return NextResponse.json({ error: "Case summary must be at most 700 characters" }, { status: 400 });
     }
     if (
       display_year === undefined ||
@@ -69,11 +74,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "At least one case highlight is required" }, { status: 400 });
     }
 
+    const durationStr =
+      case_duration === undefined || case_duration === null ? "" : String(case_duration).trim();
+
     const caseStudy = await createExperienceCaseStudy({
       service_class_id,
       case_name,
-      case_summary,
-      case_duration,
+      case_summary: summaryStr || undefined,
+      case_duration: durationStr.length > 0 ? durationStr : null,
       display_year: Number(display_year),
       case_highlights,
       case_study_url,

@@ -4,6 +4,8 @@ export interface ServiceClassData {
   service_class_id: string;
   user_id: string;
   service_class_name: string;
+  is_system_default: boolean;
+  preset: string | null;
   is_archived: boolean;
   archived_at: string | null;
   created_at: string;
@@ -15,7 +17,7 @@ export interface ExperienceCaseStudyData {
   service_class_id: string;
   case_name: string;
   case_summary: string | null;
-  case_duration: string;
+  case_duration: string | null;
   display_year: number;
   case_highlights: string;
   case_study_url: string | null;
@@ -38,7 +40,7 @@ export interface AttachedExperienceCaseStudy {
   service_class_name: string;
   case_name: string;
   case_summary: string | null;
-  case_duration: string;
+  case_duration: string | null;
   display_year: number;
   case_highlights: string;
   case_study_url: string | null;
@@ -82,18 +84,19 @@ export async function createExperienceCaseStudy(input: {
   service_class_id: string;
   case_name: string;
   case_summary?: string;
-  case_duration: string;
+  case_duration?: string | null;
   display_year: number;
   case_highlights: string;
   case_study_url?: string;
 }): Promise<ExperienceCaseStudyData> {
   const supabase = await createServerClient();
 
+  const durationTrimmed = input.case_duration?.trim() ?? "";
   const { data, error } = await supabase.rpc("create_experience_case_study", {
     p_service_class_id: input.service_class_id,
     p_case_name: input.case_name.trim(),
     p_case_summary: input.case_summary?.trim() || null,
-    p_case_duration: input.case_duration.trim(),
+    p_case_duration: durationTrimmed.length > 0 ? durationTrimmed : null,
     p_display_year: input.display_year,
     p_case_highlights: input.case_highlights.trim(),
     p_case_study_url: input.case_study_url?.trim() || null,
