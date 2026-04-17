@@ -5,6 +5,7 @@ import { getActiveCampaignByProjectId } from "@/lib/db/campaigns";
 import { getClientServicesByCampaignId } from "@/lib/db/campaigns";
 import { getCaseStudiesByServiceId } from "@/lib/db/campaigns";
 import { isCampaignPublishable } from "@/lib/db/campaigns";
+import { getAttachedExperienceCaseStudiesForCampaign } from "@/lib/db/experience";
 import CampaignOverviewClient from "./CampaignOverviewClient";
 
 interface PageProps {
@@ -36,6 +37,7 @@ export default async function CampaignOverviewPage({ params }: PageProps) {
       return { ...service, caseStudies };
     })
   );
+  const attachedCaseStudies = await getAttachedExperienceCaseStudiesForCampaign(campaignId);
 
   // Check if campaign is publishable (for DRAFT campaigns)
   const isPublishable = campaign.campaign_status === "DRAFT" 
@@ -47,6 +49,7 @@ export default async function CampaignOverviewPage({ params }: PageProps) {
       campaign={campaign}
       project={project}
       servicesWithCaseStudies={servicesWithCaseStudies}
+      attachedCaseStudies={attachedCaseStudies}
       hasActiveCampaign={hasActiveCampaign}
       isPublishable={isPublishable}
     />

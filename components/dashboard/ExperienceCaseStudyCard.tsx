@@ -1,0 +1,80 @@
+"use client";
+
+import { Check } from "lucide-react";
+
+export type ExperienceCaseStudyCardModel = {
+  case_id: string;
+  service_class_name: string;
+  case_name: string;
+  case_summary: string | null;
+  case_duration: string | null;
+  case_highlights: string;
+  case_study_url: string | null;
+};
+
+function parseHighlights(highlightsString: string): string[] {
+  return highlightsString.split(";").filter((h) => h.trim().length > 0);
+}
+
+function summarizeForCanvas(summary: string): string {
+  const trimmed = summary.trim();
+  if (trimmed.length <= 50) return trimmed;
+  return `${trimmed.slice(0, 50)}...`;
+}
+
+export function ExperienceCaseStudyCard({ study }: { study: ExperienceCaseStudyCardModel }) {
+  const highlights = parseHighlights(study.case_highlights || "");
+  const hasUrl = Boolean(study.case_study_url?.trim());
+
+  const handleCardClick = () => {
+    const url = study.case_study_url?.trim();
+    if (url) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  return (
+    <article
+      onClick={handleCardClick}
+      onKeyDown={(e) => {
+        if (!hasUrl) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleCardClick();
+        }
+      }}
+      role={hasUrl ? "link" : undefined}
+      tabIndex={hasUrl ? 0 : undefined}
+      className={`min-w-0 max-w-full rounded-lg border border-orange-100 bg-white p-6 shadow-sm transition-all dark:border-zinc-800 dark:bg-zinc-900 ${
+        hasUrl
+          ? "cursor-pointer hover:border-blue-400 hover:shadow-md hover:bg-orange-50/40 dark:hover:border-blue-500 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
+          : "cursor-default"
+      }`}
+    >
+      <p className="mb-3 break-words text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">
+        {study.service_class_name.toUpperCase()}
+      </p>
+      <h3 className="mb-2 break-words text-xl font-bold text-gray-900 dark:text-zinc-50">{study.case_name}</h3>
+      {study.case_duration?.trim() ? (
+        <p className="mb-3 break-words text-sm text-gray-500 dark:text-zinc-400">{study.case_duration}</p>
+      ) : null}
+      {study.case_summary?.trim() ? (
+        <p className="mb-4 break-words text-base leading-relaxed text-gray-700 dark:text-zinc-300">
+          {summarizeForCanvas(study.case_summary)}
+        </p>
+      ) : null}
+      {highlights.length > 0 ? (
+        <div className="mt-6 min-w-0 space-y-4">
+          {highlights.map((highlight, idx) => (
+            <div key={idx} className="flex min-w-0 items-start gap-3">
+              <Check className="mt-0.5 h-5 w-5 shrink-0 text-green-500" strokeWidth={2} aria-hidden />
+              <span className="min-w-0 flex-1 break-words text-sm leading-relaxed text-gray-700 line-clamp-3 dark:text-zinc-300">
+                {highlight.trim()}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
+}

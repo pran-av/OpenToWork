@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { ProjectData } from "@/lib/db/projects";
 import type { CampaignData, LeadData } from "@/lib/db/campaigns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { DashboardMobileFab } from "@/components/dashboard/DashboardMobileFab";
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Copy, Settings } from "lucide-react";
 
@@ -370,7 +371,7 @@ export default function ProjectOverviewClient({
   const totalPages = Math.ceil(leadsTotal / leadsPageSize);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24 lg:pb-0">
       {isArchived && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           This project is archived. You can view details, but creating, switching, or publishing campaigns is disabled.
@@ -470,7 +471,7 @@ export default function ProjectOverviewClient({
 
       {/* Create Campaign Button - Top Right (if campaigns exist) */}
       {campaigns.length > 0 && (
-        <div className="flex justify-end">
+        <div className="hidden justify-end lg:flex">
           <button
             onClick={() => setIsDialogOpen(true)}
             disabled={isArchived}
@@ -578,7 +579,7 @@ export default function ProjectOverviewClient({
           <button
             onClick={() => setIsDialogOpen(true)}
             disabled={isArchived}
-            className="rounded-md bg-orange-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+            className="hidden rounded-md bg-orange-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200 lg:inline-flex"
           >
             Create a campaign
           </button>
@@ -962,6 +963,13 @@ export default function ProjectOverviewClient({
             </div>
           </div>
         </>
+      )}
+
+      {!isArchived && (
+        <DashboardMobileFab
+          onClick={() => setIsDialogOpen(true)}
+          ariaLabel="Create new campaign"
+        />
       )}
     </div>
   );

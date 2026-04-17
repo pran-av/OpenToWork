@@ -60,6 +60,12 @@ export async function POST(
               { status: 400 }
             );
           }
+          if (!op.data?.case_duration || !String(op.data.case_duration).trim()) {
+            return NextResponse.json(
+              { error: "Case duration is required" },
+              { status: 400 }
+            );
+          }
           const caseStudy = await createCaseStudy(op.serviceId, op.data);
           results.push({ type: "create", id: op.tempId, caseStudy });
         } else if (op.type === "update") {
@@ -67,6 +73,12 @@ export async function POST(
           if (!op.caseId || op.caseId.startsWith("temp-")) {
             return NextResponse.json(
               { error: `Invalid case study ID: ${op.caseId}. Expected a valid UUID, not a temporary ID.` },
+              { status: 400 }
+            );
+          }
+          if (op.data?.case_duration !== undefined && !String(op.data.case_duration).trim()) {
+            return NextResponse.json(
+              { error: "Case duration is required" },
               { status: 400 }
             );
           }
@@ -83,19 +95,21 @@ export async function POST(
           await deleteCaseStudy(op.caseId);
           results.push({ type: "delete", caseId: op.caseId });
         }
-      } catch (error: any) {
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
         return NextResponse.json(
-          { error: `Failed to process operation: ${error.message}` },
+          { error: `Failed to process operation: ${message}` },
           { status: 500 }
         );
       }
     }
 
     return NextResponse.json({ results }, { status: 200 });
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to process case study operations";
     console.error("Error processing case study operations:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to process case study operations" },
+      { error: message },
       { status: 500 }
     );
   }

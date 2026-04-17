@@ -24,7 +24,7 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-end justify-center lg:items-center"
       onClick={() => onOpenChange(false)}
     >
       <div
@@ -32,8 +32,10 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
         aria-hidden="true"
       />
       <div
-        className="relative z-50 w-full max-w-md rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900"
+        className="relative z-50 mx-auto flex w-full max-w-md flex-col overflow-y-auto rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900 max-lg:h-[80dvh] max-lg:rounded-b-none max-lg:rounded-t-2xl max-lg:pb-[max(1.5rem,env(safe-area-inset-bottom,0px))]"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
       >
         {children}
       </div>

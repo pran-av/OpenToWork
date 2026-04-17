@@ -2,9 +2,12 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
+import { useStudioCampaignWriteModeListener } from "@/hooks/useStudioCampaignWriteChrome";
 import Image from "next/image";
 import { useTheme } from "next-themes";
+import { BriefcaseBusiness, Megaphone, User } from "lucide-react";
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import LinkIdentityBanner from "./LinkIdentityBanner";
 
 interface ProfileData {
   display_name: string | null;
@@ -61,17 +64,14 @@ export default function DashboardHeader() {
     setTheme(newTheme);
   };
 
-  // Check if we're on the main dashboard page
-  const isDashboardHome = pathname === "/dashboard";
-
-  const handleBack = () => {
-    if (isDashboardHome) {
-      // Already on dashboard home, do nothing or could navigate to a different default
-      return;
-    }
-    // Navigate back to previous page
-    router.back();
-  };
+  const isProjectsArea = pathname.startsWith("/dashboard/projects");
+  const isProjectCampaignPath = /^\/dashboard\/projects\/[^/]+\/campaigns\/[^/]+$/.test(pathname);
+  const campaignWriteMode = useStudioCampaignWriteModeListener();
+  const hideMobileBottomNav = isProjectCampaignPath && campaignWriteMode;
+  const switchTargetPath = isProjectsArea ? "/dashboard" : "/dashboard/projects";
+  const switchLabel = isProjectsArea ? "Switch to Add Experiences" : "Switch to Create Campaigns";
+  const isProfileArea = pathname.startsWith("/dashboard/profile");
+  const isExperiencesArea = pathname.startsWith("/dashboard") && !isProjectsArea && !isProfileArea;
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -96,8 +96,9 @@ export default function DashboardHeader() {
   };
 
   return (
-    <header className="relative z-20 border-b border-orange-100 bg-white/80 backdrop-blur-sm dark:border-orange-900/30 dark:bg-zinc-900/80">
-      <div className="container mx-auto flex items-center justify-between px-4 py-4">
+    <>
+      <header className="relative z-20 border-b border-orange-100 bg-white/80 backdrop-blur-sm dark:border-orange-900/30 dark:bg-zinc-900/80">
+        <div className="container mx-auto flex items-center justify-between px-4 py-4">
         <div className="flex items-center gap-4">
           {/* Logo */}
           <div className="relative h-8 w-8">
@@ -117,7 +118,14 @@ export default function DashboardHeader() {
             Studio
           </button>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="hidden items-center gap-3 lg:flex">
+          <button
+            onClick={() => router.push(switchTargetPath)}
+            className="rounded-md border border-orange-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+          >
+            {switchLabel}
+          </button>
+
           {/* Theme Toggle */}
           {mounted && (
             <button
@@ -247,8 +255,104 @@ export default function DashboardHeader() {
             </DropdownMenuItem>
           </DropdownMenu>
         </div>
-      </div>
-    </header>
+
+        {mounted && (
+          <button
+            onClick={handleThemeToggle}
+            className="flex items-center justify-center rounded-md p-2 text-gray-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:text-zinc-300 dark:hover:bg-zinc-800 lg:hidden"
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {theme === "dark" ? (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2" />
+                <path d="M12 20v2" />
+                <path d="m4.93 4.93 1.41 1.41" />
+                <path d="m17.66 17.66 1.41 1.41" />
+                <path d="M2 12h2" />
+                <path d="M20 12h2" />
+                <path d="m6.34 17.66-1.41 1.41" />
+                <path d="m19.07 4.93-1.41 1.41" />
+              </svg>
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+              </svg>
+            )}
+          </button>
+        )}
+        </div>
+      </header>
+
+      <LinkIdentityBanner />
+
+      {!hideMobileBottomNav && (
+      <nav className="fixed bottom-3 left-1/2 z-30 w-[calc(100%-1rem)] max-w-md -translate-x-1/2 rounded-2xl border border-orange-100 bg-white/85 p-2 shadow-[0_10px_30px_rgba(15,23,42,0.22)] backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-900/85 lg:hidden">
+        <div className="grid grid-cols-3 gap-1.5">
+          <button
+            onClick={() => router.push("/dashboard")}
+            className={`rounded-xl px-2 py-2 text-[11px] font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 ${
+              isExperiencesArea
+                ? "bg-orange-100 text-orange-700 dark:bg-zinc-800 dark:text-orange-300"
+                : "text-zinc-600 hover:bg-orange-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            }`}
+          >
+            <span className="flex flex-col items-center justify-center gap-1">
+              <BriefcaseBusiness className="h-[1.1rem] w-[1.1rem]" />
+              <span>Experiences</span>
+            </span>
+          </button>
+          <button
+            onClick={() => router.push("/dashboard/profile")}
+            className={`rounded-xl px-2 py-2 text-[11px] font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 ${
+              isProfileArea
+                ? "bg-orange-100 text-orange-700 dark:bg-zinc-800 dark:text-orange-300"
+                : "text-zinc-600 hover:bg-orange-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            }`}
+          >
+            <span className="flex flex-col items-center justify-center gap-1">
+              <User className="h-[1.1rem] w-[1.1rem]" />
+              <span>Profile</span>
+            </span>
+          </button>
+          <button
+            onClick={() => router.push("/dashboard/projects")}
+            className={`rounded-xl px-2 py-2 text-[11px] font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 ${
+              isProjectsArea
+                ? "bg-orange-100 text-orange-700 dark:bg-zinc-800 dark:text-orange-300"
+                : "text-zinc-600 hover:bg-orange-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            }`}
+          >
+            <span className="flex flex-col items-center justify-center gap-1">
+              <Megaphone className="h-[1.1rem] w-[1.1rem]" />
+              <span>Campaigns</span>
+            </span>
+          </button>
+        </div>
+      </nav>
+      )}
+    </>
   );
 }
 
