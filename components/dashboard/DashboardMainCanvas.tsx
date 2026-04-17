@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useStudioCampaignWriteModeListener } from "@/hooks/useStudioCampaignWriteChrome";
+import StudioBackButton from "@/components/dashboard/StudioBackButton";
 
 type Point = { x: number; y: number };
 
@@ -42,10 +43,15 @@ const glowLayerDark: CSSProperties = {
 };
 
 export function DashboardMainCanvas({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const pathname = usePathname();
   const isProjectCampaignPage = /^\/dashboard\/projects\/[^/]+\/campaigns\/[^/]+$/.test(pathname);
   const campaignWriteMode = useStudioCampaignWriteModeListener();
   const useTightCampaignBottomPadding = isProjectCampaignPage && campaignWriteMode;
+  const showHistoryBack =
+    pathname !== "/dashboard" &&
+    !isProjectCampaignPage &&
+    pathname !== "/dashboard/experience/new";
   const mainRef = useRef<HTMLElement>(null);
   const [pointer, setPointer] = useState<Point | null>(null);
   const [glowActive, setGlowActive] = useState(false);
@@ -126,6 +132,11 @@ export function DashboardMainCanvas({ children }: { children: ReactNode }) {
             : "relative z-10 container mx-auto w-full px-4 pb-28 pt-8 lg:py-8"
         }
       >
+        {showHistoryBack ? (
+          <div className="mb-4">
+            <StudioBackButton onClick={() => router.back()} title="Back" aria-label="Back" />
+          </div>
+        ) : null}
         {children}
       </div>
     </main>

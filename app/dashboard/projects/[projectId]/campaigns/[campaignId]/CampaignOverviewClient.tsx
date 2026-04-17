@@ -7,10 +7,11 @@ import type { ProjectData } from "@/lib/db/projects";
 import type { AttachedExperienceCaseStudy } from "@/lib/db/experience";
 import { Accordion } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Plus, X, Trash2, RefreshCw, ArrowLeft, Mail, Phone, Linkedin, Calendar } from "lucide-react";
+import { Plus, X, Trash2, RefreshCw, Mail, Phone, Linkedin, Calendar } from "lucide-react";
 import { useCampaignAnalytics } from "@/hooks/useCampaignAnalytics";
 import { emitStudioCampaignWriteMode } from "@/hooks/useStudioCampaignWriteChrome";
 import AnalyticsCards from "@/components/dashboard/AnalyticsCards";
+import StudioBackButton from "@/components/dashboard/StudioBackButton";
 import {
   clampSearchQueryInput,
   isUuid,
@@ -1425,7 +1426,7 @@ export default function CampaignOverviewClient({
       setShowUnsavedWarning(true);
       return;
     }
-    router.push(`/dashboard/projects/${project.project_id}`);
+    router.replace(`/dashboard/projects/${project.project_id}`);
   }, [isEditMode, hasUnsavedChanges, router, project.project_id]);
 
   const getStatusBadgeColor = () => {
@@ -1515,14 +1516,7 @@ export default function CampaignOverviewClient({
   return (
     <div className={isEditMode ? "space-y-6 pb-28 lg:pb-0" : "space-y-6"}>
       <div className={isEditMode ? "flex items-center justify-between gap-3" : "flex items-center gap-3"}>
-        <button
-          type="button"
-          onClick={handleBackClick}
-          className="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden />
-          Back
-        </button>
+        <StudioBackButton onClick={handleBackClick} />
         {isEditMode ? (
           <button
             type="button"

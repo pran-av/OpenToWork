@@ -7,6 +7,7 @@ import Image from "next/image";
 import { useTheme } from "next-themes";
 import { BriefcaseBusiness, Megaphone, User } from "lucide-react";
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import LinkIdentityBanner from "./LinkIdentityBanner";
 
 interface ProfileData {
   display_name: string | null;
@@ -303,6 +304,8 @@ export default function DashboardHeader() {
         )}
         </div>
       </header>
+
+      <LinkIdentityBanner />
 
       {!hideMobileBottomNav && (
       <nav className="fixed bottom-3 left-1/2 z-30 w-[calc(100%-1rem)] max-w-md -translate-x-1/2 rounded-2xl border border-orange-100 bg-white/85 p-2 shadow-[0_10px_30px_rgba(15,23,42,0.22)] backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-900/85 lg:hidden">

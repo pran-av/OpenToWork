@@ -10,6 +10,7 @@ import {
   sanitizePlainTextLinePreserveSpace,
   sanitizePlainTextMultiline,
 } from "@/lib/utils/client-input-security";
+import StudioBackButton from "@/components/dashboard/StudioBackButton";
 
 interface ServiceClassData {
   service_class_id: string;
@@ -242,6 +243,9 @@ function NewExperienceCaseStudyForm() {
 
   return (
     <div className="mx-auto max-w-6xl pb-24">
+      <div className="mb-6">
+        <StudioBackButton onClick={() => router.push(returnToPath ?? "/dashboard")} />
+      </div>
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Create Experience Case Study</h1>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
