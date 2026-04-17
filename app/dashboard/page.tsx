@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 import { ExperienceCaseStudyCard } from "@/components/dashboard/ExperienceCaseStudyCard";
 
 interface ExperienceCaseStudy {
@@ -122,12 +123,22 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="pointer-events-none fixed bottom-8 left-1/2 z-40 -translate-x-1/2">
+      <div className="pointer-events-none fixed bottom-8 left-1/2 z-40 hidden -translate-x-1/2 lg:block">
         <Link
           href="/dashboard/experience/new"
           className="pointer-events-auto inline-block rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
         >
           Add New Experiences
+        </Link>
+      </div>
+
+      <div className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+7rem)] right-4 z-40 md:right-10 lg:hidden">
+        <Link
+          href="/dashboard/experience/new"
+          className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-orange-500 text-white shadow-[0_4px_14px_rgba(234,88,12,0.55),0_2px_6px_rgba(15,23,42,0.18)] transition-all duration-200 hover:scale-105 hover:bg-orange-600 hover:shadow-[0_8px_24px_rgba(234,88,12,0.5),0_4px_12px_rgba(15,23,42,0.22)] active:scale-100 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 md:h-12 md:w-[3.75rem] md:rounded-2xl md:px-2"
+          aria-label="Add new experience"
+        >
+          <Plus className="h-6 w-6 md:h-[1.35rem] md:w-[1.35rem]" strokeWidth={2.25} aria-hidden />
         </Link>
       </div>
     </div>
