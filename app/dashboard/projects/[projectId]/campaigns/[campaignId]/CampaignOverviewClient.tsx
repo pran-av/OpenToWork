@@ -2043,9 +2043,9 @@ export default function CampaignOverviewClient({
         </DialogContent>
       </Dialog>
 
-      {/* Toast Notifications */}
+      {/* Toast notifications: vertical offset clears Studio header */}
       {error && (
-        <div className="fixed top-4 right-4 z-50 rounded-lg bg-red-500 px-6 py-4 text-white shadow-lg transition-all">
+        <div className="fixed right-4 top-24 z-50 rounded-lg bg-red-500 px-6 py-4 text-white shadow-lg transition-all lg:top-28">
           <div className="flex items-center gap-2">
             <span>{error}</span>
             <button
@@ -2059,7 +2059,7 @@ export default function CampaignOverviewClient({
         </div>
       )}
       {success && (
-        <div className="fixed top-4 right-4 z-50 rounded-lg bg-green-500 px-6 py-4 text-white shadow-lg transition-all">
+        <div className="fixed right-4 top-24 z-50 rounded-lg bg-green-500 px-6 py-4 text-white shadow-lg transition-all lg:top-28">
           <div className="flex items-center gap-2">
             <span>{success}</span>
             <button
