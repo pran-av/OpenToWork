@@ -50,6 +50,8 @@ export function DashboardMainCanvas({ children }: { children: ReactNode }) {
   const useTightCampaignBottomPadding = isProjectCampaignPage && campaignWriteMode;
   const showHistoryBack =
     pathname !== "/dashboard" &&
+    pathname !== "/dashboard/projects" &&
+    pathname !== "/dashboard/profile" &&
     !isProjectCampaignPage &&
     pathname !== "/dashboard/experience/new";
   const mainRef = useRef<HTMLElement>(null);
