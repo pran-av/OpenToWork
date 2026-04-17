@@ -952,7 +952,7 @@ export default function CampaignOverviewClient({
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (opts?: { quiet?: boolean }): Promise<boolean> => {
     setIsSaving(true);
     setError(null);
     setSuccess(null);
@@ -986,7 +986,7 @@ export default function CampaignOverviewClient({
       if (!campaignRes.ok) {
         setError(campaignData.error || "Failed to save campaign");
         setIsSaving(false);
-        return;
+        return false;
       }
 
       // Build service ID map for case study operations
@@ -1007,7 +1007,7 @@ export default function CampaignOverviewClient({
         if (!servicesRes.ok) {
           setError(servicesData.error || "Failed to save services");
           setIsSaving(false);
-          return;
+          return false;
         }
 
         // Build service ID map from temp IDs to real IDs
@@ -1067,7 +1067,7 @@ export default function CampaignOverviewClient({
           if (!caseStudiesRes.ok) {
             setError(caseStudiesData.error || "Failed to save case studies");
             setIsSaving(false);
-            return;
+            return false;
           }
 
           // Update case study IDs from temp to real
@@ -1116,18 +1116,29 @@ export default function CampaignOverviewClient({
         },
       });
       
-      // Show success toast
-      setSuccess("Campaign saved successfully!");
+      if (!opts?.quiet) {
+        setSuccess("Campaign saved successfully!");
+        setTimeout(() => setSuccess(null), 3000);
+      }
       setIsSaving(false);
-      
-      // Auto-hide success message after 3 seconds
-      setTimeout(() => setSuccess(null), 3000);
+      return true;
     } catch (error) {
       setError("An unexpected error occurred. Please try again.");
       setIsSaving(false);
       // Auto-hide error message after 5 seconds
       setTimeout(() => setError(null), 5000);
+      return false;
     }
+  };
+
+  const handleCreateNewExperience = async () => {
+    if (!isEditMode || project.is_archived) return;
+    const ok = await handleSave({ quiet: true });
+    if (!ok) return;
+    const returnTo = encodeURIComponent(
+      `/dashboard/projects/${project.project_id}/campaigns/${campaign.campaign_id}`
+    );
+    router.push(`/dashboard/experience/new?returnTo=${returnTo}`);
   };
 
   const handlePublish = async () => {
@@ -1792,10 +1803,11 @@ export default function CampaignOverviewClient({
               {isEditMode ? (
                 <button
                   type="button"
-                  onClick={() => router.push("/dashboard/experience/new")}
-                  className="mt-3 inline-flex items-center rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+                  onClick={() => void handleCreateNewExperience()}
+                  disabled={isSaving}
+                  className="mt-3 inline-flex items-center rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
                 >
-                  Create New Experience
+                  {isSaving ? "Saving…" : "Create New Experience"}
                 </button>
               ) : null}
               {recentExperienceFallback.length > 0 ? (

@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { Check, ChevronDown, Plus, X } from "lucide-react";
 
 interface ServiceClassData {
@@ -20,8 +20,25 @@ const highlightInputClass =
 const fieldLabelClass = "mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300";
 const normalizeForStorage = (value: string) => value.trim().toUpperCase();
 
-export default function NewExperienceCaseStudyPage() {
+/** Allow only in-app dashboard paths (e.g. return from campaign draft). */
+function getSafeReturnToPath(raw: string | null): string | null {
+  if (!raw) return null;
+  let path: string;
+  try {
+    path = decodeURIComponent(raw);
+  } catch {
+    return null;
+  }
+  if (!path.startsWith("/dashboard/")) return null;
+  if (path.includes("//")) return null;
+  if (path.includes("?") || path.includes("#")) return null;
+  return path;
+}
+
+function NewExperienceCaseStudyForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnToPath = getSafeReturnToPath(searchParams.get("returnTo"));
   const [serviceClasses, setServiceClasses] = useState<ServiceClassData[]>([]);
   const [isLoadingClasses, setIsLoadingClasses] = useState(true);
   const [selectedServiceClassId, setSelectedServiceClassId] = useState("");
@@ -187,7 +204,7 @@ export default function NewExperienceCaseStudyPage() {
         throw new Error(caseStudyPayload.error || "Failed to create case study");
       }
 
-      router.push("/dashboard");
+      router.push(returnToPath ?? "/dashboard");
       router.refresh();
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Failed to create experience");
@@ -439,7 +456,7 @@ export default function NewExperienceCaseStudyPage() {
       <div className="mt-10 flex flex-col gap-3 border-t border-zinc-200 pt-8 sm:flex-row sm:justify-end dark:border-zinc-800">
         <button
           type="button"
-          onClick={() => router.push("/dashboard")}
+          onClick={() => router.push(returnToPath ?? "/dashboard")}
           className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-5 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
         >
           Cancel
@@ -454,5 +471,19 @@ export default function NewExperienceCaseStudyPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function NewExperienceCaseStudyPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-6xl px-4 py-16 text-center text-sm text-zinc-500 dark:text-zinc-400">
+          Loading…
+        </div>
+      }
+    >
+      <NewExperienceCaseStudyForm />
+    </Suspense>
   );
 }
