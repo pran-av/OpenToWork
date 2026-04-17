@@ -16,6 +16,12 @@ function parseHighlights(highlightsString: string): string[] {
   return highlightsString.split(";").filter((h) => h.trim().length > 0);
 }
 
+function summarizeForCanvas(summary: string): string {
+  const trimmed = summary.trim();
+  if (trimmed.length <= 50) return trimmed;
+  return `${trimmed.slice(0, 50)}...`;
+}
+
 export function ExperienceCaseStudyCard({ study }: { study: ExperienceCaseStudyCardModel }) {
   const highlights = parseHighlights(study.case_highlights || "");
   const hasUrl = Boolean(study.case_study_url?.trim());
@@ -53,7 +59,9 @@ export function ExperienceCaseStudyCard({ study }: { study: ExperienceCaseStudyC
         <p className="mb-3 text-sm text-gray-500 dark:text-zinc-400">{study.case_duration}</p>
       ) : null}
       {study.case_summary?.trim() ? (
-        <p className="mb-4 text-base leading-relaxed text-gray-700 dark:text-zinc-300">{study.case_summary}</p>
+        <p className="mb-4 text-base leading-relaxed text-gray-700 dark:text-zinc-300">
+          {summarizeForCanvas(study.case_summary)}
+        </p>
       ) : null}
       {highlights.length > 0 ? (
         <div className="mt-6 space-y-4">
