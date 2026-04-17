@@ -1593,10 +1593,10 @@ export default function CampaignOverviewClient({
         </div>
       )}
 
-      {/* Content Section */}
+      {/* Add campaign details */}
       <div className="rounded-lg border border-orange-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between lg:items-center">
-          <h3 className="text-lg font-semibold text-black dark:text-zinc-50">Content</h3>
+          <h3 className="text-lg font-semibold text-black dark:text-zinc-50">Add Campaign Details</h3>
           {shouldShowPrimaryCTA() && (
             <button
               type="button"
@@ -1612,14 +1612,10 @@ export default function CampaignOverviewClient({
         </div>
 
         <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-8 xl:gap-10">
-          {/* Campaign Structure */}
           <div className="min-w-0 flex-1 space-y-4">
-            <h3 className="text-lg font-semibold text-black dark:text-zinc-50">
-              Campaign Structure
-            </h3>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
-                Client Name <span className="text-red-600 dark:text-red-400">*</span>
+                Campaign Title <span className="text-red-600 dark:text-red-400">*</span>
               </label>
               {isEditMode ? (
                 <input
@@ -1630,7 +1626,7 @@ export default function CampaignOverviewClient({
                   className={`mt-1 block w-full rounded-md border px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:ring-zinc-600 sm:text-sm ${
                     !clientName.trim() ? "border-red-300 focus:border-red-500 dark:border-red-700" : "border-zinc-300 focus:border-zinc-500 dark:focus:border-zinc-600"
                   }`}
-                  placeholder="Enter client name"
+                  placeholder="Enter campaign title"
                 />
               ) : (
                 <p className="mt-1 text-sm text-zinc-900 dark:text-zinc-50">
@@ -1641,7 +1637,7 @@ export default function CampaignOverviewClient({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
-                Client Summary <span className="text-red-600 dark:text-red-400">*</span>
+                Campaign Summary <span className="text-red-600 dark:text-red-400">*</span>
               </label>
               {isEditMode ? (
                 <div className="relative mt-1">
@@ -1653,7 +1649,7 @@ export default function CampaignOverviewClient({
                     className={`block w-full rounded-md border px-3 py-2 pb-8 text-black placeholder-zinc-400 shadow-sm focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:ring-zinc-600 sm:text-sm ${
                       !clientSummary.trim() ? "border-red-300 focus:border-red-500 dark:border-red-700" : "border-zinc-300 focus:border-zinc-500 dark:focus:border-zinc-600"
                     }`}
-                    placeholder="Enter client summary"
+                    placeholder="Enter campaign summary"
                   />
                   <p className="pointer-events-none absolute bottom-2 left-3 text-xs text-gray-500 dark:text-zinc-400">
                     {clientSummary.length}/400 characters
