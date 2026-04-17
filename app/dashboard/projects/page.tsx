@@ -12,6 +12,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { DashboardMobileFab } from "@/components/dashboard/DashboardMobileFab";
 
 export default function DashboardProjectsPage() {
   const [projects, setProjects] = useState<ProjectData[]>([]);
@@ -184,7 +185,7 @@ export default function DashboardProjectsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24 lg:pb-0">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Projects</h2>
@@ -195,7 +196,7 @@ export default function DashboardProjectsPage() {
         {projects.length > 0 && (
           <button
             onClick={() => setIsDialogOpen(true)}
-            className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+            className="hidden rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 lg:inline-flex"
           >
             Create New Project
           </button>
@@ -209,7 +210,7 @@ export default function DashboardProjectsPage() {
           </p>
           <button
             onClick={() => setIsDialogOpen(true)}
-            className="rounded-md bg-orange-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+            className="hidden rounded-md bg-orange-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 lg:inline-flex"
           >
             Create a project
           </button>
@@ -255,6 +256,10 @@ export default function DashboardProjectsPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {!isLoading && (
+        <DashboardMobileFab onClick={() => setIsDialogOpen(true)} ariaLabel="Create new project" />
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
