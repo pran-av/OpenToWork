@@ -1505,6 +1505,13 @@ export default function CampaignOverviewClient({
   const ctaFieldInnerInputClass =
     "min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-black placeholder-zinc-400 focus:outline-none focus:ring-0 dark:text-zinc-50";
 
+  const showNoSearchMatches =
+    totalExperienceCount > 10 &&
+    searchTouched &&
+    searchQuery.trim().length >= 3 &&
+    searchResults.length === 0 &&
+    !isSearching;
+
   return (
     <div className={isEditMode ? "space-y-6 pb-28 lg:pb-0" : "space-y-6"}>
       <div className={isEditMode ? "flex items-center justify-between gap-3" : "flex items-center gap-3"}>
@@ -1829,43 +1836,6 @@ export default function CampaignOverviewClient({
             </div>
           ) : null}
 
-          {totalExperienceCount > 10 && searchTouched && searchQuery.trim().length >= 3 && searchResults.length === 0 && !isSearching ? (
-            <div className="mb-6 rounded-md border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
-              <p className="text-sm text-zinc-700 dark:text-zinc-300">No matching experiences found.</p>
-              {isEditMode ? (
-                <button
-                  type="button"
-                  onClick={() => void handleCreateNewExperience()}
-                  disabled={isSaving}
-                  className="mt-3 inline-flex items-center rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
-                >
-                  {isSaving ? "Saving…" : "Create New Experience"}
-                </button>
-              ) : null}
-              {recentExperienceFallback.length > 0 ? (
-                <div className="mt-6 space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                    Recently added
-                  </p>
-                  {recentExperienceFallback.map((result) => {
-                    const alreadyAttached = attachedCaseStudies.some((entry) => entry.case_id === result.case_id);
-                    return (
-                      <ExperienceSearchPickRow
-                        key={result.case_id}
-                        result={result}
-                        isEditMode={isEditMode}
-                        isMutatingAttach={isMutatingAttach}
-                        alreadyAttached={alreadyAttached}
-                        onAttach={(r) => void handleAttachExperience(r)}
-                        onDetach={(caseId) => void handleDetachExperience(caseId)}
-                      />
-                    );
-                  })}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
           {totalExperienceCount > 10 && searchQuery.trim().length > 0 && searchQuery.trim().length < 3 ? (
             <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400">
               Keep typing to at least 3 characters to search.
@@ -1873,7 +1843,45 @@ export default function CampaignOverviewClient({
           ) : null}
 
           <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-8">
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 space-y-6">
+              {showNoSearchMatches ? (
+                <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300">No matching experiences found.</p>
+                  {isEditMode ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleCreateNewExperience()}
+                      disabled={isSaving}
+                      className="mt-3 inline-flex items-center rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+                    >
+                      {isSaving ? "Saving…" : "Create New Experience"}
+                    </button>
+                  ) : null}
+                  {recentExperienceFallback.length > 0 ? (
+                    <div className="mt-6 space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                        Recently added
+                      </p>
+                      {recentExperienceFallback.map((result) => {
+                        const alreadyAttached = attachedCaseStudies.some(
+                          (entry) => entry.case_id === result.case_id
+                        );
+                        return (
+                          <ExperienceSearchPickRow
+                            key={result.case_id}
+                            result={result}
+                            isEditMode={isEditMode}
+                            isMutatingAttach={isMutatingAttach}
+                            alreadyAttached={alreadyAttached}
+                            onAttach={(r) => void handleAttachExperience(r)}
+                            onDetach={(caseId) => void handleDetachExperience(caseId)}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               {searchResults.length > 0 ? (
                 <div className="space-y-3">
                   <div>
