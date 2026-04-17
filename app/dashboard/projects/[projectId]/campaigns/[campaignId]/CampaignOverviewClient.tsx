@@ -1723,88 +1723,144 @@ export default function CampaignOverviewClient({
             </p>
           ) : null}
 
-          {searchResults.length > 0 ? (
-            <div className="mb-6 space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                {totalExperienceCount <= 10 ? "Available Experiences" : "Search Results"}
-              </p>
-              {searchResults.map((result) => {
-                const alreadyAttached = attachedCaseStudies.some((entry) => entry.case_id === result.case_id);
-                return (
-                  <div
-                    key={result.case_id}
-                    className="rounded-md border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">
-                          {result.service_class_name}
-                        </p>
-                        <h4 className="mt-1 text-sm font-semibold text-black dark:text-zinc-50">
-                          {result.case_name}
-                        </h4>
-                        {result.case_summary ? (
-                          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{result.case_summary}</p>
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-8">
+            <div className="min-w-0 flex-1">
+              {searchResults.length > 0 ? (
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                      {totalExperienceCount <= 10 ? "Available Experiences" : "Search Results"}
+                    </p>
+                    {isEditMode ? (
+                      <p className="mt-1 max-w-prose text-[11px] font-normal normal-case leading-snug tracking-normal text-zinc-500 dark:text-zinc-400 lg:hidden">
+                        Tap a card to add it to this campaign. Cards with a blue outline are already attached—tap again to
+                        remove them.
+                      </p>
+                    ) : null}
+                  </div>
+                  {searchResults.map((result) => {
+                    const alreadyAttached = attachedCaseStudies.some((entry) => entry.case_id === result.case_id);
+                    return (
+                      <div
+                        key={result.case_id}
+                        className={`relative rounded-md border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800 ${
+                          alreadyAttached
+                            ? "max-lg:ring-2 max-lg:ring-blue-500 max-lg:border-blue-500 dark:max-lg:ring-blue-400 dark:max-lg:border-blue-400"
+                            : ""
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0 flex-1 pr-2">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">
+                              {result.service_class_name}
+                            </p>
+                            <h4 className="mt-1 text-sm font-semibold text-black dark:text-zinc-50">
+                              {result.case_name}
+                            </h4>
+                            {result.case_summary ? (
+                              <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{result.case_summary}</p>
+                            ) : null}
+                          </div>
+                          {isEditMode ? (
+                            <button
+                              type="button"
+                              disabled={alreadyAttached || isMutatingAttach}
+                              onClick={() => void handleAttachExperience(result)}
+                              className="hidden rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 lg:inline-flex dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                            >
+                              {alreadyAttached ? "Attached" : "Add"}
+                            </button>
+                          ) : null}
+                        </div>
+                        {isEditMode ? (
+                          <button
+                            type="button"
+                            disabled={isMutatingAttach}
+                            aria-label={
+                              alreadyAttached
+                                ? `Remove ${result.case_name} from campaign`
+                                : `Add ${result.case_name} to campaign`
+                            }
+                            className="absolute inset-0 z-10 cursor-pointer rounded-md border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 lg:hidden"
+                            onClick={() => {
+                              if (isMutatingAttach) return;
+                              if (alreadyAttached) {
+                                void handleDetachExperience(result.case_id);
+                              } else {
+                                void handleAttachExperience(result);
+                              }
+                            }}
+                          />
                         ) : null}
                       </div>
-                      {isEditMode ? (
-                        <button
-                          type="button"
-                          disabled={alreadyAttached || isMutatingAttach}
-                          onClick={() => void handleAttachExperience(result)}
-                          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                        >
-                          {alreadyAttached ? "Attached" : "Add"}
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
-          ) : null}
 
-          <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              Attached to Campaign
-            </p>
-            {attachedCaseStudies.length === 0 ? (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                No experience case studies attached yet.
-              </p>
-            ) : (
-              attachedCaseStudies
-                .slice()
-                .sort((a, b) => a.order_index - b.order_index)
-                .map((entry) => (
-                  <div
-                    key={entry.case_id}
-                    className="rounded-md border border-orange-100 bg-orange-50 p-4 dark:border-zinc-800 dark:bg-zinc-900"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">
-                          {entry.service_class_name}
-                        </p>
-                        <h4 className="mt-1 text-sm font-semibold text-black dark:text-zinc-50">{entry.case_name}</h4>
-                        {entry.case_summary ? (
-                          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{entry.case_summary}</p>
+            <div className="min-w-0 flex-1 space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  Attached to Campaign
+                </p>
+                {isEditMode ? (
+                  <p className="mt-1 max-w-prose text-[11px] font-normal normal-case leading-snug tracking-normal text-zinc-500 dark:text-zinc-400 lg:hidden">
+                    Tap a card to remove it from this campaign. The border highlights red when you hover or press.
+                  </p>
+                ) : null}
+              </div>
+              {attachedCaseStudies.length === 0 ? (
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  No experience case studies attached yet.
+                </p>
+              ) : (
+                attachedCaseStudies
+                  .slice()
+                  .sort((a, b) => a.order_index - b.order_index)
+                  .map((entry) => (
+                    <div
+                      key={entry.case_id}
+                      className={`relative rounded-md border border-orange-100 bg-orange-50 p-4 dark:border-zinc-800 dark:bg-zinc-900 ${
+                        isEditMode
+                          ? "max-lg:transition-colors max-lg:hover:border-red-500 max-lg:hover:bg-red-50 dark:max-lg:hover:border-red-600 dark:max-lg:hover:bg-red-950/35"
+                          : ""
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1 pr-2">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">
+                            {entry.service_class_name}
+                          </p>
+                          <h4 className="mt-1 text-sm font-semibold text-black dark:text-zinc-50">{entry.case_name}</h4>
+                          {entry.case_summary ? (
+                            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{entry.case_summary}</p>
+                          ) : null}
+                        </div>
+                        {isEditMode ? (
+                          <button
+                            type="button"
+                            onClick={() => void handleDetachExperience(entry.case_id)}
+                            disabled={isMutatingAttach}
+                            className="hidden rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 lg:inline-flex dark:border-red-800 dark:bg-zinc-800 dark:text-red-400 dark:hover:bg-red-900/20"
+                          >
+                            Remove
+                          </button>
                         ) : null}
                       </div>
                       {isEditMode ? (
                         <button
                           type="button"
-                          onClick={() => void handleDetachExperience(entry.case_id)}
                           disabled={isMutatingAttach}
-                          className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-800 dark:bg-zinc-800 dark:text-red-400 dark:hover:bg-red-900/20"
-                        >
-                          Remove
-                        </button>
+                          aria-label={`Remove ${entry.case_name} from campaign`}
+                          className="absolute inset-0 z-10 cursor-pointer rounded-md border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 lg:hidden"
+                          onClick={() => void handleDetachExperience(entry.case_id)}
+                        />
                       ) : null}
                     </div>
-                  </div>
-                ))
-            )}
+                  ))
+              )}
+            </div>
           </div>
         </div>
       </div>
