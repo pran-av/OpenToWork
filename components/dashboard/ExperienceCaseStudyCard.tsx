@@ -45,30 +45,32 @@ export function ExperienceCaseStudyCard({ study }: { study: ExperienceCaseStudyC
       }}
       role={hasUrl ? "link" : undefined}
       tabIndex={hasUrl ? 0 : undefined}
-      className={`rounded-lg border border-orange-100 bg-white p-6 shadow-sm transition-all dark:border-zinc-800 dark:bg-zinc-900 ${
+      className={`min-w-0 max-w-full rounded-lg border border-orange-100 bg-white p-6 shadow-sm transition-all dark:border-zinc-800 dark:bg-zinc-900 ${
         hasUrl
           ? "cursor-pointer hover:border-blue-400 hover:shadow-md hover:bg-orange-50/40 dark:hover:border-blue-500 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
           : "cursor-default"
       }`}
     >
-      <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">
+      <p className="mb-3 break-words text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">
         {study.service_class_name.toUpperCase()}
       </p>
-      <h3 className="mb-2 text-xl font-bold text-gray-900 dark:text-zinc-50">{study.case_name}</h3>
+      <h3 className="mb-2 break-words text-xl font-bold text-gray-900 dark:text-zinc-50">{study.case_name}</h3>
       {study.case_duration?.trim() ? (
-        <p className="mb-3 text-sm text-gray-500 dark:text-zinc-400">{study.case_duration}</p>
+        <p className="mb-3 break-words text-sm text-gray-500 dark:text-zinc-400">{study.case_duration}</p>
       ) : null}
       {study.case_summary?.trim() ? (
-        <p className="mb-4 text-base leading-relaxed text-gray-700 dark:text-zinc-300">
+        <p className="mb-4 break-words text-base leading-relaxed text-gray-700 dark:text-zinc-300">
           {summarizeForCanvas(study.case_summary)}
         </p>
       ) : null}
       {highlights.length > 0 ? (
-        <div className="mt-6 space-y-4">
+        <div className="mt-6 min-w-0 space-y-4">
           {highlights.map((highlight, idx) => (
-            <div key={idx} className="flex items-start gap-3">
+            <div key={idx} className="flex min-w-0 items-start gap-3">
               <Check className="mt-0.5 h-5 w-5 shrink-0 text-green-500" strokeWidth={2} aria-hidden />
-              <span className="text-sm leading-relaxed text-gray-700 dark:text-zinc-300">{highlight.trim()}</span>
+              <span className="min-w-0 flex-1 break-words text-sm leading-relaxed text-gray-700 line-clamp-3 dark:text-zinc-300">
+                {highlight.trim()}
+              </span>
             </div>
           ))}
         </div>
