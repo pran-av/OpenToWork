@@ -1295,14 +1295,14 @@ export default function CampaignOverviewClient({
     }
   };
 
-  // Handle back navigation with unsaved changes
+  // Back to project overview; draft edits with unsaved changes get a confirmation first
   const handleBackClick = useCallback(() => {
-    if (hasUnsavedChanges) {
+    if (isEditMode && hasUnsavedChanges) {
       setShowUnsavedWarning(true);
-    } else {
-      router.back();
+      return;
     }
-  }, [hasUnsavedChanges, router]);
+    router.push(`/dashboard/projects/${project.project_id}`);
+  }, [isEditMode, hasUnsavedChanges, router, project.project_id]);
 
   const getStatusBadgeColor = () => {
     switch (campaign.campaign_status) {
@@ -1383,16 +1383,16 @@ export default function CampaignOverviewClient({
 
   return (
     <div className={isEditMode ? "space-y-6 pb-28 lg:pb-0" : "space-y-6"}>
-      {isEditMode && (
-        <div className="flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={handleBackClick}
-            className="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden />
-            Back
-          </button>
+      <div className={isEditMode ? "flex items-center justify-between gap-3" : "flex items-center gap-3"}>
+        <button
+          type="button"
+          onClick={handleBackClick}
+          className="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden />
+          Back
+        </button>
+        {isEditMode ? (
           <button
             type="button"
             onClick={handleSave}
@@ -1401,8 +1401,8 @@ export default function CampaignOverviewClient({
           >
             {isSaving ? "Saving..." : "Save Campaign"}
           </button>
-        </div>
-      )}
+        ) : null}
+      </div>
 
       {/* Header Section */}
       <div className="rounded-lg border border-orange-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
