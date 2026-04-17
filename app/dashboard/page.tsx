@@ -91,7 +91,7 @@ export default function DashboardPage() {
       )}
 
       {timelineGroups.byYear.length === 0 && timelineGroups.unknownYear.length === 0 ? (
-        <div className="flex min-h-[360px] items-center justify-center rounded-lg border border-dashed border-orange-200 bg-orange-50/40 p-8 text-center dark:border-zinc-700 dark:bg-zinc-800/40">
+        <div className="flex min-h-[360px] items-center justify-center rounded-lg border border-dashed border-orange-200 bg-orange-50/40 p-8 text-center dark:border-zinc-700 dark:bg-zinc-900/90">
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
             No experiences yet. Use Add New Experiences to start your timeline.
           </p>

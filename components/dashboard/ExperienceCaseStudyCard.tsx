@@ -39,9 +39,9 @@ export function ExperienceCaseStudyCard({ study }: { study: ExperienceCaseStudyC
       }}
       role={hasUrl ? "link" : undefined}
       tabIndex={hasUrl ? 0 : undefined}
-      className={`rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-all dark:border-zinc-700 dark:bg-zinc-950 ${
+      className={`rounded-lg border border-orange-100 bg-white p-6 shadow-sm transition-all dark:border-zinc-800 dark:bg-zinc-900 ${
         hasUrl
-          ? "cursor-pointer hover:border-blue-400 hover:shadow-md dark:hover:border-blue-500"
+          ? "cursor-pointer hover:border-blue-400 hover:shadow-md hover:bg-orange-50/40 dark:hover:border-blue-500 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
           : "cursor-default"
       }`}
     >
