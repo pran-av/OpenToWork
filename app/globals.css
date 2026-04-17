@@ -163,6 +163,21 @@ h6 {
   animation-play-state: paused;
 }
 
+@keyframes hero-audience-label-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-audience-label-text {
+  animation: hero-audience-label-in 0.4s ease-out both;
+}
+
 @keyframes prelude-diffuse {
   0% {
     opacity: 0;

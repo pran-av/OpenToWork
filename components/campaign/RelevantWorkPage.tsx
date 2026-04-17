@@ -85,7 +85,9 @@ export default function RelevantWorkPage({
                 <h3 className="mb-2 text-xl font-bold text-gray-900">
                   {study.case_name}
                 </h3>
-                <p className="mb-3 text-sm text-gray-500">{study.case_duration}</p>
+                {study.case_duration?.trim() ? (
+                  <p className="mb-3 text-sm text-gray-500">{study.case_duration}</p>
+                ) : null}
                 <p className="mb-4 text-base leading-relaxed text-gray-700">
                   {study.case_summary}
                 </p>
