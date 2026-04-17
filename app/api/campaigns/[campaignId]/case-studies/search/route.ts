@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { getCampaignById } from "@/lib/db/campaigns";
 import { getProjectById } from "@/lib/db/projects";
-import { searchExperienceCaseStudiesByTitle } from "@/lib/db/experience";
+import {
+  getExperienceCaseStudiesForUser,
+  searchExperienceCaseStudiesByTitle,
+} from "@/lib/db/experience";
 
 interface RouteParams {
   params: Promise<{ campaignId: string }>;
@@ -29,9 +32,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Project not available" }, { status: 400 });
     }
 
-    const query = request.nextUrl.searchParams.get("q") || "";
+    const query = (request.nextUrl.searchParams.get("q") || "").trim();
+    const allCaseStudies = await getExperienceCaseStudiesForUser();
+    const totalCount = allCaseStudies.length;
+
+    if (totalCount <= 10) {
+      return NextResponse.json({
+        caseStudies: allCaseStudies.slice(0, 10),
+        totalCount,
+      });
+    }
+
+    if (query.length < 3) {
+      return NextResponse.json({ caseStudies: [], totalCount });
+    }
+
     const caseStudies = await searchExperienceCaseStudiesByTitle(query, 20);
-    return NextResponse.json({ caseStudies });
+    return NextResponse.json({ caseStudies, totalCount });
   } catch {
     return NextResponse.json(
       { error: "Failed to search case studies" },

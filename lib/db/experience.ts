@@ -1,4 +1,4 @@
-import { createServerClient, createPublicClient } from "@/lib/supabase/server";
+import { createServerClient } from "@/lib/supabase/server";
 
 export interface ServiceClassData {
   service_class_id: string;
@@ -175,10 +175,25 @@ export async function attachExperienceCaseStudyToCampaign(input: {
   }
 }
 
+export async function detachExperienceCaseStudyFromCampaign(input: {
+  campaign_id: string;
+  case_id: string;
+}): Promise<void> {
+  const supabase = await createServerClient();
+  const { error } = await supabase.rpc("detach_experience_case_study_from_campaign", {
+    p_campaign_id: input.campaign_id,
+    p_case_id: input.case_id,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Failed to detach case study");
+  }
+}
+
 export async function getAttachedExperienceCaseStudiesForCampaign(
   campaignId: string
 ): Promise<AttachedExperienceCaseStudy[]> {
-  const supabase = createPublicClient();
+  const supabase = await createServerClient();
   const { data, error } = await supabase.rpc("get_attached_experience_case_studies_for_campaign", {
     p_campaign_id: campaignId,
   });

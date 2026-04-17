@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { CampaignData, ClientService, CaseStudy } from "@/lib/db/campaigns";
 import type { ProjectData } from "@/lib/db/projects";
+import type { AttachedExperienceCaseStudy } from "@/lib/db/experience";
 import { Accordion } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Plus, X, Trash2, RefreshCw } from "lucide-react";
@@ -18,9 +19,23 @@ interface CampaignOverviewClientProps {
   campaign: CampaignData;
   project: ProjectData;
   servicesWithCaseStudies: ServiceWithCaseStudies[];
+  attachedCaseStudies: AttachedExperienceCaseStudy[];
   hasActiveCampaign: boolean;
   isPublishable: boolean;
 }
+
+type ExperienceSearchResult = {
+  case_id: string;
+  service_class_id: string;
+  service_class_name: string;
+  case_name: string;
+  case_summary: string | null;
+  case_duration: string | null;
+  display_year: number;
+  case_highlights: string;
+  case_study_url: string | null;
+  created_at: string;
+};
 
 // Client Services Section Component
 function ClientServicesSection({
@@ -530,6 +545,7 @@ export default function CampaignOverviewClient({
   campaign: initialCampaign,
   project,
   servicesWithCaseStudies: initialServices,
+  attachedCaseStudies: initialAttachedCaseStudies,
   hasActiveCampaign,
   isPublishable: initialIsPublishable,
 }: CampaignOverviewClientProps) {
@@ -592,15 +608,22 @@ export default function CampaignOverviewClient({
   const [availableCampaigns, setAvailableCampaigns] = useState<CampaignData[]>([]);
   const [selectedTargetCampaignId, setSelectedTargetCampaignId] = useState<string>("");
   const [currentActiveCampaign, setCurrentActiveCampaign] = useState<CampaignData | null>(null);
+  const [attachedCaseStudies, setAttachedCaseStudies] = useState<AttachedExperienceCaseStudy[]>(
+    initialAttachedCaseStudies
+  );
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<ExperienceSearchResult[]>([]);
+  const [totalExperienceCount, setTotalExperienceCount] = useState<number>(0);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchTouched, setSearchTouched] = useState(false);
+  const [isMutatingAttach, setIsMutatingAttach] = useState(false);
 
   // Check if any mandatory fields are empty (including services)
-  const currentServicesCount = services.length;
   const hasEmptyMandatoryFields = 
     !clientName.trim() ||
     !clientSummary.trim() ||
     (!ctaScheduleMeeting?.trim() && !ctaMailto?.trim() && !ctaLinkedin?.trim() && !ctaPhone?.trim()) ||
-    currentServicesCount === 0 ||
-    services.some(service => service.caseStudies.length === 0);
+    attachedCaseStudies.length === 0;
 
   useEffect(() => {
     setIsPublishable(!hasEmptyMandatoryFields);
@@ -730,6 +753,121 @@ export default function CampaignOverviewClient({
       newOpen.add(serviceId);
     }
     setOpenAccordions(newOpen);
+  };
+
+  const fetchExperienceResults = useCallback(async (query: string) => {
+    setError(null);
+    setIsSearching(true);
+    try {
+      const res = await fetch(
+        `/api/campaigns/${campaign.campaign_id}/case-studies/search?q=${encodeURIComponent(query)}`
+      );
+      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload.error || "Failed to search experiences");
+      }
+      setTotalExperienceCount(Number(payload.totalCount) || 0);
+      setSearchResults((payload.caseStudies || []) as ExperienceSearchResult[]);
+      setSearchTouched(true);
+    } catch (searchError) {
+      setError(searchError instanceof Error ? searchError.message : "Failed to search experiences");
+    } finally {
+      setIsSearching(false);
+    }
+  }, [campaign.campaign_id]);
+
+  useEffect(() => {
+    void fetchExperienceResults("");
+  }, [fetchExperienceResults]);
+
+  useEffect(() => {
+    if (totalExperienceCount <= 10) {
+      return;
+    }
+
+    const q = searchQuery.trim();
+    if (q.length < 3) {
+      setSearchTouched(true);
+      setSearchResults([]);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      void fetchExperienceResults(q);
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, totalExperienceCount, fetchExperienceResults]);
+
+  const handleAttachExperience = async (candidate: ExperienceSearchResult) => {
+    if (attachedCaseStudies.some((entry) => entry.case_id === candidate.case_id)) {
+      return;
+    }
+
+    setIsMutatingAttach(true);
+    setError(null);
+    try {
+      const orderIndex = attachedCaseStudies.length;
+      const res = await fetch(`/api/campaigns/${campaign.campaign_id}/case-studies/attach`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: candidate.case_id,
+          attachedServiceClassId: candidate.service_class_id,
+          orderIndex,
+        }),
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload.error || "Failed to attach case study");
+      }
+
+      setAttachedCaseStudies((prev) => [
+        ...prev,
+        {
+          case_id: candidate.case_id,
+          attached_service_class_id: candidate.service_class_id,
+          service_class_name: candidate.service_class_name,
+          case_name: candidate.case_name,
+          case_summary: candidate.case_summary,
+          case_duration: candidate.case_duration,
+          display_year: candidate.display_year,
+          case_highlights: candidate.case_highlights,
+          case_study_url: candidate.case_study_url,
+          created_at: candidate.created_at,
+          order_index: orderIndex,
+        },
+      ]);
+    } catch (attachError) {
+      setError(attachError instanceof Error ? attachError.message : "Failed to attach case study");
+    } finally {
+      setIsMutatingAttach(false);
+    }
+  };
+
+  const handleDetachExperience = async (caseId: string) => {
+    setIsMutatingAttach(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/campaigns/${campaign.campaign_id}/case-studies/attach`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId }),
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload.error || "Failed to detach case study");
+      }
+      setAttachedCaseStudies((prev) =>
+        prev
+          .filter((entry) => entry.case_id !== caseId)
+          .map((entry, index) => ({ ...entry, order_index: index }))
+      );
+    } catch (detachError) {
+      setError(detachError instanceof Error ? detachError.message : "Failed to detach case study");
+    } finally {
+      setIsMutatingAttach(false);
+    }
   };
 
   const handleSave = async () => {
@@ -1493,91 +1631,137 @@ export default function CampaignOverviewClient({
         </div>
         </div>
 
-        {/* Client Services Section */}
-        <ClientServicesSection
-        services={services}
-        setServices={setServices}
-        openAccordions={openAccordions}
-        onToggleAccordion={handleToggleAccordion}
-        isEditMode={isEditMode}
-        onAddService={() => setIsAddServiceModalOpen(true)}
-        onDeleteService={handleDeleteService}
-        pendingCaseStudyOps={pendingCaseStudyOps}
-        setPendingCaseStudyOps={setPendingCaseStudyOps}
-        campaignId={campaign.campaign_id}
-        onSaveCaseStudy={async (caseStudy, serviceId) => {
-          if (caseStudy.case_id.startsWith("temp-")) {
-            // Create new case study
-            const res = await fetch(`/api/campaigns/${campaign.campaign_id}/case-studies`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                operations: [{
-                  type: "create",
-                  serviceId,
-                  data: {
-                    case_name: caseStudy.case_name,
-                    case_summary: caseStudy.case_summary || undefined,
-                    case_duration: caseStudy.case_duration || undefined,
-                    case_highlights: caseStudy.case_highlights,
-                    case_study_url: caseStudy.case_study_url || undefined,
-                  },
-                }],
-              }),
-            });
+        {/* Experience Search and Attach */}
+        <div className="mt-6 rounded-lg border border-orange-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-black dark:text-zinc-50">
+              Experience Case Studies <span className="text-red-600 dark:text-red-400">*</span>
+            </h3>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+              Search previously created experiences by title and attach them to this campaign.
+            </p>
+          </div>
 
-            const data = await res.json();
-            if (!res.ok) {
-              throw new Error(data.error || "Failed to save case study");
-            }
+          {isEditMode && totalExperienceCount > 10 ? (
+            <div className="mb-6">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Type at least 3 characters to search by title..."
+                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+              />
+              <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                {isSearching ? "Searching..." : "Results appear automatically after 3 characters."}
+              </p>
+            </div>
+          ) : null}
 
-            // Update case study ID from temp to real
-            if (data.results && data.results.length > 0 && data.results[0].caseStudy) {
-              setServices(prev => prev.map(s => 
-                s.client_service_id === serviceId
-                  ? {
-                      ...s,
-                      caseStudies: s.caseStudies.map(cs =>
-                        cs.case_id === caseStudy.case_id
-                          ? { ...cs, case_id: data.results[0].caseStudy.case_id }
-                          : cs
-                      ),
-                    }
-                  : s
-              ));
-            }
-          } else {
-            // Update existing case study
-            const res = await fetch(`/api/campaigns/${campaign.campaign_id}/case-studies`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                operations: [{
-                  type: "update",
-                  caseId: caseStudy.case_id,
-                  serviceId,
-                  data: {
-                    case_name: caseStudy.case_name,
-                    case_summary: caseStudy.case_summary || undefined,
-                    case_duration: caseStudy.case_duration || undefined,
-                    case_highlights: caseStudy.case_highlights,
-                    case_study_url: caseStudy.case_study_url || undefined,
-                  },
-                }],
-              }),
-            });
+          {totalExperienceCount > 10 && searchTouched && searchQuery.trim().length >= 3 && searchResults.length === 0 && !isSearching ? (
+            <div className="mb-6 rounded-md border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
+              <p className="text-sm text-zinc-700 dark:text-zinc-300">No matching experiences found.</p>
+              {isEditMode ? (
+                <button
+                  type="button"
+                  onClick={() => router.push("/dashboard/experience/new")}
+                  className="mt-3 inline-flex items-center rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+                >
+                  Create New Experience
+                </button>
+              ) : null}
+            </div>
+          ) : null}
 
-            const data = await res.json();
-            if (!res.ok) {
-              throw new Error(data.error || "Failed to update case study");
-            }
-          }
-        }}
-      />
+          {totalExperienceCount > 10 && searchQuery.trim().length > 0 && searchQuery.trim().length < 3 ? (
+            <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400">
+              Keep typing to at least 3 characters to search.
+            </p>
+          ) : null}
+
+          {searchResults.length > 0 ? (
+            <div className="mb-6 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                {totalExperienceCount <= 10 ? "Available Experiences" : "Search Results"}
+              </p>
+              {searchResults.map((result) => {
+                const alreadyAttached = attachedCaseStudies.some((entry) => entry.case_id === result.case_id);
+                return (
+                  <div
+                    key={result.case_id}
+                    className="rounded-md border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">
+                          {result.service_class_name}
+                        </p>
+                        <h4 className="mt-1 text-sm font-semibold text-black dark:text-zinc-50">
+                          {result.case_name}
+                        </h4>
+                        {result.case_summary ? (
+                          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{result.case_summary}</p>
+                        ) : null}
+                      </div>
+                      {isEditMode ? (
+                        <button
+                          type="button"
+                          disabled={alreadyAttached || isMutatingAttach}
+                          onClick={() => void handleAttachExperience(result)}
+                          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                        >
+                          {alreadyAttached ? "Attached" : "Add"}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              Attached to Campaign
+            </p>
+            {attachedCaseStudies.length === 0 ? (
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                No experience case studies attached yet.
+              </p>
+            ) : (
+              attachedCaseStudies
+                .slice()
+                .sort((a, b) => a.order_index - b.order_index)
+                .map((entry) => (
+                  <div
+                    key={entry.case_id}
+                    className="rounded-md border border-orange-100 bg-orange-50 p-4 dark:border-zinc-800 dark:bg-zinc-900"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">
+                          {entry.service_class_name}
+                        </p>
+                        <h4 className="mt-1 text-sm font-semibold text-black dark:text-zinc-50">{entry.case_name}</h4>
+                        {entry.case_summary ? (
+                          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{entry.case_summary}</p>
+                        ) : null}
+                      </div>
+                      {isEditMode ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleDetachExperience(entry.case_id)}
+                          disabled={isMutatingAttach}
+                          className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-800 dark:bg-zinc-800 dark:text-red-400 dark:hover:bg-red-900/20"
+                        >
+                          Remove
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ))
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Add Service Modal */}
