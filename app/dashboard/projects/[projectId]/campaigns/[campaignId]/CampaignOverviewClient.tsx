@@ -1374,6 +1374,13 @@ export default function CampaignOverviewClient({
     shouldShowAnalytics ? campaign.campaign_id : ""
   );
 
+  const ctaFieldShellClass =
+    "mt-1 flex rounded-md border border-zinc-300 bg-white shadow-sm focus-within:border-zinc-500 focus-within:ring-1 focus-within:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:focus-within:border-zinc-600 dark:focus-within:ring-zinc-600";
+  const ctaFieldIconWrapClass =
+    "flex shrink-0 items-center self-stretch border-r border-zinc-200 px-3 dark:border-zinc-600";
+  const ctaFieldInnerInputClass =
+    "min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-black placeholder-zinc-400 focus:outline-none focus:ring-0 dark:text-zinc-50";
+
   return (
     <div className={isEditMode ? "space-y-6 pb-28 lg:pb-0" : "space-y-6"}>
       {isEditMode && (
@@ -1567,15 +1574,15 @@ export default function CampaignOverviewClient({
                   Schedule Meeting URL
                 </label>
                 {isEditMode ? (
-                  <div className="mt-1 flex gap-2">
-                    <span className="flex shrink-0 items-center pt-2">
+                  <div className={ctaFieldShellClass}>
+                    <span className={ctaFieldIconWrapClass}>
                       <Calendar className="h-4 w-4 text-zinc-400" aria-hidden />
                     </span>
                     <input
                       type="url"
                       value={ctaScheduleMeeting}
                       onChange={(e) => setCtaScheduleMeeting(e.target.value)}
-                      className="block min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
+                      className={ctaFieldInnerInputClass}
                       placeholder="https://calendly.com/..."
                     />
                   </div>
@@ -1590,15 +1597,15 @@ export default function CampaignOverviewClient({
                   Email (mailto)
                 </label>
                 {isEditMode ? (
-                  <div className="mt-1 flex gap-2">
-                    <span className="flex shrink-0 items-center pt-2">
+                  <div className={ctaFieldShellClass}>
+                    <span className={ctaFieldIconWrapClass}>
                       <Mail className="h-4 w-4 text-zinc-400" aria-hidden />
                     </span>
                     <input
                       type="email"
                       value={ctaMailto}
                       onChange={(e) => setCtaMailto(e.target.value)}
-                      className="block min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
+                      className={ctaFieldInnerInputClass}
                       placeholder="email@example.com"
                     />
                   </div>
@@ -1613,15 +1620,15 @@ export default function CampaignOverviewClient({
                   LinkedIn URL
                 </label>
                 {isEditMode ? (
-                  <div className="mt-1 flex gap-2">
-                    <span className="flex shrink-0 items-center pt-2">
+                  <div className={ctaFieldShellClass}>
+                    <span className={ctaFieldIconWrapClass}>
                       <Linkedin className="h-4 w-4 text-zinc-400" aria-hidden />
                     </span>
                     <input
                       type="url"
                       value={ctaLinkedin}
                       onChange={(e) => setCtaLinkedin(e.target.value)}
-                      className="block min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
+                      className={ctaFieldInnerInputClass}
                       placeholder="https://linkedin.com/in/..."
                     />
                   </div>
@@ -1636,15 +1643,15 @@ export default function CampaignOverviewClient({
                   Phone
                 </label>
                 {isEditMode ? (
-                  <div className="mt-1 flex gap-2">
-                    <span className="flex shrink-0 items-center pt-2">
+                  <div className={ctaFieldShellClass}>
+                    <span className={ctaFieldIconWrapClass}>
                       <Phone className="h-4 w-4 text-zinc-400" aria-hidden />
                     </span>
                     <input
                       type="tel"
                       value={ctaPhone}
                       onChange={(e) => setCtaPhone(e.target.value)}
-                      className="block min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
+                      className={ctaFieldInnerInputClass}
                       placeholder="+1234567890"
                     />
                   </div>
