@@ -113,7 +113,7 @@ export function DashboardMainCanvas({ children }: { children: ReactNode }) {
         style={{ ...glowLayerDark, ...glowMaskStyle }}
         aria-hidden
       />
-      <div className="relative z-10 container mx-auto w-full px-4 py-8">{children}</div>
+      <div className="relative z-10 container mx-auto w-full px-4 pb-28 pt-8 lg:py-8">{children}</div>
     </main>
   );
 }
