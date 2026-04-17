@@ -2,6 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
+import { useStudioCampaignWriteModeListener } from "@/hooks/useStudioCampaignWriteChrome";
 import Image from "next/image";
 import { useTheme } from "next-themes";
 import { BriefcaseBusiness, Megaphone, User } from "lucide-react";
@@ -63,7 +64,9 @@ export default function DashboardHeader() {
   };
 
   const isProjectsArea = pathname.startsWith("/dashboard/projects");
-  const hideMobileBottomNav = /^\/dashboard\/projects\/[^/]+\/campaigns\/[^/]+/.test(pathname);
+  const isProjectCampaignPath = /^\/dashboard\/projects\/[^/]+\/campaigns\/[^/]+$/.test(pathname);
+  const campaignWriteMode = useStudioCampaignWriteModeListener();
+  const hideMobileBottomNav = isProjectCampaignPath && campaignWriteMode;
   const switchTargetPath = isProjectsArea ? "/dashboard" : "/dashboard/projects";
   const switchLabel = isProjectsArea ? "Switch to Add Experiences" : "Switch to Create Campaigns";
   const isProfileArea = pathname.startsWith("/dashboard/profile");

@@ -9,6 +9,7 @@ import { Accordion } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Plus, X, Trash2, RefreshCw, ArrowLeft, Mail, Phone, Linkedin, Calendar } from "lucide-react";
 import { useCampaignAnalytics } from "@/hooks/useCampaignAnalytics";
+import { emitStudioCampaignWriteMode } from "@/hooks/useStudioCampaignWriteChrome";
 import AnalyticsCards from "@/components/dashboard/AnalyticsCards";
 
 interface ServiceWithCaseStudies extends ClientService {
@@ -628,6 +629,11 @@ export default function CampaignOverviewClient({
   useEffect(() => {
     setIsPublishable(!hasEmptyMandatoryFields);
   }, [hasEmptyMandatoryFields]);
+
+  useEffect(() => {
+    emitStudioCampaignWriteMode(isEditMode);
+    return () => emitStudioCampaignWriteMode(false);
+  }, [isEditMode]);
 
   // Track unsaved changes
   useEffect(() => {
