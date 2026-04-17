@@ -16,7 +16,7 @@ SELECT DISTINCT
   p.user_id,
   upper(btrim(cs.client_service_name)),
   false,
-  NULL
+  NULL::internal.experience_default_service_class
 FROM public.client_services cs
 JOIN public.campaigns c ON c.campaign_id = cs.campaign_id
 JOIN public.projects p ON p.project_id = c.project_id

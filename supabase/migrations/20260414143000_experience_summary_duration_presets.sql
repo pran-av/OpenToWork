@@ -52,7 +52,45 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_internal_service_classes_user_preset_uniqu
   ON internal.service_classes (user_id, preset)
   WHERE preset IS NOT NULL;
 
--- Seed default rows for every existing user (idempotent per preset)
+-- Promote existing matching names into presets before inserting defaults.
+-- This prevents collisions with idx_internal_service_classes_user_name_unique.
+UPDATE internal.service_classes sc
+SET
+  is_system_default = true,
+  preset = 'ENGINEERING'::internal.experience_default_service_class
+WHERE sc.preset IS NULL
+  AND lower(sc.service_class_name) = lower('ENGINEERING')
+  AND NOT EXISTS (
+    SELECT 1 FROM internal.service_classes existing
+    WHERE existing.user_id = sc.user_id
+      AND existing.preset = 'ENGINEERING'::internal.experience_default_service_class
+  );
+
+UPDATE internal.service_classes sc
+SET
+  is_system_default = true,
+  preset = 'DESIGN'::internal.experience_default_service_class
+WHERE sc.preset IS NULL
+  AND lower(sc.service_class_name) = lower('DESIGN')
+  AND NOT EXISTS (
+    SELECT 1 FROM internal.service_classes existing
+    WHERE existing.user_id = sc.user_id
+      AND existing.preset = 'DESIGN'::internal.experience_default_service_class
+  );
+
+UPDATE internal.service_classes sc
+SET
+  is_system_default = true,
+  preset = 'PRODUCT_MANAGEMENT'::internal.experience_default_service_class
+WHERE sc.preset IS NULL
+  AND lower(sc.service_class_name) = lower('PRODUCT MANAGEMENT')
+  AND NOT EXISTS (
+    SELECT 1 FROM internal.service_classes existing
+    WHERE existing.user_id = sc.user_id
+      AND existing.preset = 'PRODUCT_MANAGEMENT'::internal.experience_default_service_class
+  );
+
+-- Seed default rows for every existing user (idempotent by preset and name)
 INSERT INTO internal.service_classes (user_id, service_class_name, is_system_default, preset)
 SELECT u.user_id, v.name, true, v.preset::internal.experience_default_service_class
 FROM public.users u
@@ -67,6 +105,12 @@ WHERE NOT EXISTS (
   FROM internal.service_classes sc
   WHERE sc.user_id = u.user_id
     AND sc.preset = v.preset::internal.experience_default_service_class
+)
+AND NOT EXISTS (
+  SELECT 1
+  FROM internal.service_classes sc
+  WHERE sc.user_id = u.user_id
+    AND lower(sc.service_class_name) = lower(v.name)
 );
 
 -- New users: attach defaults when a public.users row is created
@@ -82,6 +126,10 @@ BEGIN
   WHERE NOT EXISTS (
     SELECT 1 FROM internal.service_classes sc
     WHERE sc.user_id = NEW.user_id AND sc.preset = 'ENGINEERING'::internal.experience_default_service_class
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM internal.service_classes sc
+    WHERE sc.user_id = NEW.user_id AND lower(sc.service_class_name) = lower('ENGINEERING')
   );
 
   INSERT INTO internal.service_classes (user_id, service_class_name, is_system_default, preset)
@@ -89,6 +137,10 @@ BEGIN
   WHERE NOT EXISTS (
     SELECT 1 FROM internal.service_classes sc
     WHERE sc.user_id = NEW.user_id AND sc.preset = 'DESIGN'::internal.experience_default_service_class
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM internal.service_classes sc
+    WHERE sc.user_id = NEW.user_id AND lower(sc.service_class_name) = lower('DESIGN')
   );
 
   INSERT INTO internal.service_classes (user_id, service_class_name, is_system_default, preset)
@@ -96,6 +148,10 @@ BEGIN
   WHERE NOT EXISTS (
     SELECT 1 FROM internal.service_classes sc
     WHERE sc.user_id = NEW.user_id AND sc.preset = 'PRODUCT_MANAGEMENT'::internal.experience_default_service_class
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM internal.service_classes sc
+    WHERE sc.user_id = NEW.user_id AND lower(sc.service_class_name) = lower('PRODUCT MANAGEMENT')
   );
 
   RETURN NEW;
@@ -149,6 +205,16 @@ COMMENT ON FUNCTION public.list_experience_default_service_class_presets() IS
 -- ---------------------------------------------------------------------------
 -- Replace RPCs: VARCHAR(700) summaries, optional duration, UPPER(service name)
 -- ---------------------------------------------------------------------------
+
+-- PostgreSQL cannot change OUT-parameter row types via CREATE OR REPLACE.
+-- Drop older signatures first so recreated RPCs can return expanded columns.
+DROP FUNCTION IF EXISTS public.get_experience_service_classes();
+DROP FUNCTION IF EXISTS public.create_experience_service_class(TEXT);
+DROP FUNCTION IF EXISTS public.get_experience_case_studies();
+DROP FUNCTION IF EXISTS public.create_experience_case_study(UUID, TEXT, TEXT, TEXT, INTEGER, TEXT, TEXT);
+DROP FUNCTION IF EXISTS public.update_experience_case_study(UUID, TEXT, TEXT, TEXT, INTEGER, TEXT, TEXT, BOOLEAN);
+DROP FUNCTION IF EXISTS public.search_experience_case_studies(TEXT, INTEGER);
+DROP FUNCTION IF EXISTS public.get_attached_experience_case_studies_for_campaign(UUID);
 
 CREATE OR REPLACE FUNCTION public.get_experience_service_classes()
 RETURNS TABLE (
