@@ -44,7 +44,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     if (query.length < 3) {
-      return NextResponse.json({ caseStudies: [], totalCount });
+      const recent = [...allCaseStudies]
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+        .slice(0, 10);
+      return NextResponse.json({ caseStudies: recent, totalCount });
     }
 
     const caseStudies = await searchExperienceCaseStudiesByTitle(query, 20);

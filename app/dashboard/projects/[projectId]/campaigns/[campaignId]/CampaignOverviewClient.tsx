@@ -38,6 +38,75 @@ type ExperienceSearchResult = {
   created_at: string;
 };
 
+function ExperienceSearchPickRow({
+  result,
+  isEditMode,
+  isMutatingAttach,
+  alreadyAttached,
+  onAttach,
+  onDetach,
+}: {
+  result: ExperienceSearchResult;
+  isEditMode: boolean;
+  isMutatingAttach: boolean;
+  alreadyAttached: boolean;
+  onAttach: (r: ExperienceSearchResult) => void;
+  onDetach: (caseId: string) => void;
+}) {
+  return (
+    <div
+      className={`relative rounded-md border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800 ${
+        alreadyAttached
+          ? "max-lg:ring-2 max-lg:ring-blue-500 max-lg:border-blue-500 dark:max-lg:ring-blue-400 dark:max-lg:border-blue-400"
+          : ""
+      }`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1 pr-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">
+            {result.service_class_name}
+          </p>
+          <h4 className="mt-1 text-sm font-semibold text-black dark:text-zinc-50">{result.case_name}</h4>
+          {result.case_summary ? (
+            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{result.case_summary}</p>
+          ) : null}
+        </div>
+        {isEditMode ? (
+          <button
+            type="button"
+            disabled={alreadyAttached || isMutatingAttach}
+            onClick={() => onAttach(result)}
+            className="hidden rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 lg:inline-flex dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-700"
+          >
+            {alreadyAttached ? "Attached" : "Add"}
+          </button>
+        ) : null}
+      </div>
+      {isEditMode ? (
+        <button
+          type="button"
+          disabled={isMutatingAttach}
+          aria-label={
+            alreadyAttached
+              ? `Remove ${result.case_name} from campaign`
+              : `Add ${result.case_name} to campaign`
+          }
+          className="absolute inset-0 z-10 cursor-pointer rounded-md border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 lg:hidden"
+          onClick={() => {
+            if (isMutatingAttach) return;
+            if (alreadyAttached) {
+              onDetach(result.case_id);
+            } else {
+              onAttach(result);
+            }
+          }}
+        >
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 // Client Services Section Component
 function ClientServicesSection({
   services,
@@ -614,6 +683,8 @@ export default function CampaignOverviewClient({
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ExperienceSearchResult[]>([]);
+  /** When catalog has 10+ items, last short-query (0–2 chars) response — shown under empty search results. */
+  const [recentExperienceFallback, setRecentExperienceFallback] = useState<ExperienceSearchResult[]>([]);
   const [totalExperienceCount, setTotalExperienceCount] = useState<number>(0);
   const [isSearching, setIsSearching] = useState(false);
   const [searchTouched, setSearchTouched] = useState(false);
@@ -772,8 +843,13 @@ export default function CampaignOverviewClient({
       if (!res.ok) {
         throw new Error(payload.error || "Failed to search experiences");
       }
-      setTotalExperienceCount(Number(payload.totalCount) || 0);
-      setSearchResults((payload.caseStudies || []) as ExperienceSearchResult[]);
+      const tc = Number(payload.totalCount) || 0;
+      const list = (payload.caseStudies || []) as ExperienceSearchResult[];
+      setTotalExperienceCount(tc);
+      setSearchResults(list);
+      if (query.trim().length < 3 && tc > 10) {
+        setRecentExperienceFallback(list);
+      }
       setSearchTouched(true);
     } catch (searchError) {
       setError(searchError instanceof Error ? searchError.message : "Failed to search experiences");
@@ -794,7 +870,7 @@ export default function CampaignOverviewClient({
     const q = searchQuery.trim();
     if (q.length < 3) {
       setSearchTouched(true);
-      setSearchResults([]);
+      void fetchExperienceResults(q);
       return;
     }
 
@@ -1703,7 +1779,9 @@ export default function CampaignOverviewClient({
                 className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
               />
               <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                {isSearching ? "Searching..." : "Results appear automatically after 3 characters."}
+                {isSearching
+                  ? "Searching..."
+                  : "Below: your 10 most recently added experiences. Type at least 3 characters to search by title."}
               </p>
             </div>
           ) : null}
@@ -1720,6 +1798,27 @@ export default function CampaignOverviewClient({
                   Create New Experience
                 </button>
               ) : null}
+              {recentExperienceFallback.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                    Recently added
+                  </p>
+                  {recentExperienceFallback.map((result) => {
+                    const alreadyAttached = attachedCaseStudies.some((entry) => entry.case_id === result.case_id);
+                    return (
+                      <ExperienceSearchPickRow
+                        key={result.case_id}
+                        result={result}
+                        isEditMode={isEditMode}
+                        isMutatingAttach={isMutatingAttach}
+                        alreadyAttached={alreadyAttached}
+                        onAttach={(r) => void handleAttachExperience(r)}
+                        onDetach={(caseId) => void handleDetachExperience(caseId)}
+                      />
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -1735,7 +1834,11 @@ export default function CampaignOverviewClient({
                 <div className="space-y-3">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                      {totalExperienceCount <= 10 ? "Available Experiences" : "Search Results"}
+                      {totalExperienceCount <= 10
+                        ? "Available Experiences"
+                        : searchQuery.trim().length >= 3
+                          ? "Search Results"
+                          : "Recently added"}
                     </p>
                     {isEditMode ? (
                       <p className="mt-1 max-w-prose text-[11px] font-normal normal-case leading-snug tracking-normal text-zinc-500 dark:text-zinc-400 lg:hidden">
@@ -1747,58 +1850,15 @@ export default function CampaignOverviewClient({
                   {searchResults.map((result) => {
                     const alreadyAttached = attachedCaseStudies.some((entry) => entry.case_id === result.case_id);
                     return (
-                      <div
+                      <ExperienceSearchPickRow
                         key={result.case_id}
-                        className={`relative rounded-md border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800 ${
-                          alreadyAttached
-                            ? "max-lg:ring-2 max-lg:ring-blue-500 max-lg:border-blue-500 dark:max-lg:ring-blue-400 dark:max-lg:border-blue-400"
-                            : ""
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0 flex-1 pr-2">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">
-                              {result.service_class_name}
-                            </p>
-                            <h4 className="mt-1 text-sm font-semibold text-black dark:text-zinc-50">
-                              {result.case_name}
-                            </h4>
-                            {result.case_summary ? (
-                              <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{result.case_summary}</p>
-                            ) : null}
-                          </div>
-                          {isEditMode ? (
-                            <button
-                              type="button"
-                              disabled={alreadyAttached || isMutatingAttach}
-                              onClick={() => void handleAttachExperience(result)}
-                              className="hidden rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 lg:inline-flex dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                            >
-                              {alreadyAttached ? "Attached" : "Add"}
-                            </button>
-                          ) : null}
-                        </div>
-                        {isEditMode ? (
-                          <button
-                            type="button"
-                            disabled={isMutatingAttach}
-                            aria-label={
-                              alreadyAttached
-                                ? `Remove ${result.case_name} from campaign`
-                                : `Add ${result.case_name} to campaign`
-                            }
-                            className="absolute inset-0 z-10 cursor-pointer rounded-md border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 lg:hidden"
-                            onClick={() => {
-                              if (isMutatingAttach) return;
-                              if (alreadyAttached) {
-                                void handleDetachExperience(result.case_id);
-                              } else {
-                                void handleAttachExperience(result);
-                              }
-                            }}
-                          />
-                        ) : null}
-                      </div>
+                        result={result}
+                        isEditMode={isEditMode}
+                        isMutatingAttach={isMutatingAttach}
+                        alreadyAttached={alreadyAttached}
+                        onAttach={(r) => void handleAttachExperience(r)}
+                        onDetach={(caseId) => void handleDetachExperience(caseId)}
+                      />
                     );
                   })}
                 </div>
