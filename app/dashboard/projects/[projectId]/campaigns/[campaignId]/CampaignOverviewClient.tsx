@@ -11,6 +11,14 @@ import { Plus, X, Trash2, RefreshCw, ArrowLeft, Mail, Phone, Linkedin, Calendar 
 import { useCampaignAnalytics } from "@/hooks/useCampaignAnalytics";
 import { emitStudioCampaignWriteMode } from "@/hooks/useStudioCampaignWriteChrome";
 import AnalyticsCards from "@/components/dashboard/AnalyticsCards";
+import {
+  clampSearchQueryInput,
+  isUuid,
+  sanitizeOptionalHttpUrl,
+  sanitizePlainTextLine,
+  sanitizePlainTextMultiline,
+  sanitizeSearchQuery,
+} from "@/lib/utils/client-input-security";
 
 interface ServiceWithCaseStudies extends ClientService {
   caseStudies: CaseStudy[];
@@ -367,13 +375,21 @@ function CaseStudyCard({
     if (caseHighlights.length === 0 || !caseHighlights.some(h => h.trim())) {
       return; // At least one highlight required
     }
+    const urlRaw = caseStudyUrl.trim();
+    const sanitizedUrl = sanitizeOptionalHttpUrl(caseStudyUrl);
+    if (urlRaw.length > 0 && !sanitizedUrl) {
+      return;
+    }
 
     onUpdate({
-      case_name: caseName.trim(),
-      case_summary: caseSummary.trim(),
-      case_duration: caseDuration.trim(),
-      case_highlights: caseHighlights.filter(h => h.trim()).join(";"),
-      case_study_url: caseStudyUrl.trim(),
+      case_name: sanitizePlainTextLine(caseName, 50),
+      case_summary: sanitizePlainTextMultiline(caseSummary, 100),
+      case_duration: sanitizePlainTextLine(caseDuration, 50),
+      case_highlights: caseHighlights
+        .map((h) => sanitizePlainTextLine(h, 200))
+        .filter(Boolean)
+        .join(";"),
+      case_study_url: sanitizedUrl,
     });
     setIsEditing(false);
   };
@@ -390,11 +406,14 @@ function CaseStudyCard({
 
   const handleHighlightChange = (index: number, value: string) => {
     const newHighlights = [...caseHighlights];
-    newHighlights[index] = value;
+    newHighlights[index] = sanitizePlainTextLine(value, 200);
     setCaseHighlights(newHighlights);
   };
 
   if (!isEditMode) {
+    const safeCaseStudyUrl = caseStudy.case_study_url
+      ? sanitizeOptionalHttpUrl(caseStudy.case_study_url)
+      : "";
     // View mode
     return (
       <div className="rounded-md border border-orange-100 bg-orange-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
@@ -418,16 +437,16 @@ function CaseStudyCard({
             ))}
           </ul>
         )}
-        {caseStudy.case_study_url && (
+        {safeCaseStudyUrl ? (
           <a
-            href={caseStudy.case_study_url}
+            href={safeCaseStudyUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-2 inline-block text-sm text-gray-600 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200"
           >
             View Case Study →
           </a>
-        )}
+        ) : null}
       </div>
     );
   }
@@ -578,6 +597,7 @@ function CaseStudyCard({
             type="url"
             value={caseStudyUrl}
             onChange={(e) => setCaseStudyUrl(e.target.value)}
+            maxLength={500}
             className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
             placeholder="https://example.com"
           />
@@ -836,8 +856,9 @@ export default function CampaignOverviewClient({
     setError(null);
     setIsSearching(true);
     try {
+      const safeQ = sanitizeSearchQuery(query);
       const res = await fetch(
-        `/api/campaigns/${campaign.campaign_id}/case-studies/search?q=${encodeURIComponent(query)}`
+        `/api/campaigns/${campaign.campaign_id}/case-studies/search?q=${encodeURIComponent(safeQ)}`
       );
       const payload = await res.json();
       if (!res.ok) {
@@ -847,7 +868,7 @@ export default function CampaignOverviewClient({
       const list = (payload.caseStudies || []) as ExperienceSearchResult[];
       setTotalExperienceCount(tc);
       setSearchResults(list);
-      if (query.trim().length < 3 && tc > 10) {
+      if (safeQ.length < 3 && tc > 10) {
         setRecentExperienceFallback(list);
       }
       setSearchTouched(true);
@@ -882,6 +903,10 @@ export default function CampaignOverviewClient({
   }, [searchQuery, totalExperienceCount, fetchExperienceResults]);
 
   const handleAttachExperience = async (candidate: ExperienceSearchResult) => {
+    if (!isUuid(candidate.case_id) || !isUuid(candidate.service_class_id)) {
+      setError("Invalid experience selection");
+      return;
+    }
     if (attachedCaseStudies.some((entry) => entry.case_id === candidate.case_id)) {
       return;
     }
@@ -928,6 +953,10 @@ export default function CampaignOverviewClient({
   };
 
   const handleDetachExperience = async (caseId: string) => {
+    if (!isUuid(caseId)) {
+      setError("Invalid case id");
+      return;
+    }
     setIsMutatingAttach(true);
     setError(null);
     try {
@@ -960,16 +989,18 @@ export default function CampaignOverviewClient({
     try {
       // Save campaign updates
       const updates = {
-        campaign_name: campaignName.trim(),
+        campaign_name: sanitizePlainTextLine(campaignName, 25),
         campaign_structure: {
-          client_name: clientName.trim(),
-          client_summary: clientSummary.trim(),
+          client_name: sanitizePlainTextLine(clientName, 25),
+          client_summary: sanitizePlainTextMultiline(clientSummary, 400),
         },
         cta_config: {
-          ...(ctaScheduleMeeting.trim() && { schedule_meeting: ctaScheduleMeeting.trim() }),
-          ...(ctaMailto.trim() && { mailto: ctaMailto.trim() }),
-          ...(ctaLinkedin.trim() && { linkedin: ctaLinkedin.trim() }),
-          ...(ctaPhone.trim() && { phone: ctaPhone.trim() }),
+          ...(ctaScheduleMeeting.trim() && {
+            schedule_meeting: sanitizePlainTextLine(ctaScheduleMeeting, 500),
+          }),
+          ...(ctaMailto.trim() && { mailto: sanitizePlainTextLine(ctaMailto, 500) }),
+          ...(ctaLinkedin.trim() && { linkedin: sanitizePlainTextLine(ctaLinkedin, 500) }),
+          ...(ctaPhone.trim() && { phone: sanitizePlainTextLine(ctaPhone, 50) }),
         },
       };
 
@@ -1785,7 +1816,8 @@ export default function CampaignOverviewClient({
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => setSearchQuery(clampSearchQueryInput(e.target.value))}
+                maxLength={200}
                 placeholder="Type at least 3 characters to search by title..."
                 className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
               />

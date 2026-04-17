@@ -3,6 +3,13 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { Check, ChevronDown, Plus, X } from "lucide-react";
+import {
+  isUuid,
+  sanitizeOptionalHttpUrl,
+  sanitizePlainTextLine,
+  sanitizePlainTextLinePreserveSpace,
+  sanitizePlainTextMultiline,
+} from "@/lib/utils/client-input-security";
 
 interface ServiceClassData {
   service_class_id: string;
@@ -18,7 +25,10 @@ const highlightInputClass =
   "flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600";
 
 const fieldLabelClass = "mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300";
+const HIGHLIGHT_MAX_LEN = 200;
+const MAX_HIGHLIGHTS = 25;
 const normalizeForStorage = (value: string) => value.trim().toUpperCase();
+const normalizeHighlightForStorage = (value: string) => value.toUpperCase();
 
 /** Allow only in-app dashboard paths (e.g. return from campaign draft). */
 function getSafeReturnToPath(raw: string | null): string | null {
@@ -92,7 +102,7 @@ function NewExperienceCaseStudyForm() {
   }, []);
 
   const handleAddHighlight = () => {
-    setCaseHighlights((prev) => [...prev, ""]);
+    setCaseHighlights((prev) => (prev.length >= MAX_HIGHLIGHTS ? prev : [...prev, ""]));
   };
 
   const handleRemoveHighlight = (index: number) => {
@@ -102,7 +112,7 @@ function NewExperienceCaseStudyForm() {
   const handleHighlightChange = (index: number, value: string) => {
     setCaseHighlights((prev) => {
       const next = [...prev];
-      next[index] = value;
+      next[index] = sanitizePlainTextLinePreserveSpace(value, HIGHLIGHT_MAX_LEN);
       return next;
     });
   };
@@ -118,6 +128,7 @@ function NewExperienceCaseStudyForm() {
   const serviceClassDisplayLabel = selectedServiceClass?.service_class_name || newServiceClassName.trim();
 
   const handleSelectExistingServiceClass = (serviceClassId: string) => {
+    if (!isUuid(serviceClassId)) return;
     setError(null);
     setSelectedServiceClassId(serviceClassId);
     setNewServiceClassName("");
@@ -126,7 +137,7 @@ function NewExperienceCaseStudyForm() {
   };
 
   const handleApplyCustomServiceClass = () => {
-    const customValue = normalizeForStorage(customServiceClassDraft);
+    const customValue = normalizeForStorage(sanitizePlainTextLine(customServiceClassDraft, 80));
     if (!customValue) {
       setError("Enter a custom service class name");
       return;
@@ -152,8 +163,13 @@ function NewExperienceCaseStudyForm() {
       setError("Display year must be a 4-digit number");
       return;
     }
+    const yearNum = Number(displayYear.trim());
+    if (yearNum < 1900 || yearNum > 2099) {
+      setError("Display year must be between 1900 and 2099");
+      return;
+    }
     const joinedHighlights = caseHighlights
-      .map((h) => normalizeForStorage(h))
+      .map((h) => normalizeHighlightForStorage(sanitizePlainTextLinePreserveSpace(h, HIGHLIGHT_MAX_LEN)))
       .filter(Boolean)
       .join(";");
     if (!joinedHighlights) {
@@ -164,10 +180,18 @@ function NewExperienceCaseStudyForm() {
     setIsSaving(true);
     try {
       let serviceClassId = selectedServiceClassId;
-      const normalizedCustomServiceClass = normalizeForStorage(newServiceClassName);
-      const normalizedCaseName = normalizeForStorage(caseName);
-      const normalizedCaseSummary = normalizeForStorage(caseSummary);
-      const normalizedCaseDuration = normalizeForStorage(caseDuration);
+      if (serviceClassId && !isUuid(serviceClassId)) {
+        throw new Error("Invalid service class selection");
+      }
+      const normalizedCustomServiceClass = normalizeForStorage(sanitizePlainTextLine(newServiceClassName, 80));
+      const normalizedCaseName = normalizeForStorage(sanitizePlainTextLine(caseName, 75));
+      const normalizedCaseSummary = normalizeForStorage(sanitizePlainTextMultiline(caseSummary, 700));
+      const normalizedCaseDuration = normalizeForStorage(sanitizePlainTextLine(caseDuration, 255));
+      const proofUrlRaw = caseStudyUrl.trim();
+      const sanitizedProofUrl = sanitizeOptionalHttpUrl(caseStudyUrl);
+      if (proofUrlRaw.length > 0 && !sanitizedProofUrl) {
+        throw new Error("Proof URL must be https, or http only for localhost");
+      }
 
       if (!serviceClassId && normalizedCustomServiceClass) {
         const serviceRes = await fetch("/api/experience/service-classes", {
@@ -180,6 +204,9 @@ function NewExperienceCaseStudyForm() {
           throw new Error(servicePayload.error || "Failed to create service class");
         }
         serviceClassId = servicePayload.serviceClass.service_class_id;
+        if (!isUuid(serviceClassId)) {
+          throw new Error("Invalid service class from server");
+        }
       }
 
       if (!serviceClassId) {
@@ -194,9 +221,9 @@ function NewExperienceCaseStudyForm() {
           case_name: normalizedCaseName,
           case_summary: normalizedCaseSummary,
           ...(normalizedCaseDuration ? { case_duration: normalizedCaseDuration } : {}),
-          display_year: Number(displayYear.trim()),
+          display_year: yearNum,
           case_highlights: joinedHighlights,
-          case_study_url: caseStudyUrl.trim(),
+          case_study_url: sanitizedProofUrl,
         }),
       });
       const caseStudyPayload = await caseStudyRes.json();
@@ -310,6 +337,7 @@ function NewExperienceCaseStudyForm() {
               <input
                 value={caseStudyUrl}
                 onChange={(e) => setCaseStudyUrl(e.target.value)}
+                maxLength={500}
                 placeholder="Case Study URL"
                 className={inputClass}
               />
@@ -326,6 +354,7 @@ function NewExperienceCaseStudyForm() {
                       type="text"
                       value={highlight}
                       onChange={(e) => handleHighlightChange(index, e.target.value)}
+                      maxLength={HIGHLIGHT_MAX_LEN}
                       className={highlightInputClass}
                       placeholder={`Highlight ${index + 1}`}
                     />
@@ -344,7 +373,8 @@ function NewExperienceCaseStudyForm() {
                 <button
                   type="button"
                   onClick={handleAddHighlight}
-                  className="flex w-full items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                  disabled={caseHighlights.length >= MAX_HIGHLIGHTS}
+                  className="flex w-full items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                 >
                   <Plus className="h-4 w-4" />
                   Add Highlight
