@@ -7,7 +7,7 @@ import type { ProjectData } from "@/lib/db/projects";
 import type { AttachedExperienceCaseStudy } from "@/lib/db/experience";
 import { Accordion } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Plus, X, Trash2, RefreshCw } from "lucide-react";
+import { Plus, X, Trash2, RefreshCw, ArrowLeft, Mail, Phone, Linkedin, Calendar } from "lucide-react";
 import { useCampaignAnalytics } from "@/hooks/useCampaignAnalytics";
 import AnalyticsCards from "@/components/dashboard/AnalyticsCards";
 
@@ -1342,6 +1342,24 @@ export default function CampaignOverviewClient({
     return true; // PAUSED
   };
 
+  const runPrimaryCTA = () => {
+    if (campaign.campaign_status === "ACTIVE") {
+      handleSwitchCampaign();
+    } else if (campaign.campaign_status === "PAUSED") {
+      handleSwitchCampaign();
+    } else if (campaign.campaign_status === "DRAFT" && hasActiveCampaign) {
+      handleSwitchCampaign();
+    } else {
+      void handlePublish();
+    }
+  };
+
+  const primaryCTADisabled =
+    (campaign.campaign_status === "DRAFT" && !hasActiveCampaign && !isPublishable) ||
+    isPublishing ||
+    isSwitching ||
+    project.is_archived;
+
   // For view mode: show first 4 lines, then "See more" if longer
   const currentSummary = isEditMode ? clientSummary : (campaign.campaign_structure.client_summary || "");
   const summaryLines = currentSummary.split("\n");
@@ -1357,14 +1375,22 @@ export default function CampaignOverviewClient({
   );
 
   return (
-    <div className="space-y-6">
-      {/* Action Buttons - Above Header (Save button for edit mode only) */}
+    <div className={isEditMode ? "space-y-6 pb-28 lg:pb-0" : "space-y-6"}>
       {isEditMode && (
-        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        <div className="flex items-center justify-between gap-3">
           <button
+            type="button"
+            onClick={handleBackClick}
+            className="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+            Back
+          </button>
+          <button
+            type="button"
             onClick={handleSave}
             disabled={isSaving || project.is_archived}
-            className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            className="hidden rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 lg:inline-flex dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
           >
             {isSaving ? "Saving..." : "Save Campaign"}
           </button>
@@ -1431,130 +1457,128 @@ export default function CampaignOverviewClient({
 
       {/* Content Section */}
       <div className="rounded-lg border border-orange-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between lg:items-center">
           <h3 className="text-lg font-semibold text-black dark:text-zinc-50">Content</h3>
           {shouldShowPrimaryCTA() && (
             <button
-              onClick={() => {
-                if (campaign.campaign_status === "ACTIVE") {
-                  handleSwitchCampaign();
-                } else if (campaign.campaign_status === "PAUSED") {
-                  handleSwitchCampaign();
-                } else if (campaign.campaign_status === "DRAFT" && hasActiveCampaign) {
-                  handleSwitchCampaign();
-                } else {
-                  handlePublish();
-                }
-              }}
-              disabled={
-                (campaign.campaign_status === "DRAFT" && !hasActiveCampaign && !isPublishable) ||
-                isPublishing ||
-                isSwitching ||
-                project.is_archived
-              }
-              className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+              type="button"
+              onClick={runPrimaryCTA}
+              disabled={primaryCTADisabled}
+              className={`rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200 ${
+                isEditMode ? "hidden lg:inline-flex" : "inline-flex"
+              }`}
             >
               {(isPublishing || isSwitching) ? "Processing..." : getPrimaryCTALabel()}
             </button>
           )}
         </div>
 
-          {/* Campaign Structure Section */}
-        <div className="mt-6">
-          <h3 className="mb-4 text-lg font-semibold text-black dark:text-zinc-50">
-            Campaign Structure
-          </h3>
-        <div className="space-y-4">
-          {/* Client Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
-              Client Name <span className="text-red-600 dark:text-red-400">*</span>
-            </label>
-            {isEditMode ? (
-              <input
-                type="text"
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-                maxLength={25}
-                className={`mt-1 block w-full rounded-md border px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:ring-zinc-600 sm:text-sm ${
-                  !clientName.trim() ? "border-red-300 focus:border-red-500 dark:border-red-700" : "border-zinc-300 focus:border-zinc-500 dark:focus:border-zinc-600"
-                }`}
-                placeholder="Enter client name"
-              />
-            ) : (
-              <p className="mt-1 text-sm text-zinc-900 dark:text-zinc-50">
-                {campaign.campaign_structure.client_name || <span className="text-zinc-400">Not set</span>}
-              </p>
-            )}
-          </div>
-
-          {/* Client Summary */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
-              Client Summary <span className="text-red-600 dark:text-red-400">*</span>
-            </label>
-            {isEditMode ? (
-              <textarea
-                value={clientSummary}
-                onChange={(e) => setClientSummary(e.target.value)}
-                maxLength={400}
-                rows={4}
-                className={`mt-1 block w-full rounded-md border px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:ring-zinc-600 sm:text-sm ${
-                  !clientSummary.trim() ? "border-red-300 focus:border-red-500 dark:border-red-700" : "border-zinc-300 focus:border-zinc-500 dark:focus:border-zinc-600"
-                }`}
-                placeholder="Enter client summary"
-              />
-            ) : (
-              <div className="mt-1">
-                <p className="text-sm text-zinc-900 dark:text-zinc-50 whitespace-pre-line">
-                  {displaySummary || <span className="text-zinc-400">Not set</span>}
+        <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-8 xl:gap-10">
+          {/* Campaign Structure */}
+          <div className="min-w-0 flex-1 space-y-4">
+            <h3 className="text-lg font-semibold text-black dark:text-zinc-50">
+              Campaign Structure
+            </h3>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
+                Client Name <span className="text-red-600 dark:text-red-400">*</span>
+              </label>
+              {isEditMode ? (
+                <input
+                  type="text"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  maxLength={25}
+                  className={`mt-1 block w-full rounded-md border px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:ring-zinc-600 sm:text-sm ${
+                    !clientName.trim() ? "border-red-300 focus:border-red-500 dark:border-red-700" : "border-zinc-300 focus:border-zinc-500 dark:focus:border-zinc-600"
+                  }`}
+                  placeholder="Enter client name"
+                />
+              ) : (
+                <p className="mt-1 text-sm text-zinc-900 dark:text-zinc-50">
+                  {campaign.campaign_structure.client_name || <span className="text-zinc-400">Not set</span>}
                 </p>
-                {shouldShowMore && !showMoreSummary && (
-                  <button
-                    onClick={() => setShowMoreSummary(true)}
-                    className="mt-2 text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
-                  >
-                    See more
-                  </button>
-                )}
-                {shouldShowMore && showMoreSummary && (
-                  <button
-                    onClick={() => setShowMoreSummary(false)}
-                    className="mt-2 text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
-                  >
-                    See less
-                  </button>
-                )}
-              </div>
-            )}
-            {isEditMode && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
-                {clientSummary.length}/400 characters
-              </p>
-            )}
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
+                Client Summary <span className="text-red-600 dark:text-red-400">*</span>
+              </label>
+              {isEditMode ? (
+                <div className="relative mt-1">
+                  <textarea
+                    value={clientSummary}
+                    onChange={(e) => setClientSummary(e.target.value)}
+                    maxLength={400}
+                    rows={4}
+                    className={`block w-full rounded-md border px-3 py-2 pb-8 text-black placeholder-zinc-400 shadow-sm focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:ring-zinc-600 sm:text-sm ${
+                      !clientSummary.trim() ? "border-red-300 focus:border-red-500 dark:border-red-700" : "border-zinc-300 focus:border-zinc-500 dark:focus:border-zinc-600"
+                    }`}
+                    placeholder="Enter client summary"
+                  />
+                  <p className="pointer-events-none absolute bottom-2 left-3 text-xs text-gray-500 dark:text-zinc-400">
+                    {clientSummary.length}/400 characters
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-1">
+                  <p className="text-sm text-zinc-900 dark:text-zinc-50 whitespace-pre-line">
+                    {displaySummary || <span className="text-zinc-400">Not set</span>}
+                  </p>
+                  {shouldShowMore && !showMoreSummary && (
+                    <button
+                      type="button"
+                      onClick={() => setShowMoreSummary(true)}
+                      className="mt-2 text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+                    >
+                      See more
+                    </button>
+                  )}
+                  {shouldShowMore && showMoreSummary && (
+                    <button
+                      type="button"
+                      onClick={() => setShowMoreSummary(false)}
+                      className="mt-2 text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+                    >
+                      See less
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* CTA Configuration */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
-              CTA Configuration <span className="text-red-600 dark:text-red-400">*</span>
-              <span className="ml-2 text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                (At least one required)
-              </span>
-            </label>
-            <div className="mt-2 space-y-2">
+          {/* Lead contact & CTA */}
+          <div className="min-w-0 flex-1 space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold text-black dark:text-zinc-50">
+                How shall your leads reach you?
+              </h3>
+              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                CTA configuration <span className="text-red-600 dark:text-red-400">*</span>
+                <span className="ml-1 text-xs font-normal">(at least one required)</span>
+              </p>
+            </div>
+
+            <div className="space-y-3">
               <div>
                 <label className="block text-xs text-gray-600 dark:text-zinc-400">
                   Schedule Meeting URL
                 </label>
                 {isEditMode ? (
-                  <input
-                    type="url"
-                    value={ctaScheduleMeeting}
-                    onChange={(e) => setCtaScheduleMeeting(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
-                    placeholder="https://calendly.com/..."
-                  />
+                  <div className="mt-1 flex gap-2">
+                    <span className="flex shrink-0 items-center pt-2">
+                      <Calendar className="h-4 w-4 text-zinc-400" aria-hidden />
+                    </span>
+                    <input
+                      type="url"
+                      value={ctaScheduleMeeting}
+                      onChange={(e) => setCtaScheduleMeeting(e.target.value)}
+                      className="block min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
+                      placeholder="https://calendly.com/..."
+                    />
+                  </div>
                 ) : (
                   <p className="mt-1 text-sm text-zinc-900 dark:text-zinc-50">
                     {campaign.cta_config.schedule_meeting || <span className="text-zinc-400">Not set</span>}
@@ -1566,13 +1590,18 @@ export default function CampaignOverviewClient({
                   Email (mailto)
                 </label>
                 {isEditMode ? (
-                  <input
-                    type="email"
-                    value={ctaMailto}
-                    onChange={(e) => setCtaMailto(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
-                    placeholder="email@example.com"
-                  />
+                  <div className="mt-1 flex gap-2">
+                    <span className="flex shrink-0 items-center pt-2">
+                      <Mail className="h-4 w-4 text-zinc-400" aria-hidden />
+                    </span>
+                    <input
+                      type="email"
+                      value={ctaMailto}
+                      onChange={(e) => setCtaMailto(e.target.value)}
+                      className="block min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
+                      placeholder="email@example.com"
+                    />
+                  </div>
                 ) : (
                   <p className="mt-1 text-sm text-zinc-900 dark:text-zinc-50">
                     {campaign.cta_config.mailto || <span className="text-zinc-400">Not set</span>}
@@ -1584,13 +1613,18 @@ export default function CampaignOverviewClient({
                   LinkedIn URL
                 </label>
                 {isEditMode ? (
-                  <input
-                    type="url"
-                    value={ctaLinkedin}
-                    onChange={(e) => setCtaLinkedin(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
-                    placeholder="https://linkedin.com/in/..."
-                  />
+                  <div className="mt-1 flex gap-2">
+                    <span className="flex shrink-0 items-center pt-2">
+                      <Linkedin className="h-4 w-4 text-zinc-400" aria-hidden />
+                    </span>
+                    <input
+                      type="url"
+                      value={ctaLinkedin}
+                      onChange={(e) => setCtaLinkedin(e.target.value)}
+                      className="block min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
+                      placeholder="https://linkedin.com/in/..."
+                    />
+                  </div>
                 ) : (
                   <p className="mt-1 text-sm text-zinc-900 dark:text-zinc-50">
                     {campaign.cta_config.linkedin || <span className="text-zinc-400">Not set</span>}
@@ -1602,13 +1636,18 @@ export default function CampaignOverviewClient({
                   Phone
                 </label>
                 {isEditMode ? (
-                  <input
-                    type="tel"
-                    value={ctaPhone}
-                    onChange={(e) => setCtaPhone(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
-                    placeholder="+1234567890"
-                  />
+                  <div className="mt-1 flex gap-2">
+                    <span className="flex shrink-0 items-center pt-2">
+                      <Phone className="h-4 w-4 text-zinc-400" aria-hidden />
+                    </span>
+                    <input
+                      type="tel"
+                      value={ctaPhone}
+                      onChange={(e) => setCtaPhone(e.target.value)}
+                      className="block min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
+                      placeholder="+1234567890"
+                    />
+                  </div>
                 ) : (
                   <p className="mt-1 text-sm text-zinc-900 dark:text-zinc-50">
                     {campaign.cta_config.phone || <span className="text-zinc-400">Not set</span>}
@@ -1617,25 +1656,24 @@ export default function CampaignOverviewClient({
               </div>
             </div>
             {isEditMode && (
-              <p className={`mt-2 text-xs ${
-                !ctaScheduleMeeting?.trim() && !ctaMailto?.trim() && !ctaLinkedin?.trim() && !ctaPhone?.trim()
-                  ? "text-red-600 dark:text-red-400"
-                  : "text-zinc-500 dark:text-zinc-400"
-              }`}>
-                {!ctaScheduleMeeting?.trim() && !ctaMailto?.trim() && !ctaLinkedin?.trim() && !ctaPhone?.trim()
-                  ? "At least one CTA is required"
-                  : "At least one CTA is required"}
+              <p
+                className={`text-xs ${
+                  !ctaScheduleMeeting?.trim() && !ctaMailto?.trim() && !ctaLinkedin?.trim() && !ctaPhone?.trim()
+                    ? "text-red-600 dark:text-red-400"
+                    : "text-zinc-500 dark:text-zinc-400"
+                }`}
+              >
+                At least one CTA is required
               </p>
             )}
           </div>
         </div>
-        </div>
 
         {/* Experience Search and Attach */}
-        <div className="mt-6 rounded-lg border border-orange-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="mt-8 border-t border-orange-100 pt-8 dark:border-zinc-800">
           <div className="mb-4">
             <h3 className="text-lg font-semibold text-black dark:text-zinc-50">
-              Experience Case Studies <span className="text-red-600 dark:text-red-400">*</span>
+              Select and Add Experiences <span className="text-red-600 dark:text-red-400">*</span>
             </h3>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
               Search previously created experiences by title and attach them to this campaign.
@@ -1763,6 +1801,29 @@ export default function CampaignOverviewClient({
           </div>
         </div>
       </div>
+
+      {isEditMode && shouldShowPrimaryCTA() && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-orange-100 bg-white/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/95 lg:hidden">
+          <div className="mx-auto flex max-w-5xl gap-3">
+            <button
+              type="button"
+              onClick={runPrimaryCTA}
+              disabled={primaryCTADisabled}
+              className="min-w-0 flex-[1.35] rounded-md bg-orange-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
+            >
+              {(isPublishing || isSwitching) ? "Processing..." : getPrimaryCTALabel()}
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving || project.is_archived}
+              className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            >
+              {isSaving ? "Saving..." : "Save"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Add Service Modal */}
       <Dialog open={isAddServiceModalOpen} onOpenChange={setIsAddServiceModalOpen}>

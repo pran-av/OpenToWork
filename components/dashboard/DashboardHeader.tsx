@@ -63,6 +63,7 @@ export default function DashboardHeader() {
   };
 
   const isProjectsArea = pathname.startsWith("/dashboard/projects");
+  const hideMobileBottomNav = /^\/dashboard\/projects\/[^/]+\/campaigns\/[^/]+/.test(pathname);
   const switchTargetPath = isProjectsArea ? "/dashboard" : "/dashboard/projects";
   const switchLabel = isProjectsArea ? "Switch to Add Experiences" : "Switch to Create Campaigns";
   const isProfileArea = pathname.startsWith("/dashboard/profile");
@@ -300,6 +301,7 @@ export default function DashboardHeader() {
         </div>
       </header>
 
+      {!hideMobileBottomNav && (
       <nav className="fixed bottom-3 left-1/2 z-30 w-[calc(100%-1rem)] max-w-md -translate-x-1/2 rounded-2xl border border-orange-100 bg-white/85 p-2 shadow-[0_10px_30px_rgba(15,23,42,0.22)] backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-900/85 lg:hidden">
         <div className="grid grid-cols-3 gap-1.5">
           <button
@@ -343,6 +345,7 @@ export default function DashboardHeader() {
           </button>
         </div>
       </nav>
+      )}
     </>
   );
 }

@@ -6,8 +6,9 @@ export default function BackButton() {
   const router = useRouter();
   const pathname = usePathname();
   const isDashboardHome = pathname === "/dashboard";
+  const isProjectCampaignPage = /^\/dashboard\/projects\/[^/]+\/campaigns\/[^/]+/.test(pathname);
 
-  if (isDashboardHome) {
+  if (isDashboardHome || isProjectCampaignPage) {
     return null;
   }
 

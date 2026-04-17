@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 
 type Point = { x: number; y: number };
 
@@ -40,6 +41,8 @@ const glowLayerDark: CSSProperties = {
 };
 
 export function DashboardMainCanvas({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isProjectCampaignPage = /^\/dashboard\/projects\/[^/]+\/campaigns\/[^/]+/.test(pathname);
   const mainRef = useRef<HTMLElement>(null);
   const [pointer, setPointer] = useState<Point | null>(null);
   const [glowActive, setGlowActive] = useState(false);
@@ -113,7 +116,15 @@ export function DashboardMainCanvas({ children }: { children: ReactNode }) {
         style={{ ...glowLayerDark, ...glowMaskStyle }}
         aria-hidden
       />
-      <div className="relative z-10 container mx-auto w-full px-4 pb-28 pt-8 lg:py-8">{children}</div>
+      <div
+        className={
+          isProjectCampaignPage
+            ? "relative z-10 container mx-auto w-full px-4 pb-6 pt-8 lg:py-8"
+            : "relative z-10 container mx-auto w-full px-4 pb-28 pt-8 lg:py-8"
+        }
+      >
+        {children}
+      </div>
     </main>
   );
 }
