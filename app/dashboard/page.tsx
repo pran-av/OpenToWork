@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ExperienceCaseStudyCard } from "@/components/dashboard/ExperienceCaseStudyCard";
 import { DashboardMobileFab } from "@/components/dashboard/DashboardMobileFab";
+import { OnboardingAgentPanel } from "@/components/dashboard/OnboardingAgentPanel";
 
 interface ExperienceCaseStudy {
   case_id: string;
@@ -22,6 +23,7 @@ function DashboardPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [experienceError, setExperienceError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [caseStudies, setCaseStudies] = useState<ExperienceCaseStudy[]>([]);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -161,11 +163,28 @@ function DashboardPageContent() {
 
   return (
     <div className="relative min-h-[70vh] space-y-6 pb-24">
-      <div>
+      <div
+        className={
+          onboardingOpen
+            ? "flex flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-6"
+            : "flex flex-col gap-6"
+        }
+      >
+        <div className="min-w-0 flex-1 space-y-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
         <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Experience Canvas</h2>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
           Timeline view of reusable case studies, grouped by start year.
         </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOnboardingOpen(true)}
+          className="hidden shrink-0 rounded-md border border-dashed border-orange-400 bg-orange-50/80 px-3 py-2 text-left text-xs font-medium text-orange-900 transition-colors hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-950/40 dark:text-orange-200 dark:hover:bg-orange-900/50 lg:inline-block"
+        >
+          Try onboarding (sample)
+        </button>
       </div>
 
       {experienceError && (
@@ -237,6 +256,10 @@ function DashboardPageContent() {
           </div>
         </div>
       )}
+        </div>
+
+        <OnboardingAgentPanel isOpen={onboardingOpen} onClose={() => setOnboardingOpen(false)} />
+      </div>
     </div>
   );
 }
