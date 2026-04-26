@@ -70,7 +70,12 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
           className="fixed right-0 bottom-0 z-[40] w-[50vw] min-w-0 pl-0"
           style={{ top: headerOffsetPx }}
         >
-          <SageWindow ref={sageRef} onSageLayerChange={onSageLayerChange} className="h-full" />
+          <SageWindow
+            ref={sageRef}
+            onSageLayerChange={onSageLayerChange}
+            className="h-full"
+            headerOffsetPx={headerOffsetPx}
+          />
         </div>
       </div>
     </div>

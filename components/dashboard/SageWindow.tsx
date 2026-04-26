@@ -92,6 +92,8 @@ export interface SageWindowProps {
   /** Fires when the full Sage layer (blur + active conversation) should show — desktop only. */
   onSageLayerChange?: (isLayerActive: boolean) => void;
   className?: string;
+  /** Measured height of the Studio header chrome, for positioning the desktop loading banner. */
+  headerOffsetPx: number;
 }
 
 export type SageWindowHandle = {
@@ -99,8 +101,13 @@ export type SageWindowHandle = {
   skip: () => void;
 };
 
+/** Pixels under the header before the banner (breathing room). */
+const BANNER_GAP_BELOW_HEADER_PX = 8;
+/** Reserves the typical band used by `fixed top-4` toasts (see dashboard pages) so the Sage banner does not sit under them. */
+const TOAST_STACK_RESERVE_PX = 72;
+
 export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function SageWindow(
-  { onSageLayerChange, className: classNameProp },
+  { onSageLayerChange, className: classNameProp, headerOffsetPx },
   ref
 ) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -337,6 +344,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     return "Onboarding in progress";
   }, [currentStep, nextStep, ready, status]);
 
+  const showDesktopLoadingBanner = loading && isDesktop;
+
   const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || !conversationId || sending || loading) return;
@@ -370,11 +379,43 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
   return (
     <section aria-label="Sage window" className={cn("flex h-full min-h-0 w-full min-w-0 flex-col", classNameProp)}>
+      {showDesktopLoadingBanner ? (
+        <div
+          className="pointer-events-none fixed z-[45] max-lg:hidden"
+          style={{
+            top: headerOffsetPx + BANNER_GAP_BELOW_HEADER_PX + TOAST_STACK_RESERVE_PX,
+            right: "1rem",
+          }}
+        >
+          <div
+            className="pointer-events-auto w-[min(20rem,calc(50vw-1.5rem))] max-w-md rounded-lg border border-orange-200 bg-orange-50 px-3 py-2.5 shadow-md sm:px-4 sm:py-3 dark:border-orange-800 dark:bg-orange-950/90"
+            role="status"
+            aria-live="polite"
+            aria-atomic
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600 dark:bg-orange-900/50 dark:text-orange-300">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-orange-900 dark:text-orange-100">Preparing Sage</p>
+                <p className="mt-1 text-xs leading-snug text-orange-800 dark:text-orange-200/90">
+                  Sage is fetching your details to personalize onboarding.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div
         className={cn(
           "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-orange-50/80 transition-all duration-500 dark:bg-orange-950/30 lg:bg-orange-50 dark:lg:bg-zinc-950",
-          expanded ? "lg:max-h-full" : "max-h-16"
+          expanded ? "lg:max-h-full" : "max-h-16",
+          showDesktopLoadingBanner &&
+            "max-h-0 min-h-0 border-0 p-0 opacity-0 [visibility:hidden] pointer-events-none"
         )}
+        aria-hidden={showDesktopLoadingBanner ? true : undefined}
       >
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2">
