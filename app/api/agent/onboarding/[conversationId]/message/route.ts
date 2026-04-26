@@ -2,18 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAgentAccessToken } from "@/lib/agent-auth";
 import { agentRequest } from "@/lib/agent-api";
 import { noStoreJsonResponse } from "@/lib/utils/api-cache";
+import type { OnboardingMessageResponse } from "@/lib/agent-onboarding-types";
 
-export type OnboardingMessageResponse = {
-  conversation_id: string;
-  agent_message: string;
-  status: string;
-  next_step: string | null;
-  profile_created?: boolean | null;
-};
+export type { OnboardingMessageResponse };
 
 /**
  * POST /api/agent/onboarding/[conversationId]/message
- * Proxies POST /api/v1/onboarding/{conversation_id}/message.
+ * Proxies POST /api/v1/onboarding/{conversation_id}/message (v0.2.1).
  */
 export async function POST(
   request: NextRequest,

@@ -2,17 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAgentAccessToken } from "@/lib/agent-auth";
 import { agentRequest } from "@/lib/agent-api";
 import { noStoreJsonResponse } from "@/lib/utils/api-cache";
+import type { OnboardingStartResponse } from "@/lib/agent-onboarding-types";
 
-export type OnboardingStartResponse = {
-  conversation_id: string;
-  agent_message: string;
-  status: string;
-  next_step: string;
-};
+export type { OnboardingStartResponse };
 
 /**
  * POST /api/agent/onboarding/start
- * Proxies POST /api/v1/onboarding/start (see prd-files/api-documentation-resume-scoring.md).
+ * Proxies POST /api/v1/onboarding/start (api_contracts/agent-serviceapi-v0.2.1.md).
  */
 export async function POST(request: NextRequest) {
   try {

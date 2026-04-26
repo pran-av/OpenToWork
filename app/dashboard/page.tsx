@@ -23,7 +23,7 @@ function DashboardPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [experienceError, setExperienceError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
-  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingOverlayVisible, setOnboardingOverlayVisible] = useState(false);
   const [caseStudies, setCaseStudies] = useState<ExperienceCaseStudy[]>([]);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -163,102 +163,91 @@ function DashboardPageContent() {
 
   return (
     <div className="relative min-h-[70vh] space-y-6 pb-24">
-      <div
-        className={
-          onboardingOpen
-            ? "flex flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-6"
-            : "flex flex-col gap-6"
-        }
-      >
-        <div className="min-w-0 flex-1 space-y-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-        <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Experience Canvas</h2>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          Timeline view of reusable case studies, grouped by start year.
-        </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setOnboardingOpen(true)}
-          className="hidden shrink-0 rounded-md border border-dashed border-orange-400 bg-orange-50/80 px-3 py-2 text-left text-xs font-medium text-orange-900 transition-colors hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-950/40 dark:text-orange-200 dark:hover:bg-orange-900/50 lg:inline-block"
-        >
-          Try onboarding (sample)
-        </button>
-      </div>
+      <OnboardingAgentPanel onOverlayChange={setOnboardingOverlayVisible} />
 
-      {experienceError && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/10 dark:text-red-300">
-          {experienceError}
-        </div>
-      )}
+      <div className="relative min-w-0 flex-1 space-y-6">
+        {onboardingOverlayVisible && (
+          <div className="pointer-events-none absolute inset-0 z-10 rounded-xl bg-zinc-900/20 dark:bg-black/40" />
+        )}
 
-      {timelineGroups.byYear.length === 0 && timelineGroups.unknownYear.length === 0 ? (
-        <div className="flex min-h-[360px] items-center justify-center rounded-lg border border-dashed border-orange-200 bg-orange-50/40 p-8 text-center dark:border-zinc-700 dark:bg-zinc-900/90">
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            No experiences yet. Use Add New Experiences to start your timeline.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-10">
-          {timelineGroups.byYear.map(({ year, caseStudies: yearCaseStudies }) => (
-            <section key={year} className="grid grid-cols-[88px_1fr] gap-4">
-              <div className="pt-1 text-sm font-semibold text-zinc-500 dark:text-zinc-400">{year}</div>
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {yearCaseStudies.map((caseStudy) => (
-                  <ExperienceCaseStudyCard key={caseStudy.case_id} study={caseStudy} />
-                ))}
-              </div>
-            </section>
-          ))}
-
-          {timelineGroups.unknownYear.length > 0 && (
-            <section className="grid grid-cols-[88px_1fr] gap-4">
-              <div className="pt-1 text-sm font-semibold text-zinc-500 dark:text-zinc-400">Unknown</div>
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {timelineGroups.unknownYear.map((caseStudy) => (
-                  <ExperienceCaseStudyCard key={caseStudy.case_id} study={caseStudy} />
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
-      )}
-
-      <div className="pointer-events-none fixed bottom-8 left-1/2 z-40 hidden -translate-x-1/2 lg:block">
-        <Link
-          href="/dashboard/experience/new"
-          className="pointer-events-auto inline-block rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-        >
-          Add New Experiences
-        </Link>
-      </div>
-
-      <DashboardMobileFab href="/dashboard/experience/new" ariaLabel="Add new experience" />
-
-      {toast && (
-        <div
-          className={`fixed top-4 right-4 z-50 rounded-lg px-6 py-4 shadow-lg transition-all ${
-            toast.type === "success" ? "bg-green-500 text-white" : "bg-red-500 text-white"
-          }`}
-          role="alert"
-        >
-          <div className="flex items-center gap-2">
-            <span>{toast.message}</span>
-            <button
-              type="button"
-              onClick={() => setToast(null)}
-              className="ml-2 text-white transition-colors hover:text-gray-200"
-              aria-label="Close"
-            >
-              ×
-            </button>
+        <div className="relative z-0 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Experience Canvas</h2>
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+              Timeline view of reusable case studies, grouped by start year.
+            </p>
           </div>
         </div>
-      )}
+
+        {experienceError && (
+          <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/10 dark:text-red-300">
+            {experienceError}
+          </div>
+        )}
+
+        {timelineGroups.byYear.length === 0 && timelineGroups.unknownYear.length === 0 ? (
+          <div className="flex min-h-[360px] items-center justify-center rounded-lg border border-dashed border-orange-200 bg-orange-50/40 p-8 text-center dark:border-zinc-700 dark:bg-zinc-900/90">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              No experiences yet. Use Add New Experiences to start your timeline.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-10">
+            {timelineGroups.byYear.map(({ year, caseStudies: yearCaseStudies }) => (
+              <section key={year} className="grid grid-cols-[88px_1fr] gap-4">
+                <div className="pt-1 text-sm font-semibold text-zinc-500 dark:text-zinc-400">{year}</div>
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                  {yearCaseStudies.map((caseStudy) => (
+                    <ExperienceCaseStudyCard key={caseStudy.case_id} study={caseStudy} />
+                  ))}
+                </div>
+              </section>
+            ))}
+
+            {timelineGroups.unknownYear.length > 0 && (
+              <section className="grid grid-cols-[88px_1fr] gap-4">
+                <div className="pt-1 text-sm font-semibold text-zinc-500 dark:text-zinc-400">Unknown</div>
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                  {timelineGroups.unknownYear.map((caseStudy) => (
+                    <ExperienceCaseStudyCard key={caseStudy.case_id} study={caseStudy} />
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+
+        <div className="pointer-events-none fixed bottom-8 left-1/2 z-40 hidden -translate-x-1/2 lg:block">
+          <Link
+            href="/dashboard/experience/new"
+            className="pointer-events-auto inline-block rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+          >
+            Add New Experiences
+          </Link>
         </div>
 
-        <OnboardingAgentPanel isOpen={onboardingOpen} onClose={() => setOnboardingOpen(false)} />
+        <DashboardMobileFab href="/dashboard/experience/new" ariaLabel="Add new experience" />
+
+        {toast && (
+          <div
+            className={`fixed top-4 right-4 z-50 rounded-lg px-6 py-4 shadow-lg transition-all ${
+              toast.type === "success" ? "bg-green-500 text-white" : "bg-red-500 text-white"
+            }`}
+            role="alert"
+          >
+            <div className="flex items-center gap-2">
+              <span>{toast.message}</span>
+              <button
+                type="button"
+                onClick={() => setToast(null)}
+                className="ml-2 text-white transition-colors hover:text-gray-200"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

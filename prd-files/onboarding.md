@@ -7,16 +7,16 @@ Onboarding is not just to inform the user but to get them activated. And the bes
 2. Inform the user about long term benefits and how to leverage those using available features.
 3. User should know where to access which feature and how to ask for help.
 
-## Flows
+## Desktop Viewport
 
-### New User Sign Up - First Time Visitor
+1. When any user sign up or log into PLT Studio, run the onboarding API call to initiate profile fetching in the background. The UI should diplay a notification strip below the header saying that Sage (the mascot that acts like an agent in background). [Wirefream shows a small strip below header with a loader icon](../../../Downloads/otw-wireframes/wireframe-desktop-onboarding-strip.png)
+    - loading icon lucide react and the text saying some details are being fetched
+2. Once Onboarding is ready then increase the strip height gradually for user to give space to complete the onboarding (remove the side container for agent and implement this UI instead). [Wireframe displays the expanded hortizontal window for Onboarding](../../../Downloads/otw-wireframes/wireframe-desktop-onboarding-started.png)
+    - skip onboarding at top right
+    - add overlay on the background Experience Canvas to make the onboarding screen prominent when open. 
+    - On skipping onboarding the onboarding strip goes back to original height and shows a CTA to restart onboarding. Sage can be visible on the strip.
+3. Use the [Sage](../../../Downloads/otw-wireframes/sage_mascot.png) mascot for conversations started by agent 
 
-1. The User needs to complete their profile so that our agent has enough context to serve. So the first duty of the onboarding agent would be to get the User Profile completed.
-2. Profile Completion Tasks:
-    - Verify if the User has connected their Linkedin, if not share them the CTA to proceed with the connection. Users who have signed up using magic links will have to do this additional step.
-    - Verify if the user's First Name and Last Name is updated. If not ping them to do so.
-    - The user should select their objective (user type): If they wish to convert a job (Job Seeker) or wish to convert a client (Freelancer).
-    - If the user is a Job Seeker and their is no resume uploaded yet: Request them to upload their Resume. Share them a CTA within conversation for them to upload.
-    - 
+## Mobile and Tablet Viewports
 
-### Repeat User
+Do not implement onboading

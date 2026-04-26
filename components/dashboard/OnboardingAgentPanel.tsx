@@ -1,8 +1,43 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { Loader2, Sparkles } from "lucide-react";
+import type { OnboardingStatusResponse, OnboardingUiAction } from "@/lib/agent-onboarding-types";
 
 type ChatMessage = { role: "agent" | "user"; text: string };
+
+type OnboardingClientPayload = {
+  conversation_id?: string;
+  agent_message?: string;
+  message?: string;
+  status?: string;
+  next_step?: string | null;
+  current_step?: string | null;
+  completed_steps?: string[];
+  pending_steps?: string[];
+  progress_percent?: number;
+  profile_created?: boolean | null;
+  ui_actions?: OnboardingUiAction[] | null;
+  step_id?: string | null;
+};
+
+function getPrimaryAgentText(data: { agent_message?: string; message?: string }): string {
+  if (typeof data.agent_message === "string" && data.agent_message) return data.agent_message;
+  if (typeof data.message === "string" && data.message) return data.message;
+  return "";
+}
+
+/** v0.2.1 server target IDs -> in-app routes (extend as product adds spotlight IDs). */
+const ONBOARDING_TARGET_HREF: Record<string, string> = {
+  "profile.resume.upload_cta": "/dashboard/profile#resumes",
+  "profile.linkedin.connect_cta": "/dashboard/profile",
+  "nav.campaigns_dashboard": "/dashboard/projects",
+};
+
+function targetToHref(target: string): string | null {
+  return ONBOARDING_TARGET_HREF[target] ?? null;
+}
 
 function getDetailMessage(data: unknown): string {
   if (data && typeof data === "object" && "detail" in data) {
@@ -20,83 +55,125 @@ function getDetailMessage(data: unknown): string {
 }
 
 export interface OnboardingAgentPanelProps {
-  isOpen: boolean;
-  onClose: () => void;
+  onOverlayChange?: (isOverlayVisible: boolean) => void;
 }
 
-/**
- * Desktop-only sample onboarding chat (wireframe-style).
- * Uses BFF routes that proxy the Agent Service onboarding API.
- */
-export function OnboardingAgentPanel({ isOpen, onClose }: OnboardingAgentPanelProps) {
+export function OnboardingAgentPanel({ onOverlayChange }: OnboardingAgentPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [nextStep, setNextStep] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState<string | null>(null);
+  const [progressPercent, setProgressPercent] = useState<number>(0);
+  const [isDesktop, setIsDesktop] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [skipped, setSkipped] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState("");
+  const [uiActions, setUiActions] = useState<OnboardingUiAction[] | null>(null);
+  const [stepId, setStepId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setMessages([]);
-      setConversationId(null);
-      setStatus(null);
-      setNextStep(null);
-      setError(null);
-      setInput("");
-      setLoading(false);
-      setSending(false);
-      return;
+  const applyOnboardingState = useCallback((data: OnboardingClientPayload, keepMessages: boolean) => {
+    setStatus(data.status ?? null);
+    setNextStep(data.next_step ?? null);
+    setCurrentStep(data.current_step ?? null);
+    setProgressPercent(Math.max(0, Math.min(100, data.progress_percent ?? 0)));
+    setUiActions(data.ui_actions ?? null);
+    setStepId(data.step_id ?? null);
+    if (!keepMessages) {
+      const text = getPrimaryAgentText(data);
+      if (text) setMessages([{ role: "agent", text }]);
     }
+  }, []);
 
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("/api/agent/onboarding/start", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: "{}",
-        });
-        const data = (await res.json()) as {
-          conversation_id?: string;
-          agent_message?: string;
-          status?: string;
-          next_step?: string;
-        };
-        if (cancelled) return;
-        if (!res.ok) {
-          setError(getDetailMessage(data));
-          setLoading(false);
-          return;
-        }
-        if (data.conversation_id && data.agent_message != null) {
-          setConversationId(data.conversation_id);
-          setMessages([{ role: "agent", text: data.agent_message }]);
-          setStatus(data.status ?? null);
-          setNextStep(data.next_step ?? null);
-        } else {
-          setError("Unexpected response from onboarding start");
-        }
-      } catch {
-        if (!cancelled) setError("Network error starting onboarding");
-      } finally {
-        if (!cancelled) setLoading(false);
+  const startOnboarding = useCallback(async () => {
+    setLoading(true);
+    setReady(false);
+    setExpanded(false);
+    setError(null);
+    setInput("");
+    try {
+      const res = await fetch("/api/agent/onboarding/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const data = (await res.json()) as OnboardingClientPayload;
+      if (!res.ok) {
+        setError(getDetailMessage(data));
+        return;
       }
-    })();
+      if (data.conversation_id && getPrimaryAgentText(data)) {
+        setConversationId(data.conversation_id);
+        applyOnboardingState(data, false);
+        setReady(true);
+        setExpanded(true);
+        setSkipped(false);
+      } else {
+        setError("Unexpected response from onboarding start");
+      }
+    } catch {
+      setError("Network error starting onboarding");
+    } finally {
+      setLoading(false);
+    }
+  }, [applyOnboardingState]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen]);
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsDesktop(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!isDesktop) return;
+    void startOnboarding();
+  }, [isDesktop, startOnboarding]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, loading, expanded]);
+
+  const overlayVisible = isDesktop && ready && expanded && !loading;
+  useEffect(() => {
+    onOverlayChange?.(overlayVisible);
+  }, [onOverlayChange, overlayVisible]);
+
+  useEffect(() => {
+    if (!isDesktop || !conversationId || !expanded || skipped) return;
+    const sync = async () => {
+      try {
+        const res = await fetch(`/api/agent/onboarding/${conversationId}/status`);
+        if (!res.ok) return;
+        const data = (await res.json()) as OnboardingStatusResponse;
+        setStatus(data.status);
+        setNextStep(data.next_step);
+        setCurrentStep(data.current_step ?? null);
+        setProgressPercent(Math.max(0, Math.min(100, data.progress_percent ?? 0)));
+        setUiActions(data.ui_actions ?? null);
+        setStepId(data.step_id ?? null);
+      } catch {
+        // ignore background sync errors
+      }
+    };
+    void sync();
+    const t = setInterval(() => void sync(), 20000);
+    return () => clearInterval(t);
+  }, [isDesktop, conversationId, expanded, skipped]);
+
+  const progressLabel = useMemo(() => {
+    if (!ready) return "Preparing onboarding";
+    if (status === "completed") return "Onboarding complete";
+    if (currentStep) return `Current: ${currentStep}`;
+    if (nextStep) return `Next: ${nextStep}`;
+    return "Onboarding in progress";
+  }, [currentStep, nextStep, ready, status]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
@@ -112,115 +189,165 @@ export function OnboardingAgentPanel({ isOpen, onClose }: OnboardingAgentPanelPr
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_message: text }),
       });
-      const data = (await res.json()) as {
-        agent_message?: string;
-        status?: string;
-        next_step?: string | null;
-        profile_created?: boolean | null;
-      };
+      const data = (await res.json()) as OnboardingClientPayload;
       if (!res.ok) {
         setError(getDetailMessage(data));
-        setSending(false);
         return;
       }
-      const reply = typeof data.agent_message === "string" ? data.agent_message : "";
+      const reply = getPrimaryAgentText(data);
       if (reply) {
         setMessages((prev) => [...prev, { role: "agent", text: reply }]);
       }
-      setStatus(data.status ?? null);
-      setNextStep(data.next_step ?? null);
+      applyOnboardingState(data, true);
     } catch {
       setError("Network error sending message");
     } finally {
       setSending(false);
     }
-  }, [conversationId, input, loading, sending]);
-
-  if (!isOpen) return null;
+  }, [applyOnboardingState, conversationId, input, loading, sending]);
 
   return (
-    <aside
-      className="hidden shrink-0 flex-col border-t border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 lg:flex lg:mt-0 lg:w-[min(100%,380px)] lg:border-l lg:border-t-0 lg:rounded-lg lg:border lg:border-zinc-200 lg:shadow-sm dark:lg:border-zinc-700"
-      aria-label="Onboarding agent"
-    >
-      <div className="flex items-center justify-end border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-sm font-medium text-zinc-600 underline-offset-2 hover:text-zinc-900 hover:underline dark:text-zinc-400 dark:hover:text-zinc-100"
-        >
-          close
-        </button>
-      </div>
+    <section aria-label="Onboarding strip" className="hidden lg:block">
+      <div
+        className={`overflow-hidden rounded-xl border border-orange-200 bg-orange-50/80 transition-all duration-500 dark:border-orange-800 dark:bg-orange-950/30 ${
+          expanded ? "max-h-[560px]" : "max-h-16"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2">
+            {loading ? (
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-orange-600 dark:text-orange-300" />
+            ) : (
+              <Sparkles className="h-4 w-4 shrink-0 text-orange-600 dark:text-orange-300" />
+            )}
+            <p className="truncate text-sm font-medium text-orange-900 dark:text-orange-200">
+              {loading
+                ? "Sage is fetching your details to personalize onboarding..."
+                : skipped
+                  ? "Onboarding paused. Restart when you're ready."
+                  : progressLabel}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {!loading && skipped && (
+              <button
+                type="button"
+                onClick={() => void startOnboarding()}
+                className="rounded-md bg-orange-500 px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-orange-600"
+              >
+                Restart onboarding
+              </button>
+            )}
+            {!loading && ready && !skipped && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSkipped(true);
+                  setExpanded(false);
+                }}
+                className="text-xs font-medium text-orange-800 underline-offset-2 hover:underline dark:text-orange-200"
+              >
+                Skip onboarding
+              </button>
+            )}
+          </div>
+        </div>
 
-      <div className="flex max-h-[min(560px,calc(100vh-12rem))] min-h-[320px] flex-1 flex-col overflow-hidden">
-        {(nextStep || status) && (
-          <div className="border-b border-zinc-100 px-3 py-1.5 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-            {status && <span className="mr-2">Status: {status}</span>}
-            {nextStep && <span>Next: {nextStep}</span>}
+        <div className="border-t border-orange-200/80 px-4 py-2 text-xs text-orange-800 dark:border-orange-800 dark:text-orange-200">
+          Progress: {progressPercent}%
+          {status ? <span className="ml-2">Status: {status}</span> : null}
+          {nextStep ? <span className="ml-2">Next: {nextStep}</span> : null}
+          {stepId ? <span className="ml-2 font-mono text-[0.7rem] opacity-80">Step: {stepId}</span> : null}
+        </div>
+
+        {expanded && !loading && !skipped && uiActions && uiActions.length > 0 && (
+          <div className="space-y-1.5 border-t border-orange-200/60 bg-orange-50/50 px-4 py-2 dark:border-orange-800/50 dark:bg-orange-950/20">
+            <p className="text-xs font-medium text-orange-900 dark:text-orange-200">In the app</p>
+            <ul className="flex flex-col gap-1.5" aria-label="Onboarding UI actions">
+              {uiActions.map((a, i) => {
+                const href = targetToHref(a.target);
+                return (
+                  <li key={`${a.target}-${i}`}>
+                    {href ? (
+                      <Link
+                        href={href}
+                        className="text-xs text-orange-800 underline decoration-orange-300 underline-offset-2 hover:text-orange-950 dark:text-orange-100 dark:decoration-orange-700"
+                      >
+                        {a.tooltip}
+                      </Link>
+                    ) : (
+                      <span className="text-xs text-orange-800 dark:text-orange-200" title={a.target}>
+                        {a.tooltip}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
 
-        <div className="flex-1 space-y-3 overflow-y-auto p-3">
-          {loading && messages.length === 0 && (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">Starting conversation…</p>
-          )}
-          {messages.map((m, i) => (
-            <div
-              key={`${m.role}-${i}`}
-              className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={
-                  m.role === "agent"
-                    ? "max-w-[85%] rounded-lg bg-zinc-200 px-3 py-2 text-sm text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100"
-                    : "max-w-[85%] rounded-lg bg-zinc-300 px-3 py-2 text-sm text-zinc-900 dark:bg-zinc-600 dark:text-zinc-50"
-                }
-              >
-                {m.text}
+        {expanded && !loading && !skipped && (
+          <div className="flex max-h-[420px] min-h-[320px] flex-col border-t border-orange-200 bg-white/90 dark:border-orange-900/60 dark:bg-zinc-900/90">
+            <div className="flex-1 space-y-3 overflow-y-auto p-4">
+              {messages.map((m, i) => (
+                <div
+                  key={`${m.role}-${i}`}
+                  className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={
+                      m.role === "agent"
+                        ? "max-w-[80%] rounded-xl bg-orange-100 px-3 py-2 text-sm text-zinc-900 dark:bg-orange-900/40 dark:text-zinc-100"
+                        : "max-w-[80%] rounded-xl bg-zinc-200 px-3 py-2 text-sm text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100"
+                    }
+                  >
+                    {m.text}
+                  </div>
+                </div>
+              ))}
+              <div ref={bottomRef} />
+            </div>
+
+            {error && (
+              <div className="border-t border-red-100 bg-red-50 px-4 py-2 text-xs text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
+                {error}
+              </div>
+            )}
+
+            <div className="border-t border-zinc-200 p-4 dark:border-zinc-800">
+              <div className="flex items-center gap-2 rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1.5 dark:border-zinc-600 dark:bg-zinc-800">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      void handleSend();
+                    }
+                  }}
+                  placeholder="Reply to Sage..."
+                  disabled={loading || !conversationId || sending}
+                  className="min-w-0 flex-1 bg-transparent text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none dark:text-zinc-100 dark:placeholder:text-zinc-500"
+                  aria-label="Message"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleSend()}
+                  disabled={loading || !conversationId || sending || !input.trim()}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-zinc-200 disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                  aria-label="Send"
+                >
+                  <span aria-hidden className="text-lg leading-none">
+                    →
+                  </span>
+                </button>
               </div>
             </div>
-          ))}
-          <div ref={bottomRef} />
-        </div>
-
-        {error && (
-          <div className="border-t border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
-            {error}
           </div>
         )}
-
-        <div className="border-t border-zinc-200 p-3 dark:border-zinc-800">
-          <div className="flex items-center gap-2 rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1.5 dark:border-zinc-600 dark:bg-zinc-800">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  void handleSend();
-                }
-              }}
-              placeholder="Add text here...."
-              disabled={loading || !conversationId || sending}
-              className="min-w-0 flex-1 bg-transparent text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none dark:text-zinc-100 dark:placeholder:text-zinc-500"
-              aria-label="Message"
-            />
-            <button
-              type="button"
-              onClick={() => void handleSend()}
-              disabled={loading || !conversationId || sending || !input.trim()}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-zinc-200 disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-700"
-              aria-label="Send"
-            >
-              <span aria-hidden className="text-lg leading-none">
-                →
-              </span>
-            </button>
-          </div>
-        </div>
       </div>
-    </aside>
+    </section>
   );
 }
