@@ -20,6 +20,8 @@ export type OnboardingStartResponse = {
   /** Primary copy; duplicated in `message` (UI protocol). */
   agent_message?: string;
   message?: string;
+  /** e.g. `onboarding` — for multi-flow clients, use for progress labels instead of `current_step` ids. */
+  flow_type?: string | null;
   status: string;
   next_step: string | null;
   current_step?: string | null;
@@ -35,6 +37,7 @@ export type OnboardingMessageResponse = {
   conversation_id: string;
   agent_message?: string;
   message?: string;
+  flow_type?: string | null;
   status: string;
   next_step: string | null;
   current_step?: string | null;
@@ -50,6 +53,7 @@ export type OnboardingMessageResponse = {
 export type OnboardingStatusResponse = {
   conversation_id: string;
   message: string | null;
+  flow_type?: string | null;
   status: string;
   next_step: string | null;
   current_step?: string | null;

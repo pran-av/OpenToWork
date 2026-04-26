@@ -17,6 +17,7 @@ type DashboardSageFrameProps = {
  */
 export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFrameProps) {
   const [sageLayerActive, setSageLayerActive] = useState(false);
+  const [sageRightRailOpen, setSageRightRailOpen] = useState(true);
   const sageRef = useRef<SageWindowHandle>(null);
 
   const onSageLayerChange = useCallback((open: boolean) => {
@@ -67,12 +68,17 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         ) : null}
 
         <div
-          className="fixed right-0 bottom-0 z-[40] w-[50vw] min-w-0 pl-0"
+          className={
+            sageRightRailOpen
+              ? "fixed right-0 bottom-0 z-[40] w-[50vw] min-w-0 pl-0"
+              : "pointer-events-none fixed right-0 bottom-0 z-[40] w-0 min-w-0 max-w-0 overflow-hidden border-0 p-0 pl-0"
+          }
           style={{ top: headerOffsetPx }}
         >
           <SageWindow
             ref={sageRef}
             onSageLayerChange={onSageLayerChange}
+            onRightRailChange={setSageRightRailOpen}
             className="h-full"
             headerOffsetPx={headerOffsetPx}
           />

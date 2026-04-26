@@ -4,11 +4,14 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   forwardRef,
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
+import Image from "next/image";
 import Link from "next/link";
 import { Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,6 +27,7 @@ type OnboardingClientPayload = {
   conversation_id?: string;
   agent_message?: string;
   message?: string;
+  flow_type?: string | null;
   status?: string;
   next_step?: string | null;
   current_step?: string | null;
@@ -52,6 +56,33 @@ const ONBOARDING_TARGET_HREF: Record<string, string> = {
 
 function targetToHref(target: string): string | null {
   return ONBOARDING_TARGET_HREF[target] ?? null;
+}
+
+/** Short hub line — never the full intro paragraph. */
+const DEFAULT_SAGE_FLOW_LABEL = "Onboarding";
+
+/** `flow_type` from API (e.g. `onboarding`) → user-facing name for the hub line. */
+function formatFlowTypeLabel(raw: string | null | undefined): string {
+  if (raw == null || raw === "") return DEFAULT_SAGE_FLOW_LABEL;
+  const t = raw.trim().toLowerCase();
+  if (t === "onboarding") return "Onboarding";
+  return t
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function oneLinePendingFromAgentText(text: string, max = 88): string {
+  const noMd = text
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+  const bySentence = noMd.split(/(?<=[.!?])\s+/);
+  const first = (bySentence[0] ?? noMd).trim();
+  if (first.length <= max) return first;
+  return `${first.slice(0, max - 1).trim()}…`;
 }
 
 function getDetailMessage(data: unknown): string {
@@ -86,11 +117,18 @@ type SagePersistedSession = {
   ready: boolean;
   expanded: boolean;
   skipped: boolean;
+  /** `flow_type` from agent (e.g. `onboarding`); when absent, UI defaults to "Onboarding". */
+  flowType?: string | null;
 };
 
 export interface SageWindowProps {
   /** Fires when the full Sage layer (blur + active conversation) should show — desktop only. */
   onSageLayerChange?: (isLayerActive: boolean) => void;
+  /**
+   * When `false`, the 50% right rail is collapsed (e.g. paused-onboarding “hub” with FAB in the corner only).
+   * When `true`, the fixed rail is shown for loading / active session UIs.
+   */
+  onRightRailChange?: (showRightRail: boolean) => void;
   className?: string;
   /** Measured height of the Studio header chrome, for positioning the desktop loading banner. */
   headerOffsetPx: number;
@@ -107,7 +145,7 @@ const BANNER_GAP_BELOW_HEADER_PX = 8;
 const TOAST_STACK_RESERVE_PX = 72;
 
 export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function SageWindow(
-  { onSageLayerChange, className: classNameProp, headerOffsetPx },
+  { onSageLayerChange, onRightRailChange, className: classNameProp, headerOffsetPx },
   ref
 ) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -127,14 +165,23 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const [uiActions, setUiActions] = useState<OnboardingUiAction[] | null>(null);
   const [stepId, setStepId] = useState<string | null>(null);
   const [publicUsersRead, setPublicUsersRead] = useState<PublicUsersReadStatus | null>(null);
+  const [flowType, setFlowType] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const startOnboardingInFlight = useRef(false);
   const startOnboardingRef = useRef<() => Promise<void>>(async () => {});
+  const [portalReady, setPortalReady] = useState(false);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
   const applyOnboardingState = useCallback((data: OnboardingClientPayload, keepMessages: boolean) => {
     setStatus(data.status ?? null);
     setNextStep(data.next_step ?? null);
     setCurrentStep(data.current_step ?? null);
+    if (data.flow_type !== undefined) {
+      setFlowType(data.flow_type ?? null);
+    }
     setProgressPercent(Math.max(0, Math.min(100, data.progress_percent ?? 0)));
     setUiActions(data.ui_actions ?? null);
     setStepId(data.step_id ?? null);
@@ -175,6 +222,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       setError(null);
       setInput("");
       setPublicUsersRead(null);
+      setFlowType(null);
       try {
         const res = await fetch("/api/agent/onboarding/start", {
           method: "POST",
@@ -243,6 +291,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             setReady(snap.ready);
             setExpanded(snap.expanded);
             setSkipped(snap.skipped);
+            setFlowType(snap.flowType ?? null);
             setError(null);
             setInput("");
             setLoading(false);
@@ -281,6 +330,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       ready,
       expanded,
       skipped,
+      flowType,
     };
     try {
       sessionStorage.setItem(SAGE_SESSION_KEY, JSON.stringify(snap));
@@ -300,6 +350,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     ready,
     expanded,
     skipped,
+    flowType,
   ]);
 
   useEffect(() => {
@@ -327,6 +378,9 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         if (data.public_users_read !== undefined) {
           setPublicUsersRead(data.public_users_read);
         }
+        if (data.flow_type !== undefined) {
+          setFlowType(data.flow_type ?? null);
+        }
       } catch {
         // ignore background sync errors
       }
@@ -344,7 +398,29 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     return "Onboarding in progress";
   }, [currentStep, nextStep, ready, status]);
 
+  const flowLabel = formatFlowTypeLabel(flowType);
+
+  const sageHubPendingLine = useMemo(() => {
+    if (currentStep) return `Finish: ${flowLabel}`;
+    if (nextStep) return `Up next: ${flowLabel}`;
+    if (status && status !== "completed") return `${flowLabel}: ${status}`;
+    const lastAgent = [...messages].reverse().find((m) => m.role === "agent");
+    const fromMsg = lastAgent?.text?.trim() ?? "";
+    if (fromMsg) return oneLinePendingFromAgentText(fromMsg);
+    return `Finish ${flowLabel.toLowerCase()} in Sage`;
+  }, [messages, currentStep, nextStep, status, flowLabel]);
+
+  const resumeSageFromPausedHub = useCallback(() => {
+    setSkipped(false);
+    setExpanded(true);
+  }, []);
+
   const showDesktopLoadingBanner = loading && isDesktop;
+  const pausedHubDesktop = skipped && isDesktop && !loading;
+
+  useLayoutEffect(() => {
+    onRightRailChange?.(!pausedHubDesktop);
+  }, [onRightRailChange, pausedHubDesktop]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
@@ -378,8 +454,66 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   }, [applyOnboardingState, conversationId, input, loading, sending]);
 
   return (
-    <section aria-label="Sage window" className={cn("flex h-full min-h-0 w-full min-w-0 flex-col", classNameProp)}>
-      {showDesktopLoadingBanner ? (
+    <section
+      aria-label="Sage window"
+      className={cn(
+        "flex h-full min-h-0 w-full min-w-0 flex-col",
+        classNameProp,
+        pausedHubDesktop && "h-0 min-h-0 overflow-hidden p-0"
+      )}
+    >
+      {portalReady &&
+        pausedHubDesktop &&
+        createPortal(
+          <div className="pointer-events-none max-lg:hidden">
+            <div className="pointer-events-auto fixed bottom-5 right-5 z-[44] flex max-w-[min(20rem,calc(100vw-2.5rem))] flex-col items-end gap-2 max-lg:hidden">
+              <div
+                role="status"
+                className="w-full max-w-full rounded-lg border border-zinc-200/90 bg-white px-2.5 py-1.5 text-left shadow-md ring-1 ring-black/5 dark:border-zinc-600 dark:bg-zinc-900 dark:ring-white/10"
+              >
+                <p
+                  id="sage-hub-pending-line"
+                  className="truncate text-xs font-medium leading-snug text-zinc-700 dark:text-zinc-200"
+                  title={sageHubPendingLine}
+                >
+                  {sageHubPendingLine}
+                </p>
+              </div>
+              <div className="relative h-[4.5rem] w-[4.5rem] overflow-visible">
+                <span
+                  className="absolute inset-0 -m-1 rounded-full bg-amber-400/40 blur-[3px] motion-safe:animate-pulse"
+                  aria-hidden
+                />
+                <span
+                  className="absolute inset-0 rounded-full border-2 border-amber-400/50 motion-safe:animate-ping"
+                  aria-hidden
+                />
+                <button
+                  type="button"
+                  onClick={resumeSageFromPausedHub}
+                  className="relative z-10 flex h-[4.5rem] w-[4.5rem] items-center justify-center overflow-hidden rounded-full border-2 border-amber-300 bg-orange-50 shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 dark:border-amber-600/60 dark:bg-zinc-800 dark:focus:ring-amber-500"
+                  title="Open Sage to continue onboarding"
+                  aria-label="Open Sage to continue onboarding"
+                  aria-describedby="sage-hub-pending-line"
+                >
+                  <Image
+                    src="/sage_mascot.png"
+                    alt=""
+                    width={56}
+                    height={70}
+                    className="h-[3.5rem] w-auto object-contain object-bottom"
+                  />
+                  <span
+                    className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-orange-50 bg-amber-500 dark:border-zinc-900 dark:bg-amber-400"
+                    aria-hidden
+                  />
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+      {!pausedHubDesktop && showDesktopLoadingBanner ? (
         <div
           className="pointer-events-none fixed z-[45] max-lg:hidden"
           style={{
@@ -408,6 +542,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         </div>
       ) : null}
 
+      {!pausedHubDesktop && (
       <div
         className={cn(
           "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-orange-50/80 transition-all duration-500 dark:bg-orange-950/30 lg:bg-orange-50 dark:lg:bg-zinc-950",
@@ -433,7 +568,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {!loading && skipped && (
+            {!loading && skipped && !isDesktop && (
               <button
                 type="button"
                 onClick={() => void startOnboarding()}
@@ -564,6 +699,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           </div>
         )}
       </div>
+      )}
     </section>
   );
 });
