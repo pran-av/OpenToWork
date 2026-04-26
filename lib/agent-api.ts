@@ -1,13 +1,13 @@
 /**
  * PLT Agent Service API – server-side proxy helpers.
- * Base URL: PLT_AGENT_API_URL in all environments (development and production). Fallback to
+ * Base URL: PLT_SERVER_BASE_URL in all environments (development and production). Fallback to
  * http://localhost:8000 only when unset (e.g. local dev without env).
  * All requests forward the Supabase session JWT (Bearer).
  */
 
 const getBaseUrl = (): string => {
-  if (typeof process.env.PLT_AGENT_API_URL === "string" && process.env.PLT_AGENT_API_URL) {
-    return process.env.PLT_AGENT_API_URL.replace(/\/$/, "");
+  if (typeof process.env.PLT_SERVER_BASE_URL === "string" && process.env.PLT_SERVER_BASE_URL) {
+    return process.env.PLT_SERVER_BASE_URL.replace(/\/$/, "");
   }
   return "http://localhost:8000";
 };

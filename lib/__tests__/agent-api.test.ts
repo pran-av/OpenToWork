@@ -6,7 +6,7 @@ const originalEnv = { ...process.env };
 describe("agent-api", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env.PLT_AGENT_API_URL;
+    delete process.env.PLT_SERVER_BASE_URL;
   });
 
   afterEach(() => {
@@ -15,22 +15,22 @@ describe("agent-api", () => {
   });
 
   describe("getAgentApiBaseUrl", () => {
-    it("returns base URL + /api/v1 when PLT_AGENT_API_URL is set", () => {
-      process.env.PLT_AGENT_API_URL = "https://agent.example.com";
+    it("returns base URL + /api/v1 when PLT_SERVER_BASE_URL is set", () => {
+      process.env.PLT_SERVER_BASE_URL = "https://agent.example.com";
       expect(getAgentApiBaseUrl()).toBe("https://agent.example.com/api/v1");
     });
 
-    it("strips trailing slash from PLT_AGENT_API_URL", () => {
-      process.env.PLT_AGENT_API_URL = "https://agent.example.com/";
+    it("strips trailing slash from PLT_SERVER_BASE_URL", () => {
+      process.env.PLT_SERVER_BASE_URL = "https://agent.example.com/";
       expect(getAgentApiBaseUrl()).toBe("https://agent.example.com/api/v1");
     });
 
-    it("falls back to http://localhost:8000 when PLT_AGENT_API_URL is unset", () => {
+    it("falls back to http://localhost:8000 when PLT_SERVER_BASE_URL is unset", () => {
       expect(getAgentApiBaseUrl()).toBe("http://localhost:8000/api/v1");
     });
 
-    it("falls back when PLT_AGENT_API_URL is empty string", () => {
-      process.env.PLT_AGENT_API_URL = "";
+    it("falls back when PLT_SERVER_BASE_URL is empty string", () => {
+      process.env.PLT_SERVER_BASE_URL = "";
       expect(getAgentApiBaseUrl()).toBe("http://localhost:8000/api/v1");
     });
   });
@@ -59,7 +59,7 @@ describe("agent-api", () => {
     });
 
     it("constructs URL from base + /api/v1 + path (path without leading slash)", async () => {
-      process.env.PLT_AGENT_API_URL = "https://agent.example.com";
+      process.env.PLT_SERVER_BASE_URL = "https://agent.example.com";
       const mockRes = new Response(JSON.stringify({ resumes: [] }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -79,7 +79,7 @@ describe("agent-api", () => {
     });
 
     it("constructs URL correctly when path has leading slash", async () => {
-      process.env.PLT_AGENT_API_URL = "https://agent.example.com";
+      process.env.PLT_SERVER_BASE_URL = "https://agent.example.com";
       const mockRes = new Response(JSON.stringify({}), {
         status: 200,
         headers: { "Content-Type": "application/json" },

@@ -1,6 +1,6 @@
 # PLT Agent Service – API Documentation for Client
 
-**Base URL:** `https://<agent-service-host>/api/v1`  
+**Base URL:** `PLT_SERVER_BASE_URL/api/v1`  
 **Version:** 0.2.2
 
 ---

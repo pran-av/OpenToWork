@@ -13,7 +13,7 @@ import {
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
-import { Loader2, Sparkles } from "lucide-react";
+import { Check, Circle, Loader2, Sparkles } from "lucide-react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
@@ -111,6 +111,39 @@ function targetToHref(target: string): string | null {
   return ONBOARDING_TARGET_HREF[target] ?? null;
 }
 
+/**
+ * Maps fixed `ui_actions[].target` IDs to onboarding `completed_steps` keys (agent API v0.2.2).
+ * @see api_contracts/agent-serviceapi-v0.2.2.md
+ */
+const ONBOARDING_TARGET_TO_COMPLETION_STEP: Record<string, string> = {
+  "profile.user_first_name.edit_cta": "confirm_name",
+  "profile.resume.upload_cta": "resume_prompt",
+  "profile.linkedin.connect_cta": "linkedin_connect",
+  "nav.campaigns_dashboard": "introduce_app_features",
+};
+
+function onboardingStepForUiTarget(target: string): string | null {
+  return ONBOARDING_TARGET_TO_COMPLETION_STEP[target] ?? null;
+}
+
+function isUiActionComplete(
+  target: string,
+  completedSteps: string[],
+  status: string | null
+): boolean {
+  if (status === "completed") return true;
+  const step = onboardingStepForUiTarget(target);
+  if (step) return completedSteps.includes(step);
+  return false;
+}
+
+function uiActionDisplayLabel(tooltip: string): string {
+  return tooltip
+    .replace(/^\s*Client:\s*/i, "")
+    .replace(/^\s*Internal:\s*/i, "")
+    .trim();
+}
+
 /** Short hub line — never the full intro paragraph. */
 const DEFAULT_SAGE_FLOW_LABEL = "Onboarding";
 
@@ -172,6 +205,7 @@ type SagePersistedSession = {
   skipped: boolean;
   /** `flow_type` from agent (e.g. `onboarding`); when absent, UI defaults to "Onboarding". */
   flowType?: string | null;
+  completedSteps?: string[];
 };
 
 export interface SageWindowProps {
@@ -219,6 +253,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const [stepId, setStepId] = useState<string | null>(null);
   const [publicUsersRead, setPublicUsersRead] = useState<PublicUsersReadStatus | null>(null);
   const [flowType, setFlowType] = useState<string | null>(null);
+  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const startOnboardingInFlight = useRef(false);
   const startOnboardingRef = useRef<() => Promise<void>>(async () => {});
@@ -234,6 +269,9 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     setCurrentStep(data.current_step ?? null);
     if (data.flow_type !== undefined) {
       setFlowType(data.flow_type ?? null);
+    }
+    if (data.completed_steps !== undefined) {
+      setCompletedSteps(data.completed_steps);
     }
     setProgressPercent(Math.max(0, Math.min(100, data.progress_percent ?? 0)));
     setUiActions(data.ui_actions ?? null);
@@ -276,6 +314,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       setInput("");
       setPublicUsersRead(null);
       setFlowType(null);
+      setCompletedSteps([]);
       try {
         const res = await fetch("/api/agent/onboarding/start", {
           method: "POST",
@@ -345,6 +384,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             setExpanded(snap.expanded);
             setSkipped(snap.skipped);
             setFlowType(snap.flowType ?? null);
+            setCompletedSteps(snap.completedSteps ?? []);
             setError(null);
             setInput("");
             setLoading(false);
@@ -384,6 +424,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       expanded,
       skipped,
       flowType,
+      completedSteps,
     };
     try {
       sessionStorage.setItem(SAGE_SESSION_KEY, JSON.stringify(snap));
@@ -404,6 +445,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     expanded,
     skipped,
     flowType,
+    completedSteps,
   ]);
 
   useEffect(() => {
@@ -433,6 +475,9 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         }
         if (data.flow_type !== undefined) {
           setFlowType(data.flow_type ?? null);
+        }
+        if (data.completed_steps !== undefined) {
+          setCompletedSteps(data.completed_steps);
         }
       } catch {
         // ignore background sync errors
@@ -665,25 +710,52 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         )}
 
         {expanded && !loading && !skipped && uiActions && uiActions.length > 0 && (
-          <div className="space-y-1.5 border-t border-orange-200/60 bg-orange-50/50 px-4 py-2 dark:border-orange-800/50 dark:bg-orange-950/20">
+          <div className="space-y-2 border-t border-orange-200/60 bg-orange-50/50 px-4 py-2.5 dark:border-orange-800/50 dark:bg-orange-950/20">
             <p className="text-xs font-medium text-orange-900 dark:text-orange-200">In the app</p>
-            <ul className="flex flex-col gap-1.5" aria-label="Sage UI actions">
+            <ul className="flex flex-col gap-2" role="list" aria-label="Onboarding checklist">
               {uiActions.map((a, i) => {
                 const href = targetToHref(a.target);
+                const done = isUiActionComplete(a.target, completedSteps, status);
+                const label = uiActionDisplayLabel(a.tooltip);
                 return (
-                  <li key={`${a.target}-${i}`}>
-                    {href ? (
-                      <Link
-                        href={href}
-                        className="text-xs text-orange-800 underline decoration-orange-300 underline-offset-2 hover:text-orange-950 dark:text-orange-100 dark:decoration-orange-700"
-                      >
-                        {a.tooltip}
-                      </Link>
-                    ) : (
-                      <span className="text-xs text-orange-800 dark:text-orange-200" title={a.target}>
-                        {a.tooltip}
-                      </span>
-                    )}
+                  <li key={`${a.target}-${i}`} className="flex min-w-0 items-start gap-2">
+                    <span
+                      className="mt-0.5 shrink-0"
+                      aria-hidden
+                      title={onboardingStepForUiTarget(a.target) ? undefined : a.target}
+                    >
+                      {done ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500" strokeWidth={2.5} />
+                      ) : (
+                        <Circle className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" strokeWidth={2} />
+                      )}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      {href ? (
+                        <Link
+                          href={href}
+                          className={cn(
+                            "text-xs leading-snug",
+                            done
+                              ? "text-zinc-500 underline decoration-zinc-300/60 underline-offset-2 hover:text-zinc-600 dark:text-zinc-400 dark:decoration-zinc-500"
+                              : "font-medium text-orange-900 underline decoration-orange-300/80 underline-offset-2 hover:text-orange-950 dark:text-orange-100 dark:decoration-orange-600"
+                          )}
+                          aria-label={`${done ? "Completed" : "To do"}: ${label}`}
+                        >
+                          {label}
+                        </Link>
+                      ) : (
+                        <span
+                          className={cn(
+                            "text-xs leading-snug",
+                            done ? "text-zinc-500 line-through dark:text-zinc-400" : "text-orange-800 dark:text-orange-200/90"
+                          )}
+                          title={a.target}
+                        >
+                          {label}
+                        </span>
+                      )}
+                    </div>
                   </li>
                 );
               })}
