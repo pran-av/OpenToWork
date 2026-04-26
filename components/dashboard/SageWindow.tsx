@@ -1,8 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  forwardRef,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import { Loader2, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type {
   OnboardingStatusResponse,
   OnboardingUiAction,
@@ -60,11 +69,40 @@ function getDetailMessage(data: unknown): string {
   return "Something went wrong";
 }
 
-export interface OnboardingAgentPanelProps {
-  onOverlayChange?: (isOverlayVisible: boolean) => void;
+const SAGE_SESSION_KEY = "opentowork-sage-onboarding-v1";
+
+/** Persists the Sage client state so theme toggles and remounts do not start a new conversation. */
+type SagePersistedSession = {
+  v: 1;
+  conversationId: string;
+  messages: ChatMessage[];
+  status: string | null;
+  nextStep: string | null;
+  currentStep: string | null;
+  progressPercent: number;
+  uiActions: OnboardingUiAction[] | null;
+  stepId: string | null;
+  publicUsersRead: PublicUsersReadStatus | null;
+  ready: boolean;
+  expanded: boolean;
+  skipped: boolean;
+};
+
+export interface SageWindowProps {
+  /** Fires when the full Sage layer (blur + active conversation) should show — desktop only. */
+  onSageLayerChange?: (isLayerActive: boolean) => void;
+  className?: string;
 }
 
-export function OnboardingAgentPanel({ onOverlayChange }: OnboardingAgentPanelProps) {
+export type SageWindowHandle = {
+  /** Same as the in-panel “Skip onboarding” control (pauses and collapses the thread UI). */
+  skip: () => void;
+};
+
+export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function SageWindow(
+  { onSageLayerChange, className: classNameProp },
+  ref
+) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -83,6 +121,8 @@ export function OnboardingAgentPanel({ onOverlayChange }: OnboardingAgentPanelPr
   const [stepId, setStepId] = useState<string | null>(null);
   const [publicUsersRead, setPublicUsersRead] = useState<PublicUsersReadStatus | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const startOnboardingInFlight = useRef(false);
+  const startOnboardingRef = useRef<() => Promise<void>>(async () => {});
 
   const applyOnboardingState = useCallback((data: OnboardingClientPayload, keepMessages: boolean) => {
     setStatus(data.status ?? null);
@@ -100,39 +140,65 @@ export function OnboardingAgentPanel({ onOverlayChange }: OnboardingAgentPanelPr
     }
   }, []);
 
-  const startOnboarding = useCallback(async () => {
-    setLoading(true);
-    setReady(false);
+  const skipOnboarding = useCallback(() => {
+    setSkipped(true);
     setExpanded(false);
-    setError(null);
-    setInput("");
-    setPublicUsersRead(null);
+  }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      skip: skipOnboarding,
+    }),
+    [skipOnboarding]
+  );
+
+  const startOnboarding = useCallback(async () => {
+    if (startOnboardingInFlight.current) return;
+    startOnboardingInFlight.current = true;
     try {
-      const res = await fetch("/api/agent/onboarding/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}",
-      });
-      const data = (await res.json()) as OnboardingClientPayload;
-      if (!res.ok) {
-        setError(getDetailMessage(data));
-        return;
+      try {
+        sessionStorage.removeItem(SAGE_SESSION_KEY);
+      } catch {
+        // ignore
       }
-      if (data.conversation_id && getPrimaryAgentText(data)) {
-        setConversationId(data.conversation_id);
-        applyOnboardingState(data, false);
-        setReady(true);
-        setExpanded(true);
-        setSkipped(false);
-      } else {
-        setError("Unexpected response from onboarding start");
+      setLoading(true);
+      setReady(false);
+      setExpanded(false);
+      setError(null);
+      setInput("");
+      setPublicUsersRead(null);
+      try {
+        const res = await fetch("/api/agent/onboarding/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
+        const data = (await res.json()) as OnboardingClientPayload;
+        if (!res.ok) {
+          setError(getDetailMessage(data));
+          return;
+        }
+        if (data.conversation_id && getPrimaryAgentText(data)) {
+          setConversationId(data.conversation_id);
+          applyOnboardingState(data, false);
+          setReady(true);
+          setExpanded(true);
+          setSkipped(false);
+        } else {
+          setError("Unexpected response from onboarding start");
+        }
+      } catch {
+        setError("Network error starting onboarding");
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      setError("Network error starting onboarding");
     } finally {
-      setLoading(false);
+      startOnboardingInFlight.current = false;
     }
   }, [applyOnboardingState]);
+
+  startOnboardingRef.current = startOnboarding;
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1024px)");
@@ -142,19 +208,101 @@ export function OnboardingAgentPanel({ onOverlayChange }: OnboardingAgentPanelPr
     return () => media.removeEventListener("change", update);
   }, []);
 
+  /** One-shot bootstrap: restore from session, or only then POST /start. Does not re-run on callback identity. */
   useEffect(() => {
     if (!isDesktop) return;
-    void startOnboarding();
-  }, [isDesktop, startOnboarding]);
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const raw = sessionStorage.getItem(SAGE_SESSION_KEY);
+        if (raw) {
+          const snap = JSON.parse(raw) as SagePersistedSession;
+          if (
+            snap.v === 1 &&
+            typeof snap.conversationId === "string" &&
+            Array.isArray(snap.messages) &&
+            snap.conversationId.length > 0
+          ) {
+            if (cancelled) return;
+            setConversationId(snap.conversationId);
+            setMessages(snap.messages);
+            setStatus(snap.status);
+            setNextStep(snap.nextStep);
+            setCurrentStep(snap.currentStep);
+            setProgressPercent(snap.progressPercent);
+            setUiActions(snap.uiActions);
+            setStepId(snap.stepId);
+            setPublicUsersRead(snap.publicUsersRead ?? null);
+            setReady(snap.ready);
+            setExpanded(snap.expanded);
+            setSkipped(snap.skipped);
+            setError(null);
+            setInput("");
+            setLoading(false);
+            return;
+          }
+        }
+      } catch {
+        try {
+          sessionStorage.removeItem(SAGE_SESSION_KEY);
+        } catch {
+          // ignore
+        }
+      }
+      if (cancelled) return;
+      await startOnboardingRef.current();
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [isDesktop]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !conversationId) return;
+    const snap: SagePersistedSession = {
+      v: 1,
+      conversationId,
+      messages,
+      status,
+      nextStep,
+      currentStep,
+      progressPercent,
+      uiActions,
+      stepId,
+      publicUsersRead,
+      ready,
+      expanded,
+      skipped,
+    };
+    try {
+      sessionStorage.setItem(SAGE_SESSION_KEY, JSON.stringify(snap));
+    } catch {
+      // ignore storage quota / private mode
+    }
+  }, [
+    conversationId,
+    messages,
+    status,
+    nextStep,
+    currentStep,
+    progressPercent,
+    uiActions,
+    stepId,
+    publicUsersRead,
+    ready,
+    expanded,
+    skipped,
+  ]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading, expanded]);
 
-  const overlayVisible = isDesktop && ready && expanded && !loading;
+  const layerActive = isDesktop && ready && expanded && !loading;
   useEffect(() => {
-    onOverlayChange?.(overlayVisible);
-  }, [onOverlayChange, overlayVisible]);
+    onSageLayerChange?.(layerActive);
+  }, [onSageLayerChange, layerActive]);
 
   useEffect(() => {
     if (!isDesktop || !conversationId || !expanded || skipped) return;
@@ -221,11 +369,12 @@ export function OnboardingAgentPanel({ onOverlayChange }: OnboardingAgentPanelPr
   }, [applyOnboardingState, conversationId, input, loading, sending]);
 
   return (
-    <section aria-label="Onboarding strip" className="hidden lg:block">
+    <section aria-label="Sage window" className={cn("flex h-full min-h-0 w-full min-w-0 flex-col", classNameProp)}>
       <div
-        className={`overflow-hidden rounded-xl border border-orange-200 bg-orange-50/80 transition-all duration-500 dark:border-orange-800 dark:bg-orange-950/30 ${
-          expanded ? "max-h-[560px]" : "max-h-16"
-        }`}
+        className={cn(
+          "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-orange-50/80 transition-all duration-500 dark:bg-orange-950/30 lg:bg-orange-50 dark:lg:bg-zinc-950",
+          expanded ? "lg:max-h-full" : "max-h-16"
+        )}
       >
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2">
@@ -255,10 +404,7 @@ export function OnboardingAgentPanel({ onOverlayChange }: OnboardingAgentPanelPr
             {!loading && ready && !skipped && (
               <button
                 type="button"
-                onClick={() => {
-                  setSkipped(true);
-                  setExpanded(false);
-                }}
+                onClick={skipOnboarding}
                 className="text-xs font-medium text-orange-800 underline-offset-2 hover:underline dark:text-orange-200"
               >
                 Skip onboarding
@@ -292,7 +438,7 @@ export function OnboardingAgentPanel({ onOverlayChange }: OnboardingAgentPanelPr
         {expanded && !loading && !skipped && uiActions && uiActions.length > 0 && (
           <div className="space-y-1.5 border-t border-orange-200/60 bg-orange-50/50 px-4 py-2 dark:border-orange-800/50 dark:bg-orange-950/20">
             <p className="text-xs font-medium text-orange-900 dark:text-orange-200">In the app</p>
-            <ul className="flex flex-col gap-1.5" aria-label="Onboarding UI actions">
+            <ul className="flex flex-col gap-1.5" aria-label="Sage UI actions">
               {uiActions.map((a, i) => {
                 const href = targetToHref(a.target);
                 return (
@@ -317,8 +463,8 @@ export function OnboardingAgentPanel({ onOverlayChange }: OnboardingAgentPanelPr
         )}
 
         {expanded && !loading && !skipped && (
-          <div className="flex max-h-[420px] min-h-[320px] flex-col border-t border-orange-200 bg-white/90 dark:border-orange-900/60 dark:bg-zinc-900/90">
-            <div className="flex-1 space-y-3 overflow-y-auto p-4">
+          <div className="flex min-h-0 flex-1 flex-col border-t border-orange-200 bg-orange-50/95 dark:border-orange-900/50 dark:bg-zinc-950/95">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
               {messages.map((m, i) => (
                 <div
                   key={`${m.role}-${i}`}
@@ -379,4 +525,4 @@ export function OnboardingAgentPanel({ onOverlayChange }: OnboardingAgentPanelPr
       </div>
     </section>
   );
-}
+});

@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ExperienceCaseStudyCard } from "@/components/dashboard/ExperienceCaseStudyCard";
 import { DashboardMobileFab } from "@/components/dashboard/DashboardMobileFab";
-import { OnboardingAgentPanel } from "@/components/dashboard/OnboardingAgentPanel";
 
 interface ExperienceCaseStudy {
   case_id: string;
@@ -23,7 +22,6 @@ function DashboardPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [experienceError, setExperienceError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
-  const [onboardingOverlayVisible, setOnboardingOverlayVisible] = useState(false);
   const [caseStudies, setCaseStudies] = useState<ExperienceCaseStudy[]>([]);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -163,13 +161,7 @@ function DashboardPageContent() {
 
   return (
     <div className="relative min-h-[70vh] space-y-6 pb-24">
-      <OnboardingAgentPanel onOverlayChange={setOnboardingOverlayVisible} />
-
       <div className="relative min-w-0 flex-1 space-y-6">
-        {onboardingOverlayVisible && (
-          <div className="pointer-events-none absolute inset-0 z-10 rounded-xl bg-zinc-900/20 dark:bg-black/40" />
-        )}
-
         <div className="relative z-0 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Experience Canvas</h2>
@@ -216,39 +208,39 @@ function DashboardPageContent() {
             )}
           </div>
         )}
-
-        <div className="pointer-events-none fixed bottom-8 left-1/2 z-40 hidden -translate-x-1/2 lg:block">
-          <Link
-            href="/dashboard/experience/new"
-            className="pointer-events-auto inline-block rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-          >
-            Add New Experiences
-          </Link>
-        </div>
-
-        <DashboardMobileFab href="/dashboard/experience/new" ariaLabel="Add new experience" />
-
-        {toast && (
-          <div
-            className={`fixed top-4 right-4 z-50 rounded-lg px-6 py-4 shadow-lg transition-all ${
-              toast.type === "success" ? "bg-green-500 text-white" : "bg-red-500 text-white"
-            }`}
-            role="alert"
-          >
-            <div className="flex items-center gap-2">
-              <span>{toast.message}</span>
-              <button
-                type="button"
-                onClick={() => setToast(null)}
-                className="ml-2 text-white transition-colors hover:text-gray-200"
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        )}
       </div>
+
+      <div className="pointer-events-none fixed bottom-8 left-1/2 z-40 hidden -translate-x-1/2 lg:block">
+        <Link
+          href="/dashboard/experience/new"
+          className="pointer-events-auto inline-block rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+        >
+          Add New Experiences
+        </Link>
+      </div>
+
+      <DashboardMobileFab href="/dashboard/experience/new" ariaLabel="Add new experience" />
+
+      {toast && (
+        <div
+          className={`fixed top-4 right-4 z-50 rounded-lg px-6 py-4 shadow-lg transition-all ${
+            toast.type === "success" ? "bg-green-500 text-white" : "bg-red-500 text-white"
+          }`}
+          role="alert"
+        >
+          <div className="flex items-center gap-2">
+            <span>{toast.message}</span>
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="ml-2 text-white transition-colors hover:text-gray-200"
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
