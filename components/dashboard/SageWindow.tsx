@@ -14,6 +14,8 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { Loader2, Sparkles } from "lucide-react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import type {
   OnboardingStatusResponse,
@@ -22,6 +24,57 @@ import type {
 } from "@/lib/agent-onboarding-types";
 
 type ChatMessage = { role: "agent" | "user"; text: string };
+
+const SAGE_MARKDOWN_COMPONENTS: Components = {
+  p: ({ children }) => <p className="mb-2.5 last:mb-0 first:mt-0 leading-relaxed">{children}</p>,
+  strong: ({ children }) => <strong className="font-semibold text-zinc-900 dark:text-zinc-100">{children}</strong>,
+  em: ({ children }) => <em className="italic">{children}</em>,
+  ul: ({ children }) => (
+    <ul className="mb-0 mt-2 list-disc space-y-1.5 pl-4 [li]:marker:text-orange-500/80 first:mt-0 last:mb-0">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="mb-0 mt-2 list-decimal space-y-1.5 pl-4 first:mt-0 last:mb-0">{children}</ol>
+  ),
+  li: ({ children }) => (
+    <li className="my-0.5 leading-relaxed [&>p]:mb-0 [&>p]:mt-0 [&>p:only-child]:mb-0">{children}</li>
+  ),
+  a: ({ children, href }) => {
+    if (!href) return <span className="text-inherit">{children}</span>;
+    return (
+      <a
+        href={href}
+        className="font-medium text-orange-800 underline decoration-orange-400 underline-offset-2 hover:text-orange-950 dark:text-orange-200 dark:decoration-orange-600"
+        target={href.startsWith("/") ? undefined : "_blank"}
+        rel={href.startsWith("/") ? undefined : "noreferrer"}
+      >
+        {children}
+      </a>
+    );
+  },
+  code: ({ className, children }) => {
+    const isBlock = Boolean(className?.includes("language-"));
+    if (isBlock) {
+      return <code className={cn("block w-full text-xs", className)}>{children}</code>;
+    }
+    return (
+      <code className="rounded bg-orange-200/50 px-1 py-0.5 text-[0.9em] dark:bg-zinc-800/80">{children}</code>
+    );
+  },
+  pre: ({ children }) => (
+    <pre className="my-2 w-full max-w-full overflow-x-auto rounded-md bg-zinc-900/10 p-2.5 first:mt-0 dark:bg-zinc-950/50">
+      {children}
+    </pre>
+  ),
+  blockquote: ({ children }) => (
+    <blockquote className="my-2 border-l-2 border-orange-300/80 pl-3 text-inherit first:mt-0 dark:border-orange-600/50">
+      {children}
+    </blockquote>
+  ),
+  h1: ({ children }) => <h3 className="mb-1.5 mt-2.5 text-sm font-bold first:mt-0">{children}</h3>,
+  h2: ({ children }) => <h3 className="mb-1.5 mt-2.5 text-sm font-bold first:mt-0">{children}</h3>,
+  h3: ({ children }) => <h3 className="mb-1.5 mt-2 text-sm font-bold first:mt-0">{children}</h3>,
+  hr: () => <hr className="my-3 border-orange-200/50 dark:border-orange-800/50" />,
+};
 
 type OnboardingClientPayload = {
   conversation_id?: string;
@@ -649,11 +702,17 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                   <div
                     className={
                       m.role === "agent"
-                        ? "max-w-[80%] rounded-xl bg-orange-100 px-3 py-2 text-sm text-zinc-900 dark:bg-orange-900/40 dark:text-zinc-100"
+                        ? "sage-reply-md max-w-[80%] rounded-xl bg-orange-100 px-3 py-2 text-sm text-zinc-900 dark:bg-orange-900/40 dark:text-zinc-100 [&_ul]:mt-1.5"
                         : "max-w-[80%] rounded-xl bg-zinc-200 px-3 py-2 text-sm text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100"
                     }
                   >
-                    {m.text}
+                    {m.role === "agent" ? (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={SAGE_MARKDOWN_COMPONENTS}>
+                        {m.text}
+                      </ReactMarkdown>
+                    ) : (
+                      <span className="whitespace-pre-wrap break-words">{m.text}</span>
+                    )}
                   </div>
                 </div>
               ))}
