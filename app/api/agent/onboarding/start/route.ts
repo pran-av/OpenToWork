@@ -8,7 +8,7 @@ export type { OnboardingStartResponse };
 
 /**
  * POST /api/agent/onboarding/start
- * Proxies POST /api/v1/onboarding/start (api_contracts/agent-serviceapi-v0.2.1.md).
+ * Proxies POST /api/v1/onboarding/start (api_contracts/agent-serviceapi-v0.2.2.md).
  */
 export async function POST(request: NextRequest) {
   try {

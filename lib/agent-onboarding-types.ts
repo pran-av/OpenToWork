@@ -1,6 +1,6 @@
 /**
- * Onboarding response shapes (Agent Service v0.2.1).
- * @see api_contracts/agent-serviceapi-v0.2.1.md
+ * Onboarding response shapes (Agent Service v0.2.2).
+ * @see api_contracts/agent-serviceapi-v0.2.2.md
  */
 
 export type OnboardingUiAction = {
@@ -9,9 +9,15 @@ export type OnboardingUiAction = {
   tooltip: string;
 };
 
+/** Set when the agent service could or could not read `public.users` (Supabase) for the session. */
+export type PublicUsersReadStatus = {
+  ok: boolean;
+  error?: string;
+};
+
 export type OnboardingStartResponse = {
   conversation_id: string;
-  /** Primary copy; duplicated in `message` (v0.2.1 UI protocol). */
+  /** Primary copy; duplicated in `message` (UI protocol). */
   agent_message?: string;
   message?: string;
   status: string;
@@ -22,6 +28,7 @@ export type OnboardingStartResponse = {
   progress_percent?: number;
   ui_actions?: OnboardingUiAction[] | null;
   step_id?: string | null;
+  public_users_read?: PublicUsersReadStatus | null;
 };
 
 export type OnboardingMessageResponse = {
@@ -37,6 +44,7 @@ export type OnboardingMessageResponse = {
   profile_created?: boolean | null;
   ui_actions?: OnboardingUiAction[] | null;
   step_id?: string | null;
+  public_users_read?: PublicUsersReadStatus | null;
 };
 
 export type OnboardingStatusResponse = {
@@ -50,4 +58,5 @@ export type OnboardingStatusResponse = {
   progress_percent?: number;
   ui_actions?: OnboardingUiAction[] | null;
   step_id?: string | null;
+  public_users_read?: PublicUsersReadStatus | null;
 };

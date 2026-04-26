@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Loader2, Sparkles } from "lucide-react";
-import type { OnboardingStatusResponse, OnboardingUiAction } from "@/lib/agent-onboarding-types";
+import type {
+  OnboardingStatusResponse,
+  OnboardingUiAction,
+  PublicUsersReadStatus,
+} from "@/lib/agent-onboarding-types";
 
 type ChatMessage = { role: "agent" | "user"; text: string };
 
@@ -20,6 +24,7 @@ type OnboardingClientPayload = {
   profile_created?: boolean | null;
   ui_actions?: OnboardingUiAction[] | null;
   step_id?: string | null;
+  public_users_read?: PublicUsersReadStatus | null;
 };
 
 function getPrimaryAgentText(data: { agent_message?: string; message?: string }): string {
@@ -28,8 +33,9 @@ function getPrimaryAgentText(data: { agent_message?: string; message?: string })
   return "";
 }
 
-/** v0.2.1 server target IDs -> in-app routes (extend as product adds spotlight IDs). */
+/** v0.2.2 server target IDs -> in-app routes (see api_contracts/agent-serviceapi-v0.2.2.md). */
 const ONBOARDING_TARGET_HREF: Record<string, string> = {
+  "profile.user_first_name.edit_cta": "/dashboard/profile#first_name",
   "profile.resume.upload_cta": "/dashboard/profile#resumes",
   "profile.linkedin.connect_cta": "/dashboard/profile",
   "nav.campaigns_dashboard": "/dashboard/projects",
@@ -75,6 +81,7 @@ export function OnboardingAgentPanel({ onOverlayChange }: OnboardingAgentPanelPr
   const [input, setInput] = useState("");
   const [uiActions, setUiActions] = useState<OnboardingUiAction[] | null>(null);
   const [stepId, setStepId] = useState<string | null>(null);
+  const [publicUsersRead, setPublicUsersRead] = useState<PublicUsersReadStatus | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const applyOnboardingState = useCallback((data: OnboardingClientPayload, keepMessages: boolean) => {
@@ -84,6 +91,9 @@ export function OnboardingAgentPanel({ onOverlayChange }: OnboardingAgentPanelPr
     setProgressPercent(Math.max(0, Math.min(100, data.progress_percent ?? 0)));
     setUiActions(data.ui_actions ?? null);
     setStepId(data.step_id ?? null);
+    if (data.public_users_read !== undefined) {
+      setPublicUsersRead(data.public_users_read);
+    }
     if (!keepMessages) {
       const text = getPrimaryAgentText(data);
       if (text) setMessages([{ role: "agent", text }]);
@@ -96,6 +106,7 @@ export function OnboardingAgentPanel({ onOverlayChange }: OnboardingAgentPanelPr
     setExpanded(false);
     setError(null);
     setInput("");
+    setPublicUsersRead(null);
     try {
       const res = await fetch("/api/agent/onboarding/start", {
         method: "POST",
@@ -158,6 +169,9 @@ export function OnboardingAgentPanel({ onOverlayChange }: OnboardingAgentPanelPr
         setProgressPercent(Math.max(0, Math.min(100, data.progress_percent ?? 0)));
         setUiActions(data.ui_actions ?? null);
         setStepId(data.step_id ?? null);
+        if (data.public_users_read !== undefined) {
+          setPublicUsersRead(data.public_users_read);
+        }
       } catch {
         // ignore background sync errors
       }
@@ -259,6 +273,21 @@ export function OnboardingAgentPanel({ onOverlayChange }: OnboardingAgentPanelPr
           {nextStep ? <span className="ml-2">Next: {nextStep}</span> : null}
           {stepId ? <span className="ml-2 font-mono text-[0.7rem] opacity-80">Step: {stepId}</span> : null}
         </div>
+
+        {expanded && !loading && !skipped && publicUsersRead && publicUsersRead.ok === false && (
+          <div
+            className="border-t border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+            role="status"
+          >
+            <p className="font-medium">We couldn’t load your account profile for this step.</p>
+            {publicUsersRead.error ? (
+              <p className="mt-1 text-amber-900/90 dark:text-amber-200/90">{publicUsersRead.error}</p>
+            ) : null}
+            <p className="mt-1 text-amber-900/80 dark:text-amber-200/80">
+              Open Profile or use the in-app links below to continue.
+            </p>
+          </div>
+        )}
 
         {expanded && !loading && !skipped && uiActions && uiActions.length > 0 && (
           <div className="space-y-1.5 border-t border-orange-200/60 bg-orange-50/50 px-4 py-2 dark:border-orange-800/50 dark:bg-orange-950/20">

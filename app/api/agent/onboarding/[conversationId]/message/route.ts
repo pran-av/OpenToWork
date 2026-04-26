@@ -8,7 +8,7 @@ export type { OnboardingMessageResponse };
 
 /**
  * POST /api/agent/onboarding/[conversationId]/message
- * Proxies POST /api/v1/onboarding/{conversation_id}/message (v0.2.1).
+ * Proxies POST /api/v1/onboarding/{conversation_id}/message (v0.2.2).
  */
 export async function POST(
   request: NextRequest,

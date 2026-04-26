@@ -8,7 +8,7 @@ export type { OnboardingStatusResponse };
 
 /**
  * GET /api/agent/onboarding/[conversationId]/status
- * Proxies GET /api/v1/onboarding/{conversation_id}/status (v0.2.1).
+ * Proxies GET /api/v1/onboarding/{conversation_id}/status (v0.2.2).
  */
 export async function GET(
   _request: Request,
