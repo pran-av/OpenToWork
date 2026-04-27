@@ -107,6 +107,13 @@ const ONBOARDING_TARGET_HREF: Record<string, string> = {
   "nav.campaigns_dashboard": "/dashboard/projects",
 };
 
+const ONBOARDING_TARGET_DEFAULT_LABEL: Record<string, string> = {
+  "profile.user_first_name.edit_cta": "Sync your preferred first name in profile.",
+  "profile.resume.upload_cta": "Upload your resume in profile.",
+  "profile.linkedin.connect_cta": "Finish your LinkedIn connection in profile settings.",
+  "nav.campaigns_dashboard": "Open Campaigns to build pitches from your experiences.",
+};
+
 function targetToHref(target: string): string | null {
   return ONBOARDING_TARGET_HREF[target] ?? null;
 }
@@ -142,6 +149,18 @@ function uiActionDisplayLabel(tooltip: string): string {
     .replace(/^\s*Client:\s*/i, "")
     .replace(/^\s*Internal:\s*/i, "")
     .trim();
+}
+
+function defaultLabelForTarget(target: string): string {
+  return ONBOARDING_TARGET_DEFAULT_LABEL[target] ?? "Complete this onboarding step.";
+}
+
+/** Appends a deterministic highlight hint so destination screens can emphasize the target section. */
+function taskCtaHref(baseHref: string, target: string): string {
+  const [pathWithQuery, hash = ""] = baseHref.split("#");
+  const sep = pathWithQuery.includes("?") ? "&" : "?";
+  const withHint = `${pathWithQuery}${sep}sage_highlight=${encodeURIComponent(target)}`;
+  return hash ? `${withHint}#${hash}` : withHint;
 }
 
 /** Short hub line — never the full intro paragraph. */
@@ -206,6 +225,7 @@ type SagePersistedSession = {
   /** `flow_type` from agent (e.g. `onboarding`); when absent, UI defaults to "Onboarding". */
   flowType?: string | null;
   completedSteps?: string[];
+  todoByTarget?: Record<string, { label: string; order: number }>;
 };
 
 export interface SageWindowProps {
@@ -230,6 +250,7 @@ export type SageWindowHandle = {
 const BANNER_GAP_BELOW_HEADER_PX = 8;
 /** Reserves the typical band used by `fixed top-4` toasts (see dashboard pages) so the Sage banner does not sit under them. */
 const TOAST_STACK_RESERVE_PX = 72;
+const TODO_COLLAPSE_ITEM_LIMIT = 3;
 
 export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function SageWindow(
   { onSageLayerChange, onRightRailChange, className: classNameProp, headerOffsetPx },
@@ -254,6 +275,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const [publicUsersRead, setPublicUsersRead] = useState<PublicUsersReadStatus | null>(null);
   const [flowType, setFlowType] = useState<string | null>(null);
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
+  const [todoExpanded, setTodoExpanded] = useState(false);
+  const [todoByTarget, setTodoByTarget] = useState<Record<string, { label: string; order: number }>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
   const startOnboardingInFlight = useRef(false);
   const startOnboardingRef = useRef<() => Promise<void>>(async () => {});
@@ -315,6 +338,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       setPublicUsersRead(null);
       setFlowType(null);
       setCompletedSteps([]);
+      setTodoByTarget({});
       try {
         const res = await fetch("/api/agent/onboarding/start", {
           method: "POST",
@@ -385,6 +409,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             setSkipped(snap.skipped);
             setFlowType(snap.flowType ?? null);
             setCompletedSteps(snap.completedSteps ?? []);
+            setTodoByTarget(snap.todoByTarget ?? {});
             setError(null);
             setInput("");
             setLoading(false);
@@ -425,6 +450,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       skipped,
       flowType,
       completedSteps,
+      todoByTarget,
     };
     try {
       sessionStorage.setItem(SAGE_SESSION_KEY, JSON.stringify(snap));
@@ -446,6 +472,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     skipped,
     flowType,
     completedSteps,
+    todoByTarget,
   ]);
 
   useEffect(() => {
@@ -510,6 +537,75 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     setSkipped(false);
     setExpanded(true);
   }, []);
+
+  const todoItems = useMemo(
+    () => {
+      const allTargets = new Set<string>(Object.keys(todoByTarget));
+      for (const a of uiActions ?? []) allTargets.add(a.target);
+      for (const [target, step] of Object.entries(ONBOARDING_TARGET_TO_COMPLETION_STEP)) {
+        if (completedSteps.includes(step)) allTargets.add(target);
+      }
+
+      return Array.from(allTargets).map((target) => {
+        const fromAgent = (uiActions ?? []).find((a) => a.target === target);
+        const history = todoByTarget[target];
+        const label = fromAgent
+          ? uiActionDisplayLabel(fromAgent.tooltip)
+          : history?.label ?? defaultLabelForTarget(target);
+        const order = history?.order ?? (fromAgent ? Number.MAX_SAFE_INTEGER : 0);
+        const done = isUiActionComplete(target, completedSteps, status);
+        return {
+          key: target,
+          href: targetToHref(target),
+          done,
+          label,
+          target,
+          order,
+        };
+      });
+    },
+    [completedSteps, status, todoByTarget, uiActions]
+  );
+
+  const orderedTodoItems = useMemo(
+    () =>
+      [...todoItems].sort((a, b) => {
+        // Pending first, completed below. Within each group, latest first.
+        if (a.done !== b.done) return a.done ? 1 : -1;
+        return b.order - a.order;
+      }),
+    [todoItems]
+  );
+
+  useEffect(() => {
+    if (!uiActions || uiActions.length === 0) return;
+    setTodoByTarget((prev) => {
+      const next = { ...prev };
+      uiActions.forEach((a, i) => {
+        next[a.target] = {
+          label: uiActionDisplayLabel(a.tooltip),
+          order: Date.now() + i,
+        };
+      });
+      return next;
+    });
+  }, [uiActions]);
+
+  const shouldCollapseTodo = useMemo(
+    () =>
+      orderedTodoItems.length > TODO_COLLAPSE_ITEM_LIMIT ||
+      orderedTodoItems.some((item) => item.label.length > 110),
+    [orderedTodoItems]
+  );
+
+  const visibleTodoItems = useMemo(() => {
+    if (!shouldCollapseTodo || todoExpanded) return orderedTodoItems;
+    return orderedTodoItems.slice(0, TODO_COLLAPSE_ITEM_LIMIT);
+  }, [shouldCollapseTodo, todoExpanded, orderedTodoItems]);
+
+  useEffect(() => {
+    setTodoExpanded(false);
+  }, [conversationId, uiActions]);
 
   const showDesktopLoadingBanner = loading && isDesktop;
   const pausedHubDesktop = skipped && isDesktop && !loading;
@@ -707,57 +803,80 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           </div>
         )}
 
-        {expanded && !loading && !skipped && uiActions && uiActions.length > 0 && (
+        {expanded && !loading && !skipped && orderedTodoItems.length > 0 && (
           <div className="space-y-2 border-t border-orange-200/60 bg-orange-50/50 px-4 py-2.5 dark:border-orange-800/50 dark:bg-orange-950/20">
-            <p className="text-xs font-medium text-orange-900 dark:text-orange-200">In the app</p>
-            <ul className="flex flex-col gap-2" role="list" aria-label="Onboarding checklist">
-              {uiActions.map((a, i) => {
-                const href = targetToHref(a.target);
-                const done = isUiActionComplete(a.target, completedSteps, status);
-                const label = uiActionDisplayLabel(a.tooltip);
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-orange-900 dark:text-orange-200">Your To Do List</p>
+              {shouldCollapseTodo ? (
+                <button
+                  type="button"
+                  onClick={() => setTodoExpanded((prev) => !prev)}
+                  className="text-[11px] font-medium text-orange-800 underline decoration-orange-300 underline-offset-2 hover:text-orange-950 dark:text-orange-200 dark:decoration-orange-700"
+                  aria-expanded={todoExpanded}
+                  aria-controls="sage-todo-list"
+                >
+                  {todoExpanded ? "Collapse" : `Expand (${orderedTodoItems.length})`}
+                </button>
+              ) : null}
+            </div>
+            <ul className="flex flex-col gap-2" role="list" aria-label="Onboarding to do list" id="sage-todo-list">
+              {visibleTodoItems.map((item) => {
                 return (
-                  <li key={`${a.target}-${i}`} className="flex min-w-0 items-start gap-2">
+                  <li key={item.key} className="flex min-w-0 items-center gap-2">
                     <span
-                      className="mt-0.5 shrink-0"
+                      className="shrink-0 self-center"
                       aria-hidden
-                      title={onboardingStepForUiTarget(a.target) ? undefined : a.target}
+                      title={onboardingStepForUiTarget(item.target) ? undefined : item.target}
                     >
-                      {done ? (
+                      {item.done ? (
                         <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500" strokeWidth={2.5} />
                       ) : (
                         <Circle className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" strokeWidth={2} />
                       )}
                     </span>
                     <div className="min-w-0 flex-1">
-                      {href ? (
-                        <Link
-                          href={href}
-                          className={cn(
-                            "text-xs leading-snug",
-                            done
-                              ? "text-zinc-500 underline decoration-zinc-300/60 underline-offset-2 hover:text-zinc-600 dark:text-zinc-400 dark:decoration-zinc-500"
-                              : "font-medium text-orange-900 underline decoration-orange-300/80 underline-offset-2 hover:text-orange-950 dark:text-orange-100 dark:decoration-orange-600"
-                          )}
-                          aria-label={`${done ? "Completed" : "To do"}: ${label}`}
-                        >
-                          {label}
-                        </Link>
-                      ) : (
+                      <div className="flex min-w-0 items-center justify-between gap-2">
                         <span
                           className={cn(
-                            "text-xs leading-snug",
-                            done ? "text-zinc-500 line-through dark:text-zinc-400" : "text-orange-800 dark:text-orange-200/90"
+                            "min-w-0 text-xs leading-snug",
+                            item.done ? "text-emerald-700 line-through dark:text-emerald-400" : "text-orange-800 dark:text-orange-200/90"
                           )}
-                          title={a.target}
+                          title={item.target}
                         >
-                          {label}
+                          {item.label}
                         </span>
-                      )}
+                        {item.done ? (
+                          <span className="shrink-0 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 dark:border-emerald-700/70 dark:bg-emerald-900/30 dark:text-emerald-300">
+                            Completed
+                          </span>
+                        ) : item.href ? (
+                          <Link
+                            href={taskCtaHref(item.href, item.target)}
+                            className={cn(
+                              "shrink-0 rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors",
+                              "border-orange-300 bg-orange-100 text-orange-900 hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/40 dark:text-orange-100"
+                            )}
+                            aria-label={`Complete task: ${item.label}`}
+                          >
+                            Complete Task
+                          </Link>
+                        ) : (
+                          <span className="shrink-0 rounded-md border border-zinc-300 px-2 py-1 text-[11px] text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                            Complete Task
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </li>
                 );
               })}
             </ul>
+            {!todoExpanded && shouldCollapseTodo ? (
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                {orderedTodoItems.length - visibleTodoItems.length} more item
+                {orderedTodoItems.length - visibleTodoItems.length === 1 ? "" : "s"} hidden
+              </p>
+            ) : null}
           </div>
         )}
 
