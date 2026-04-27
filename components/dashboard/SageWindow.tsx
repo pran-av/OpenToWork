@@ -12,7 +12,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Check, Circle, Loader2, Sparkles } from "lucide-react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -206,6 +206,7 @@ function getDetailMessage(data: unknown): string {
 }
 
 const SAGE_SESSION_KEY = "opentowork-sage-onboarding-v1";
+const SAGE_TASK_NAV_CONTEXT_KEY = "opentowork-sage-task-nav-v1";
 
 /** Persists the Sage client state so theme toggles and remounts do not start a new conversation. */
 type SagePersistedSession = {
@@ -244,6 +245,8 @@ export interface SageWindowProps {
 export type SageWindowHandle = {
   /** Same as the in-panel “Skip onboarding” control (pauses and collapses the thread UI). */
   skip: () => void;
+  /** Re-opens the Sage thread panel after a deferred task action. */
+  resume: () => void;
 };
 
 /** Pixels under the header before the banner (breathing room). */
@@ -256,6 +259,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   { onSageLayerChange, onRightRailChange, className: classNameProp, headerOffsetPx },
   ref
 ) {
+  const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -317,6 +321,10 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     ref,
     () => ({
       skip: skipOnboarding,
+      resume: () => {
+        setSkipped(false);
+        setExpanded(true);
+      },
     }),
     [skipOnboarding]
   );
@@ -604,6 +612,14 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   }, [shouldCollapseTodo, todoExpanded, orderedTodoItems]);
 
   useEffect(() => {
+    // Prefetch likely destinations for smoother navigation from "Complete Task" CTAs.
+    for (const item of orderedTodoItems) {
+      if (!item.href || item.done) continue;
+      void router.prefetch(taskCtaHref(item.href, item.target));
+    }
+  }, [orderedTodoItems, router]);
+
+  useEffect(() => {
     setTodoExpanded(false);
   }, [conversationId, uiActions]);
 
@@ -644,6 +660,28 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       setSending(false);
     }
   }, [applyOnboardingState, conversationId, input, loading, sending]);
+
+  const handleTodoCtaClick = useCallback(
+    (item: { href: string; target: string; label: string }) => {
+      try {
+        sessionStorage.setItem(
+          SAGE_TASK_NAV_CONTEXT_KEY,
+          JSON.stringify({
+            target: item.target,
+            tooltip: item.label,
+            createdAt: Date.now(),
+          })
+        );
+      } catch {
+        // ignore storage failures
+      }
+      // Collapse Sage so the destination page is fully visible for task completion.
+      setSkipped(true);
+      setExpanded(false);
+      router.push(taskCtaHref(item.href, item.target), { scroll: false });
+    },
+    [router]
+  );
 
   return (
     <section
@@ -775,7 +813,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                 onClick={skipOnboarding}
                 className="text-xs font-medium text-orange-800 underline-offset-2 hover:underline dark:text-orange-200"
               >
-                Skip onboarding
+                Collapse window
               </button>
             )}
           </div>
@@ -850,8 +888,17 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                             Completed
                           </span>
                         ) : item.href ? (
-                          <Link
-                            href={taskCtaHref(item.href, item.target)}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const href = item.href;
+                              if (!href) return;
+                              handleTodoCtaClick({
+                                href,
+                                target: item.target,
+                                label: item.label,
+                              });
+                            }}
                             className={cn(
                               "shrink-0 rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors",
                               "border-orange-300 bg-orange-100 text-orange-900 hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/40 dark:text-orange-100"
@@ -859,7 +906,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                             aria-label={`Complete task: ${item.label}`}
                           >
                             Complete Task
-                          </Link>
+                          </button>
                         ) : (
                           <span className="shrink-0 rounded-md border border-zinc-300 px-2 py-1 text-[11px] text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
                             Complete Task

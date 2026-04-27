@@ -185,7 +185,7 @@ export default function DashboardProjectsPage() {
   }
 
   return (
-    <div className="space-y-6 pb-24 lg:pb-0">
+    <div id="projects-root" className="space-y-6 pb-24 lg:pb-0 scroll-mt-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Projects</h2>

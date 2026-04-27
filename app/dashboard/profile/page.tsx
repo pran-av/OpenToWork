@@ -447,7 +447,10 @@ export default function ProfilePage() {
 
       {/* LinkedIn Connection Section */}
       {!isLinkedInLinked && (
-        <div className="rounded-lg border border-orange-200 bg-orange-50/50 p-6 dark:border-orange-900/30 dark:bg-zinc-900/50">
+        <div
+          id="linkedin-connect"
+          className="rounded-lg border border-orange-200 bg-orange-50/50 p-6 dark:border-orange-900/30 dark:bg-zinc-900/50 scroll-mt-4"
+        >
           <h3 className="text-lg font-medium text-gray-900 dark:text-zinc-100 mb-2">Connect LinkedIn</h3>
           <p className="text-sm text-gray-600 dark:text-zinc-400 mb-4">
             Connect your LinkedIn account to automatically import your profile picture and other information.
