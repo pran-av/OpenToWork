@@ -488,15 +488,13 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     return () => clearInterval(t);
   }, [isDesktop, conversationId, expanded, skipped]);
 
-  const progressLabel = useMemo(() => {
-    if (!ready) return "Preparing onboarding";
-    if (status === "completed") return "Onboarding complete";
-    if (currentStep) return `Current: ${currentStep}`;
-    if (nextStep) return `Next: ${nextStep}`;
-    return "Onboarding in progress";
-  }, [currentStep, nextStep, ready, status]);
-
   const flowLabel = formatFlowTypeLabel(flowType);
+
+  const progressLabel = useMemo(() => {
+    if (!ready) return `Preparing ${flowLabel.toLowerCase()}`;
+    if (status === "completed") return `${flowLabel} complete`;
+    return flowLabel;
+  }, [flowLabel, ready, status]);
 
   const sageHubPendingLine = useMemo(() => {
     if (currentStep) return `Finish: ${flowLabel}`;
@@ -661,7 +659,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               {loading
                 ? "Sage is fetching your details to personalize onboarding..."
                 : skipped
-                  ? "Onboarding paused. Restart when you're ready."
+                  ? `${flowLabel} paused. Restart when you're ready.`
                   : progressLabel}
             </p>
           </div>

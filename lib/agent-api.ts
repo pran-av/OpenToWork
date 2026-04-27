@@ -9,6 +9,9 @@ const getBaseUrl = (): string => {
   if (typeof process.env.PLT_SERVER_BASE_URL === "string" && process.env.PLT_SERVER_BASE_URL) {
     return process.env.PLT_SERVER_BASE_URL.replace(/\/$/, "");
   }
+  console.error(
+    "[agent-api] PLT_SERVER_BASE_URL is not set; falling back to http://localhost:8000"
+  );
   return "http://localhost:8000";
 };
 
