@@ -952,6 +952,16 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                   </div>
                 </div>
               ))}
+              {sending ? (
+                <div className="flex justify-start" aria-live="polite" aria-label="Sage is replying">
+                  <div className="sage-reply-md max-w-[80%] rounded-xl bg-orange-100 px-3 py-2 text-sm text-zinc-900 dark:bg-orange-900/40 dark:text-zinc-100">
+                    <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                      <span>Sage is replying...</span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               <div ref={bottomRef} />
             </div>
 
