@@ -532,6 +532,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   }, [flowLabel, ready, status]);
 
   const sageHubPendingLine = useMemo(() => {
+    if (status === "completed") return "Hi, I am Sage! Let me know if you need help.";
     if (currentStep) return `Finish: ${flowLabel}`;
     if (nextStep) return `Up next: ${flowLabel}`;
     if (status && status !== "completed") return `${flowLabel}: ${status}`;
@@ -625,6 +626,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
   const showDesktopLoadingBanner = loading && isDesktop;
   const pausedHubDesktop = skipped && isDesktop && !loading;
+  const showPausedHubAttention = status === "active";
 
   useLayoutEffect(() => {
     onRightRailChange?.(!pausedHubDesktop);
@@ -696,28 +698,32 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         pausedHubDesktop &&
         createPortal(
           <div className="pointer-events-none max-lg:hidden">
-            <div className="pointer-events-auto fixed bottom-5 right-5 z-[44] flex max-w-[min(20rem,calc(100vw-2.5rem))] flex-col items-end gap-2 max-lg:hidden">
+            <div className="pointer-events-auto fixed bottom-5 right-5 z-[44] flex w-[13.5rem] flex-col items-center gap-2 max-lg:hidden">
               <div
                 role="status"
                 className="w-full max-w-full rounded-lg border border-zinc-200/90 bg-white px-2.5 py-1.5 text-left shadow-md ring-1 ring-black/5 dark:border-zinc-600 dark:bg-zinc-900 dark:ring-white/10"
               >
                 <p
                   id="sage-hub-pending-line"
-                  className="truncate text-xs font-medium leading-snug text-zinc-700 dark:text-zinc-200"
+                  className="text-center text-xs font-medium leading-snug text-zinc-700 dark:text-zinc-200"
                   title={sageHubPendingLine}
                 >
                   {sageHubPendingLine}
                 </p>
               </div>
               <div className="relative h-[4.5rem] w-[4.5rem] overflow-visible">
-                <span
-                  className="absolute inset-0 -m-1 rounded-full bg-amber-400/40 blur-[3px] motion-safe:animate-pulse"
-                  aria-hidden
-                />
-                <span
-                  className="absolute inset-0 rounded-full border-2 border-amber-400/50 motion-safe:animate-ping"
-                  aria-hidden
-                />
+                {showPausedHubAttention ? (
+                  <>
+                    <span
+                      className="absolute inset-0 -m-1 rounded-full bg-amber-400/40 blur-[3px] motion-safe:animate-pulse"
+                      aria-hidden
+                    />
+                    <span
+                      className="absolute inset-0 rounded-full border-2 border-amber-400/50 motion-safe:animate-ping"
+                      aria-hidden
+                    />
+                  </>
+                ) : null}
                 <button
                   type="button"
                   onClick={resumeSageFromPausedHub}
