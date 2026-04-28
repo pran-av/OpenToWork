@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
 
 interface ProfileData {
   user_first_name: string | null;
@@ -20,9 +18,13 @@ interface ResumeItem {
   created_at: string;
 }
 
+interface AgentProfileData {
+  experience_summary: string | null;
+  goals_summary: string | null;
+}
+
 
 export default function ProfilePage() {
-  const router = useRouter();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -40,6 +42,8 @@ export default function ProfilePage() {
   const [uploadName, setUploadName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [agentProfile, setAgentProfile] = useState<AgentProfileData | null>(null);
+  const [agentProfileLoading, setAgentProfileLoading] = useState(true);
 
   const fetchResumes = useCallback(async () => {
     try {
@@ -58,6 +62,7 @@ export default function ProfilePage() {
     fetchProfile();
     checkLinkedInStatus();
     fetchResumes();
+    fetchAgentProfile();
   }, [fetchResumes]);
 
   // Refresh profile when returning from LinkedIn OAuth (check URL params)
@@ -94,6 +99,25 @@ export default function ProfilePage() {
       setTimeout(() => setToast(null), 5000);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchAgentProfile = async () => {
+    try {
+      const res = await fetch("/api/agent/profiles/me");
+      const data = (await res.json()) as Partial<AgentProfileData> & { error?: string };
+      if (res.ok) {
+        setAgentProfile({
+          experience_summary: typeof data.experience_summary === "string" ? data.experience_summary : null,
+          goals_summary: typeof data.goals_summary === "string" ? data.goals_summary : null,
+        });
+      } else {
+        setAgentProfile(null);
+      }
+    } catch {
+      setAgentProfile(null);
+    } finally {
+      setAgentProfileLoading(false);
     }
   };
 
@@ -269,36 +293,41 @@ export default function ProfilePage() {
         </p>
       </div>
 
-      {/* Profile Avatar Section */}
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-zinc-100 mb-4">Profile Picture</h3>
-        <div className="flex items-center gap-4">
-          {profile?.avatar_url ? (
-            <div className="relative h-24 w-24 rounded-full overflow-hidden border-2 border-orange-200 dark:border-orange-800">
-              <Image
-                src={profile.avatar_url}
-                alt="Profile"
-                fill
-                sizes="128px"
-                className="object-cover"
-              />
-            </div>
-          ) : (
-            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-orange-100 text-2xl font-semibold text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
-              {profile?.display_name?.[0]?.toUpperCase() || 
-               formData.first_name?.[0]?.toUpperCase() || 
-               formData.last_name?.[0]?.toUpperCase() || 
-               "?"}
-            </div>
-          )}
-          <div className="flex-1">
-            <p className="text-sm text-gray-600 dark:text-zinc-400">
-              {profile?.avatar_url 
-                ? "Profile picture imported from LinkedIn" 
-                : "Connect LinkedIn to import your profile picture"}
-            </p>
-          </div>
+      {/* LinkedIn Connection Section (placed first, replacing Profile Picture card) */}
+      {!isLinkedInLinked && (
+        <div
+          id="linkedin-connect"
+          className="rounded-lg border border-orange-200 bg-orange-50/50 p-6 dark:border-orange-900/30 dark:bg-zinc-900/50 scroll-mt-4"
+        >
+          <h3 className="text-lg font-medium text-gray-900 dark:text-zinc-100 mb-2">Connect LinkedIn</h3>
+          <p className="text-sm text-gray-600 dark:text-zinc-400 mb-4">
+            Connect your LinkedIn account to automatically import your profile picture and other information.
+          </p>
+          <button
+            onClick={handleLinkLinkedIn}
+            className="rounded-md bg-[#0077b5] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#006399] focus:outline-none focus:ring-2 focus:ring-[#0077b5] focus:ring-offset-2"
+          >
+            Connect LinkedIn
+          </button>
         </div>
+      )}
+
+      <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-zinc-100 mb-2">Experience Summary</h3>
+        <p className="text-sm text-gray-600 dark:text-zinc-400">
+          {agentProfileLoading
+            ? "Loading your experience summary..."
+            : agentProfile?.experience_summary?.trim() || "No experience summary available yet."}
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-zinc-100 mb-2">Goals</h3>
+        <p className="text-sm text-gray-600 dark:text-zinc-400">
+          {agentProfileLoading
+            ? "Loading your goals..."
+            : agentProfile?.goals_summary?.trim() || "No goals summary available yet."}
+        </p>
       </div>
 
       {/* Profile Form Section */}
@@ -444,25 +473,6 @@ export default function ProfilePage() {
           </>
         )}
       </div>
-
-      {/* LinkedIn Connection Section */}
-      {!isLinkedInLinked && (
-        <div
-          id="linkedin-connect"
-          className="rounded-lg border border-orange-200 bg-orange-50/50 p-6 dark:border-orange-900/30 dark:bg-zinc-900/50 scroll-mt-4"
-        >
-          <h3 className="text-lg font-medium text-gray-900 dark:text-zinc-100 mb-2">Connect LinkedIn</h3>
-          <p className="text-sm text-gray-600 dark:text-zinc-400 mb-4">
-            Connect your LinkedIn account to automatically import your profile picture and other information.
-          </p>
-          <button
-            onClick={handleLinkLinkedIn}
-            className="rounded-md bg-[#0077b5] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#006399] focus:outline-none focus:ring-2 focus:ring-[#0077b5] focus:ring-offset-2"
-          >
-            Connect LinkedIn
-          </button>
-        </div>
-      )}
 
       {/* Toast Notification */}
       {toast && (
