@@ -19,6 +19,14 @@ type DashboardSageFrameProps = {
   headerOffsetPx: number;
 };
 
+type SageTaskNavContext = {
+  target?: string;
+  tooltip?: string;
+  createdAt?: number;
+  conversationId?: string | null;
+  stepId?: string | null;
+};
+
 /**
  * Mounts the fixed Sage window on the Studio shell (all /dashboard/* routes) so the
  * conversation and API state survive client navigations. When the “layer” is active, the
@@ -32,6 +40,9 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
     message: "",
     target: null,
   });
+  const [sageTaskContext, setSageTaskContext] = useState<SageTaskNavContext | null>(null);
+  const [acknowledging, setAcknowledging] = useState(false);
+  const [ackError, setAckError] = useState<string | null>(null);
   const [sageTaskDialogPos, setSageTaskDialogPos] = useState<{ top: number; left: number } | null>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -88,10 +99,12 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
     try {
       const raw = sessionStorage.getItem(SAGE_TASK_NAV_CONTEXT_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw) as { target?: string; tooltip?: string; createdAt?: number };
+        const parsed = JSON.parse(raw) as SageTaskNavContext;
         if (parsed.target === target && typeof parsed.tooltip === "string" && parsed.tooltip.trim().length > 0) {
           window.setTimeout(() => {
             setSageTaskDialog({ open: true, message: parsed.tooltip.trim(), target });
+            setSageTaskContext(parsed);
+            setAckError(null);
           }, 0);
         }
       }
@@ -265,28 +278,97 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
                 <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Sage tip</h2>
                 <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{sageTaskDialog.message}</p>
                 <div className="mt-4 flex flex-wrap justify-end gap-2">
+                  {ackError ? (
+                    <p className="w-full text-xs text-red-600 dark:text-red-400">{ackError}</p>
+                  ) : null}
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
+                      if (acknowledging) return;
+                      if (sageTaskContext?.conversationId && sageTaskContext?.target && sageTaskContext?.stepId) {
+                        setAcknowledging(true);
+                        setAckError(null);
+                        try {
+                          const res = await fetch(
+                            `/api/agent/onboarding/${sageTaskContext.conversationId}/ui-actions/complete`,
+                            {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                target: sageTaskContext.target,
+                                step_id: sageTaskContext.stepId,
+                                completed: true,
+                                metadata: { source: "client", ack: "later" },
+                              }),
+                            }
+                          );
+                          if (!res.ok) {
+                            const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
+                            setAckError(data.error || data.detail || "Failed to update action status");
+                            return;
+                          }
+                          window.dispatchEvent(new CustomEvent("sage-ui-action-acknowledged"));
+                        } catch {
+                          setAckError("Failed to update action status");
+                          return;
+                        } finally {
+                          setAcknowledging(false);
+                        }
+                      }
                       clearSageHighlight();
                       setActiveHighlightTarget(null);
                       setSageTaskDialog({ open: false, message: "", target: null });
+                      setSageTaskContext(null);
                       setSageTaskDialogPos(null);
                       setSageRightRailOpen(true);
                       sageRef.current?.resume();
                     }}
+                    disabled={acknowledging}
                     className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                   >
                     I&apos;ll do it later
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
+                      if (acknowledging) return;
+                      if (sageTaskContext?.conversationId && sageTaskContext?.target && sageTaskContext?.stepId) {
+                        setAcknowledging(true);
+                        setAckError(null);
+                        try {
+                          const res = await fetch(
+                            `/api/agent/onboarding/${sageTaskContext.conversationId}/ui-actions/complete`,
+                            {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                target: sageTaskContext.target,
+                                step_id: sageTaskContext.stepId,
+                                completed: true,
+                                metadata: { source: "client", ack: "got_it" },
+                              }),
+                            }
+                          );
+                          if (!res.ok) {
+                            const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
+                            setAckError(data.error || data.detail || "Failed to update action status");
+                            return;
+                          }
+                          window.dispatchEvent(new CustomEvent("sage-ui-action-acknowledged"));
+                        } catch {
+                          setAckError("Failed to update action status");
+                          return;
+                        } finally {
+                          setAcknowledging(false);
+                        }
+                      }
                       clearSageHighlight();
                       setActiveHighlightTarget(null);
                       setSageTaskDialog({ open: false, message: "", target: null });
+                      setSageTaskContext(null);
                       setSageTaskDialogPos(null);
                     }}
+                    disabled={acknowledging}
                     className="rounded-md bg-orange-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
                   >
                     Got it

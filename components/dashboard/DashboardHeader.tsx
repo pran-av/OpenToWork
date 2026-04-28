@@ -14,6 +14,9 @@ interface ProfileData {
   avatar_url: string | null;
 }
 
+const SAGE_SESSION_KEY = "opentowork-sage-onboarding-v1";
+const SAGE_TASK_NAV_CONTEXT_KEY = "opentowork-sage-task-nav-v1";
+
 export default function DashboardHeader() {
   const router = useRouter();
   const pathname = usePathname();
@@ -76,6 +79,8 @@ export default function DashboardHeader() {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
+      sessionStorage.removeItem(SAGE_SESSION_KEY);
+      sessionStorage.removeItem(SAGE_TASK_NAV_CONTEXT_KEY);
       const res = await fetch("/api/auth/logout", {
         method: "POST",
       });

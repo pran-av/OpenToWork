@@ -18,6 +18,8 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import type {
+  ActiveOnboardingConversation,
+  OnboardingClientPayload,
   OnboardingStatusResponse,
   OnboardingUiAction,
   PublicUsersReadStatus,
@@ -76,30 +78,13 @@ const SAGE_MARKDOWN_COMPONENTS: Components = {
   hr: () => <hr className="my-3 border-orange-200/50 dark:border-orange-800/50" />,
 };
 
-type OnboardingClientPayload = {
-  conversation_id?: string;
-  agent_message?: string;
-  message?: string;
-  flow_type?: string | null;
-  status?: string;
-  next_step?: string | null;
-  current_step?: string | null;
-  completed_steps?: string[];
-  pending_steps?: string[];
-  progress_percent?: number;
-  profile_created?: boolean | null;
-  ui_actions?: OnboardingUiAction[] | null;
-  step_id?: string | null;
-  public_users_read?: PublicUsersReadStatus | null;
-};
-
 function getPrimaryAgentText(data: { agent_message?: string; message?: string }): string {
   if (typeof data.agent_message === "string" && data.agent_message) return data.agent_message;
   if (typeof data.message === "string" && data.message) return data.message;
   return "";
 }
 
-/** v0.2.2 server target IDs -> in-app routes (see api_contracts/agent-serviceapi-v0.2.2.md). */
+/** v0.2.3 server target IDs -> in-app routes (see api_contracts/agent-serviceapi-v0.2.3.md). */
 const ONBOARDING_TARGET_HREF: Record<string, string> = {
   "profile.user_first_name.edit_cta": "/dashboard/profile#first_name",
   "profile.resume.upload_cta": "/dashboard/profile#resumes",
@@ -119,8 +104,8 @@ function targetToHref(target: string): string | null {
 }
 
 /**
- * Maps fixed `ui_actions[].target` IDs to onboarding `completed_steps` keys (agent API v0.2.2).
- * @see api_contracts/agent-serviceapi-v0.2.2.md
+ * Maps fixed `ui_actions[].target` IDs to onboarding `completed_steps` keys (agent API v0.2.3).
+ * @see api_contracts/agent-serviceapi-v0.2.3.md
  */
 const ONBOARDING_TARGET_TO_COMPLETION_STEP: Record<string, string> = {
   "profile.user_first_name.edit_cta": "confirm_name",
@@ -229,6 +214,14 @@ type SagePersistedSession = {
   todoByTarget?: Record<string, { label: string; order: number }>;
 };
 
+type SageTaskNavContext = {
+  target: string;
+  tooltip: string;
+  createdAt: number;
+  conversationId: string | null;
+  stepId: string | null;
+};
+
 export interface SageWindowProps {
   /** Fires when the full Sage layer (blur + active conversation) should show — desktop only. */
   onSageLayerChange?: (isLayerActive: boolean) => void;
@@ -281,6 +274,11 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const [todoExpanded, setTodoExpanded] = useState(false);
   const [todoByTarget, setTodoByTarget] = useState<Record<string, { label: string; order: number }>>({});
+  const [showConversationList, setShowConversationList] = useState(false);
+  const [activeConversations, setActiveConversations] = useState<ActiveOnboardingConversation[]>([]);
+  const [activeConversationsLoading, setActiveConversationsLoading] = useState(false);
+  const [activeConversationsError, setActiveConversationsError] = useState<string | null>(null);
+  const [selectingConversationId, setSelectingConversationId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const startOnboardingInFlight = useRef(false);
   const startOnboardingRef = useRef<() => Promise<void>>(async () => {});
@@ -329,18 +327,39 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     [skipOnboarding]
   );
 
-  const startOnboarding = useCallback(async () => {
+  const fetchActiveConversations = useCallback(async () => {
+    setActiveConversationsLoading(true);
+    setActiveConversationsError(null);
+    try {
+      const res = await fetch("/api/agent/onboarding/active-conversations");
+      const data = (await res.json()) as { conversations?: ActiveOnboardingConversation[] };
+      if (!res.ok) {
+        setActiveConversations([]);
+        setActiveConversationsError(getDetailMessage(data));
+        return;
+      }
+      setActiveConversations(Array.isArray(data.conversations) ? data.conversations : []);
+    } catch {
+      setActiveConversations([]);
+      setActiveConversationsError("Failed to load active conversations.");
+    } finally {
+      setActiveConversationsLoading(false);
+    }
+  }, []);
+
+  const startOnboarding = useCallback(async (resumeConversationId?: string | null) => {
     if (startOnboardingInFlight.current) return;
     startOnboardingInFlight.current = true;
     try {
       try {
-        sessionStorage.removeItem(SAGE_SESSION_KEY);
+        if (!resumeConversationId) sessionStorage.removeItem(SAGE_SESSION_KEY);
       } catch {
         // ignore
       }
       setLoading(true);
       setReady(false);
       setExpanded(false);
+      setShowConversationList(false);
       setError(null);
       setInput("");
       setPublicUsersRead(null);
@@ -348,10 +367,14 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       setCompletedSteps([]);
       setTodoByTarget({});
       try {
+        const payload =
+          typeof resumeConversationId === "string" && resumeConversationId
+            ? { conversation_id: resumeConversationId }
+            : {};
         const res = await fetch("/api/agent/onboarding/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: "{}",
+          body: JSON.stringify(payload),
         });
         const data = (await res.json()) as OnboardingClientPayload;
         if (!res.ok) {
@@ -387,7 +410,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     return () => media.removeEventListener("change", update);
   }, []);
 
-  /** One-shot bootstrap: restore from session, or only then POST /start. Does not re-run on callback identity. */
+  /** One-shot bootstrap: restore from sessionStorage, otherwise show conversation list. */
   useEffect(() => {
     if (!isDesktop) return;
     let cancelled = false;
@@ -432,13 +455,17 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         }
       }
       if (cancelled) return;
-      await startOnboardingRef.current();
+      setReady(true);
+      setExpanded(true);
+      setSkipped(false);
+      setShowConversationList(true);
+      await fetchActiveConversations();
     };
     void run();
     return () => {
       cancelled = true;
     };
-  }, [isDesktop]);
+  }, [isDesktop, fetchActiveConversations]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !conversationId) return;
@@ -492,44 +519,56 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     onSageLayerChange?.(layerActive);
   }, [onSageLayerChange, layerActive]);
 
-  useEffect(() => {
-    if (!isDesktop || !conversationId || !expanded || skipped) return;
-    const sync = async () => {
-      try {
-        const res = await fetch(`/api/agent/onboarding/${conversationId}/status`);
-        if (!res.ok) return;
-        const data = (await res.json()) as OnboardingStatusResponse;
-        setStatus(data.status);
-        setNextStep(data.next_step);
-        setCurrentStep(data.current_step ?? null);
-        setProgressPercent(Math.max(0, Math.min(100, data.progress_percent ?? 0)));
-        setUiActions(data.ui_actions ?? null);
-        setStepId(data.step_id ?? null);
-        if (data.public_users_read !== undefined) {
-          setPublicUsersRead(data.public_users_read);
-        }
-        if (data.flow_type !== undefined) {
-          setFlowType(data.flow_type ?? null);
-        }
-        if (data.completed_steps !== undefined) {
-          setCompletedSteps(data.completed_steps);
-        }
-      } catch {
-        // ignore background sync errors
+  const refreshConversationStatus = useCallback(async () => {
+    if (!conversationId) return;
+    try {
+      const res = await fetch(`/api/agent/onboarding/${conversationId}/status`);
+      if (!res.ok) return;
+      const data = (await res.json()) as OnboardingStatusResponse;
+      setStatus(data.status);
+      setNextStep(data.next_step);
+      setCurrentStep(data.current_step ?? null);
+      setProgressPercent(Math.max(0, Math.min(100, data.progress_percent ?? 0)));
+      setUiActions(data.ui_actions ?? null);
+      setStepId(data.step_id ?? null);
+      if (data.public_users_read !== undefined) {
+        setPublicUsersRead(data.public_users_read);
       }
-    };
-    void sync();
-    const t = setInterval(() => void sync(), 20000);
+      if (data.flow_type !== undefined) {
+        setFlowType(data.flow_type ?? null);
+      }
+      if (data.completed_steps !== undefined) {
+        setCompletedSteps(data.completed_steps);
+      }
+    } catch {
+      // ignore background sync errors
+    }
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (!isDesktop || !conversationId || !expanded || skipped || showConversationList) return;
+    void refreshConversationStatus();
+    const t = setInterval(() => void refreshConversationStatus(), 20000);
     return () => clearInterval(t);
-  }, [isDesktop, conversationId, expanded, skipped]);
+  }, [isDesktop, conversationId, expanded, skipped, showConversationList, refreshConversationStatus]);
+
+  useEffect(() => {
+    const onUiActionAck = () => {
+      if (!expanded || showConversationList) return;
+      void refreshConversationStatus();
+    };
+    window.addEventListener("sage-ui-action-acknowledged", onUiActionAck);
+    return () => window.removeEventListener("sage-ui-action-acknowledged", onUiActionAck);
+  }, [expanded, showConversationList, refreshConversationStatus]);
 
   const flowLabel = formatFlowTypeLabel(flowType);
 
   const progressLabel = useMemo(() => {
+    if (showConversationList) return "Select an active conversation";
     if (!ready) return `Preparing ${flowLabel.toLowerCase()}`;
     if (status === "completed") return `${flowLabel} complete`;
     return flowLabel;
-  }, [flowLabel, ready, status]);
+  }, [flowLabel, ready, showConversationList, status]);
 
   const sageHubPendingLine = useMemo(() => {
     if (status === "completed") return "Hi, I am Sage! Let me know if you need help.";
@@ -666,13 +705,16 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const handleTodoCtaClick = useCallback(
     (item: { href: string; target: string; label: string }) => {
       try {
+        const navContext: SageTaskNavContext = {
+          target: item.target,
+          tooltip: item.label,
+          createdAt: Date.now(),
+          conversationId,
+          stepId: stepId ?? onboardingStepForUiTarget(item.target) ?? null,
+        };
         sessionStorage.setItem(
           SAGE_TASK_NAV_CONTEXT_KEY,
-          JSON.stringify({
-            target: item.target,
-            tooltip: item.label,
-            createdAt: Date.now(),
-          })
+          JSON.stringify(navContext)
         );
       } catch {
         // ignore storage failures
@@ -682,7 +724,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       setExpanded(false);
       router.push(taskCtaHref(item.href, item.target), { scroll: false });
     },
-    [router]
+    [conversationId, router, stepId]
   );
 
   return (
@@ -804,6 +846,19 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {!loading && !showConversationList && (
+              <button
+                type="button"
+                onClick={async () => {
+                  setShowConversationList(true);
+                  setActiveConversations([]);
+                  await fetchActiveConversations();
+                }}
+                className="text-xs font-medium text-orange-800 underline-offset-2 hover:underline dark:text-orange-200"
+              >
+                Back to conversations
+              </button>
+            )}
             {!loading && skipped && !isDesktop && (
               <button
                 type="button"
@@ -832,7 +887,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           {stepId ? <span className="ml-2 font-mono text-[0.7rem] opacity-80">Step: {stepId}</span> : null}
         </div>
 
-        {expanded && !loading && !skipped && publicUsersRead && publicUsersRead.ok === false && (
+        {expanded && !loading && !skipped && !showConversationList && publicUsersRead && publicUsersRead.ok === false && (
           <div
             className="border-t border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
             role="status"
@@ -847,7 +902,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           </div>
         )}
 
-        {expanded && !loading && !skipped && orderedTodoItems.length > 0 && (
+        {expanded && !loading && !skipped && !showConversationList && orderedTodoItems.length > 0 && (
           <div className="space-y-2 border-t border-orange-200/60 bg-orange-50/50 px-4 py-2.5 dark:border-orange-800/50 dark:bg-orange-950/20">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-medium text-orange-900 dark:text-orange-200">Your To Do List</p>
@@ -933,7 +988,75 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           </div>
         )}
 
-        {expanded && !loading && !skipped && (
+        {expanded && !loading && !skipped && showConversationList && (
+          <div className="min-h-0 flex-1 border-t border-orange-200 bg-orange-50/95 p-4 dark:border-orange-900/50 dark:bg-zinc-950/95">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Active conversations</p>
+              <button
+                type="button"
+                onClick={() => void fetchActiveConversations()}
+                disabled={activeConversationsLoading}
+                className="rounded-md border border-orange-300 px-2 py-1 text-xs font-medium text-orange-900 transition-colors hover:bg-orange-100 disabled:opacity-50 dark:border-orange-700 dark:text-orange-200 dark:hover:bg-orange-900/40"
+              >
+                Refresh
+              </button>
+            </div>
+
+            {activeConversationsLoading ? (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">Loading active conversations...</p>
+            ) : activeConversationsError ? (
+              <div className="space-y-2">
+                <p className="text-sm text-red-600 dark:text-red-400">{activeConversationsError}</p>
+                <button
+                  type="button"
+                  onClick={() => void startOnboarding()}
+                  className="rounded-md bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-orange-600"
+                >
+                  Start new conversation
+                </button>
+              </div>
+            ) : activeConversations.length === 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">No active conversations found.</p>
+                <button
+                  type="button"
+                  onClick={() => void startOnboarding()}
+                  className="rounded-md bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-orange-600"
+                >
+                  Start new conversation
+                </button>
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {activeConversations.map((conversation) => (
+                  <li key={conversation.conversation_id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectingConversationId(conversation.conversation_id);
+                        void startOnboarding(conversation.conversation_id).finally(() =>
+                          setSelectingConversationId(null)
+                        );
+                      }}
+                      disabled={selectingConversationId === conversation.conversation_id}
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-left transition-colors hover:border-orange-300 hover:bg-orange-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-orange-700 dark:hover:bg-orange-900/20"
+                    >
+                      <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                        {conversation.last_agent_message || "Resume conversation"}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        Progress {conversation.progress_percent}% | Step{" "}
+                        {conversation.current_step || conversation.next_step || "unknown"}
+                      </p>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {expanded && !loading && !skipped && !showConversationList && (
           <div className="flex min-h-0 flex-1 flex-col border-t border-orange-200 bg-orange-50/95 dark:border-orange-900/50 dark:bg-zinc-950/95">
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
               {messages.map((m, i) => (
