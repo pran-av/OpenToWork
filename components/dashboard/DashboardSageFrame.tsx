@@ -4,7 +4,14 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SageWindow, type SageWindowHandle } from "@/components/dashboard/SageWindow";
-import { ackFlowStepV2, ackFlowUiActionV2 } from "@/lib/agent-flow-v2";
+import type { FlowEnvelopeResponse } from "@/lib/agent-onboarding-types";
+import { ackFlowStepV2, ackFlowUiActionV2, getFlowV2 } from "@/lib/agent-flow-v2";
+import {
+  buildOnboardingTaskHref,
+  getFirstPendingUiActionSorted,
+  getOnboardingTargetHref,
+  isOnboardingFlowType,
+} from "@/lib/sage-onboarding-nav";
 
 const SAGE_TASK_NAV_CONTEXT_KEY = "opentowork-sage-task-nav-v1";
 const SAGE_TARGET_SELECTOR: Record<string, string> = {
@@ -321,6 +328,14 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
           state,
           { source: "client" }
         );
+
+        let flowAfter: FlowEnvelopeResponse | null = null;
+        try {
+          flowAfter = await getFlowV2(sageTaskContext.flowInstanceId);
+        } catch {
+          flowAfter = null;
+        }
+
         if (sageTaskContext.target === "nav.sage_window" && !isDesktop) {
           setSageModeEnabled(true);
         }
@@ -330,15 +345,55 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
           setSageRightRailOpen(true);
           sageRef.current?.resume();
         }
+
         window.dispatchEvent(new CustomEvent("sage-ui-action-acknowledged"));
         closeSageTaskDialog();
+
+        if (
+          flowAfter !== null &&
+          isOnboardingFlowType(flowAfter.flow_instance.flow_type) &&
+          !backToSage
+        ) {
+          const refreshed = flowAfter;
+          const nextUi = getFirstPendingUiActionSorted(refreshed);
+          const baseHref = nextUi ? getOnboardingTargetHref(nextUi.target) : null;
+          const previousTarget = sageTaskContext.target;
+          if (nextUi !== null && baseHref !== null && nextUi.target !== previousTarget) {
+            const tooltipTrim = typeof nextUi.tooltip === "string" ? nextUi.tooltip.trim() : "";
+            const messageTrim =
+              typeof nextUi.message === "string" ? nextUi.message.trim() : "";
+            const heading =
+              tooltipTrim.length > 0
+                ? tooltipTrim
+                : messageTrim.length > 0
+                  ? messageTrim
+                  : "Next onboarding step";
+            const stepIdCandidate =
+              refreshed.steps.find((s) => s.actor_type !== "SERVER" && s.state === "STEP_ISSUED")
+                ?.step_key ?? null;
+            const navPayload: SageTaskNavContext = {
+              target: nextUi.target,
+              tooltip: heading,
+              ...(messageTrim.length > 0 && messageTrim !== heading ? { message: messageTrim } : {}),
+              createdAt: Date.now(),
+              flowInstanceId: refreshed.flow_instance.id,
+              stepId: stepIdCandidate,
+            };
+            try {
+              sessionStorage.setItem(SAGE_TASK_NAV_CONTEXT_KEY, JSON.stringify(navPayload));
+            } catch {
+              // ignore
+            }
+            router.push(buildOnboardingTaskHref(baseHref, nextUi.target), { scroll: false });
+          }
+        }
       } catch (error) {
         setAckError(error instanceof Error ? error.message : "Failed to update action status");
       } finally {
         setAcknowledging(false);
       }
     },
-    [closeSageTaskDialog, isDesktop, sageTaskContext]
+    [closeSageTaskDialog, isDesktop, router, sageTaskContext]
   );
 
   return (

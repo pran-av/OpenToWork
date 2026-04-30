@@ -27,6 +27,12 @@ import {
   listActiveOnboardingFlowsV2,
   startOnboardingFlowV2,
 } from "@/lib/agent-flow-v2";
+import {
+  buildOnboardingTaskHref,
+  getOnboardingTargetHref,
+  isOnboardingFlowType,
+  onboardingUiActionOrder,
+} from "@/lib/sage-onboarding-nav";
 
 type ChatMessage = { role: "agent" | "user"; text: string };
 
@@ -81,35 +87,6 @@ const SAGE_MARKDOWN_COMPONENTS: Components = {
   hr: () => <hr className="my-3 border-orange-200/50 dark:border-orange-800/50" />,
 };
 
-/** v0.2.3 server target IDs -> in-app routes (see api_contracts/agent-serviceapi-v0.2.3.md). */
-const ONBOARDING_TARGET_HREF: Record<string, string> = {
-  "nav.experience_dashboard": "/dashboard",
-  "experience_dashboard.experience.create_cta": "/dashboard",
-  "experience.form.service_class": "/dashboard",
-  "experience.form.display_year": "/dashboard",
-  "experience.form.case_title": "/dashboard",
-  "experience.form.case_summary": "/dashboard",
-  "experience.form.prototype_link": "/dashboard",
-  "experience.form.highlights": "/dashboard",
-  "experience.form.save": "/dashboard",
-  "onboarding.congrats.experience_recorded": "/dashboard",
-  "campaigns_dashboard.project.create_cta": "/dashboard/projects",
-  "campaigns_dashboard.project.campaign.create_cta": "/dashboard/projects",
-  "campaign.form.title": "/dashboard/projects",
-  "campaign.form.summary": "/dashboard/projects",
-  "campaign.form.call_to_action": "/dashboard/projects",
-  "campaign.form.link_experiences": "/dashboard/projects",
-  "campaign.form.publish": "/dashboard/projects",
-  "campaigns.project_url.copy": "/dashboard/projects",
-  "onboarding.congrats.campaign_launched": "/dashboard/projects",
-  "nav.profile": "/dashboard/profile",
-  "profile.user_name.edit": "/dashboard/profile#first_name",
-  "profile.resume.upload_cta": "/dashboard/profile#resumes",
-  "profile.linkedin.connect_cta": "/dashboard/profile#linkedin-connect",
-  "nav.campaigns_dashboard": "/dashboard/projects",
-  "nav.sage_window": "/dashboard",
-};
-
 const ONBOARDING_TARGET_DEFAULT_LABEL: Record<string, string> = {
   "profile.user_name.edit": "Update your first and last name in profile.",
   "profile.resume.upload_cta": "Upload your resume in profile.",
@@ -118,7 +95,7 @@ const ONBOARDING_TARGET_DEFAULT_LABEL: Record<string, string> = {
 };
 
 function targetToHref(target: string): string | null {
-  return ONBOARDING_TARGET_HREF[target] ?? null;
+  return getOnboardingTargetHref(target);
 }
 
 /**
@@ -131,43 +108,6 @@ const ONBOARDING_TARGET_TO_COMPLETION_STEP: Record<string, string> = {
   "profile.linkedin.connect_cta": "linkedin_connect",
   "nav.campaigns_dashboard": "introduce_app_features",
 };
-
-/** PRD sequence: Part 1 -> Part 2 -> Part 3. */
-const ONBOARDING_UI_ACTION_SEQUENCE: Record<string, number> = {
-  // Part 1: Experience creation
-  "nav.experience_dashboard": 1,
-  "experience_dashboard.experience.create_cta": 2,
-  "experience.form.service_class": 3,
-  "experience.form.display_year": 4,
-  "experience.form.case_title": 5,
-  "experience.form.case_summary": 6,
-  "experience.form.prototype_link": 7,
-  "experience.form.highlights": 8,
-  "experience.form.save": 9,
-  "onboarding.congrats.experience_recorded": 10,
-  // Part 2: Campaign launch
-  "nav.campaigns_dashboard": 11,
-  "campaigns_dashboard.project.create_cta": 12,
-  "campaigns_dashboard.project.campaign.create_cta": 13,
-  "campaign.form.title": 14,
-  "campaign.form.summary": 15,
-  "campaign.form.call_to_action": 16,
-  "campaign.form.link_experiences": 17,
-  "campaign.form.publish": 18,
-  "campaigns.project_url.copy": 19,
-  "onboarding.congrats.campaign_launched": 20,
-  // Part 3: Profile updates
-  "nav.profile": 21,
-  "profile.user_name.edit": 22,
-  "profile.resume.upload_cta": 23,
-  "profile.linkedin.connect_cta": 24,
-  // Post flow
-  "nav.sage_window": 25,
-};
-
-function onboardingUiActionOrder(target: string): number {
-  return ONBOARDING_UI_ACTION_SEQUENCE[target] ?? 10_000;
-}
 
 function onboardingStepForUiTarget(target: string): string | null {
   return ONBOARDING_TARGET_TO_COMPLETION_STEP[target] ?? null;
@@ -193,14 +133,6 @@ function uiActionDisplayLabel(tooltip: string): string {
 
 function defaultLabelForTarget(target: string): string {
   return ONBOARDING_TARGET_DEFAULT_LABEL[target] ?? "Complete this onboarding step.";
-}
-
-/** Appends a deterministic highlight hint so destination screens can emphasize the target section. */
-function taskCtaHref(baseHref: string, target: string): string {
-  const [pathWithQuery, hash = ""] = baseHref.split("#");
-  const sep = pathWithQuery.includes("?") ? "&" : "?";
-  const withHint = `${pathWithQuery}${sep}sage_highlight=${encodeURIComponent(target)}`;
-  return hash ? `${withHint}#${hash}` : withHint;
 }
 
 /** Short hub line — never the full intro paragraph. */
@@ -628,15 +560,15 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
   useEffect(() => {
     const onUiActionAck = () => {
-      if (!expanded || showConversationList) return;
+      if (showConversationList) return;
       void refreshConversationStatus();
     };
     window.addEventListener("sage-ui-action-acknowledged", onUiActionAck);
     return () => window.removeEventListener("sage-ui-action-acknowledged", onUiActionAck);
-  }, [expanded, showConversationList, refreshConversationStatus]);
+  }, [showConversationList, refreshConversationStatus]);
 
   const flowLabel = formatFlowTypeLabel(flowType);
-  const isOnboardingFlow = (flowType ?? "").trim().toUpperCase() === "ONBOARDING";
+  const isOnboardingFlow = isOnboardingFlowType(flowType);
   const onboardingCtaLabel = useMemo(() => {
     const hasPartial =
       (flowUiActions ?? []).some((a) => a.state === "STEP_DONE" || a.state === "STEP_SKIPPED") ||
@@ -760,7 +692,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     // Prefetch likely destinations for smoother navigation from "Complete Task" CTAs.
     for (const item of orderedTodoItems) {
       if (!item.href || item.done) continue;
-      void router.prefetch(taskCtaHref(item.href, item.target));
+      void router.prefetch(buildOnboardingTaskHref(item.href, item.target));
     }
   }, [orderedTodoItems, router]);
 
@@ -816,7 +748,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       // Collapse Sage so the destination page is fully visible for task completion.
       setSkipped(true);
       setExpanded(false);
-      router.push(taskCtaHref(item.href, item.target), { scroll: false });
+      router.push(buildOnboardingTaskHref(item.href, item.target), { scroll: false });
     },
     [conversationId, flowInstanceId, flowSteps, router, stepId]
   );
