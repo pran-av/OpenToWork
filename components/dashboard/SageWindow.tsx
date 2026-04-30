@@ -118,6 +118,43 @@ const ONBOARDING_TARGET_TO_COMPLETION_STEP: Record<string, string> = {
   "nav.campaigns_dashboard": "introduce_app_features",
 };
 
+/** PRD sequence: Part 1 -> Part 2 -> Part 3. */
+const ONBOARDING_UI_ACTION_SEQUENCE: Record<string, number> = {
+  // Part 1: Experience creation
+  "nav.experience_dashboard": 1,
+  "experience_dashboard.experience.create_cta": 2,
+  "experience.form.service_class": 3,
+  "experience.form.display_year": 4,
+  "experience.form.case_title": 5,
+  "experience.form.case_summary": 6,
+  "experience.form.prototype_link": 7,
+  "experience.form.highlights": 8,
+  "experience.form.save": 9,
+  "onboarding.congrats.experience_recorded": 10,
+  // Part 2: Campaign launch
+  "nav.campaigns_dashboard": 11,
+  "campaigns_dashboard.project.create_cta": 12,
+  "campaigns_dashboard.project.campaign.create_cta": 13,
+  "campaign.form.title": 14,
+  "campaign.form.summary": 15,
+  "campaign.form.call_to_action": 16,
+  "campaign.form.link_experiences": 17,
+  "campaign.form.publish": 18,
+  "campaigns.project_url.copy": 19,
+  "onboarding.congrats.campaign_launched": 20,
+  // Part 3: Profile updates
+  "nav.profile": 21,
+  "profile.user_name.edit": 22,
+  "profile.resume.upload_cta": 23,
+  "profile.linkedin.connect_cta": 24,
+  // Post flow
+  "nav.sage_window": 25,
+};
+
+function onboardingUiActionOrder(target: string): number {
+  return ONBOARDING_UI_ACTION_SEQUENCE[target] ?? 10_000;
+}
+
 function onboardingStepForUiTarget(target: string): string | null {
   return ONBOARDING_TARGET_TO_COMPLETION_STEP[target] ?? null;
 }
@@ -157,14 +194,11 @@ const DEFAULT_SAGE_FLOW_LABEL = "Onboarding";
 
 /** `flow_type` from API (e.g. `onboarding`) → user-facing name for the hub line. */
 function formatFlowTypeLabel(raw: string | null | undefined): string {
-  if (raw == null || raw === "") return DEFAULT_SAGE_FLOW_LABEL;
-  const t = raw.trim().toLowerCase();
-  if (t === "onboarding") return "Onboarding";
-  return t
-    .split(/[_\s]+/)
-    .filter(Boolean)
-    .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
-    .join(" ");
+  if (raw == null) return DEFAULT_SAGE_FLOW_LABEL;
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return DEFAULT_SAGE_FLOW_LABEL;
+  const lower = trimmed.toLowerCase();
+  return `${lower.charAt(0).toUpperCase()}${lower.slice(1)}`;
 }
 
 function oneLinePendingFromAgentText(text: string, max = 88): string {
@@ -576,6 +610,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   }, [expanded, showConversationList, refreshConversationStatus]);
 
   const flowLabel = formatFlowTypeLabel(flowType);
+  const isOnboardingFlow = (flowType ?? "").trim().toUpperCase() === "ONBOARDING";
   const onboardingCtaLabel = useMemo(() => {
     const hasPartial =
       (flowUiActions ?? []).some((a) => a.state === "STEP_DONE" || a.state === "STEP_SKIPPED") ||
@@ -644,6 +679,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           label,
           target,
           order,
+          sequence: onboardingUiActionOrder(target),
         };
       });
     },
@@ -653,11 +689,17 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const orderedTodoItems = useMemo(
     () =>
       [...todoItems].sort((a, b) => {
-        // Pending first, completed below. Within each group, latest first.
+        // Pending first, completed below. Within each group, PRD sequence order.
         if (a.done !== b.done) return a.done ? 1 : -1;
+        if (a.sequence !== b.sequence) return a.sequence - b.sequence;
         return b.order - a.order;
       }),
     [todoItems]
+  );
+
+  const nextPendingTodo = useMemo(
+    () => orderedTodoItems.find((item) => !item.done && Boolean(item.href)) ?? null,
+    [orderedTodoItems]
   );
 
   useEffect(() => {
@@ -693,10 +735,6 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       void router.prefetch(taskCtaHref(item.href, item.target));
     }
   }, [orderedTodoItems, router]);
-
-  useEffect(() => {
-    setTodoExpanded(false);
-  }, [conversationId, uiActions]);
 
   const showDesktopLoadingBanner = loading && isDesktop;
   const pausedHubDesktop = skipped && isDesktop && !loading;
@@ -956,7 +994,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                           <span className="shrink-0 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 dark:border-emerald-700/70 dark:bg-emerald-900/30 dark:text-emerald-300">
                             Completed
                           </span>
-                        ) : item.href ? (
+                        ) : !isOnboardingFlow && item.href ? (
                           <button
                             type="button"
                             onClick={() => {
@@ -968,25 +1006,40 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                                 label: item.label,
                               });
                             }}
-                            className={cn(
-                              "shrink-0 rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors",
-                              "border-orange-300 bg-orange-100 text-orange-900 hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/40 dark:text-orange-100"
-                            )}
+                            className="shrink-0 rounded-md border border-orange-300 bg-orange-100 px-2 py-1 text-[11px] font-semibold text-orange-900 transition-colors hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/40 dark:text-orange-100"
                             aria-label={`Complete task: ${item.label}`}
                           >
                             Complete Task
                           </button>
-                        ) : (
-                          <span className="shrink-0 rounded-md border border-zinc-300 px-2 py-1 text-[11px] text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-                            Complete Task
-                          </span>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </li>
                 );
               })}
             </ul>
+            {isOnboardingFlow ? (
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!nextPendingTodo?.href) return;
+                    handleTodoCtaClick({
+                      href: nextPendingTodo.href,
+                      target: nextPendingTodo.target,
+                      label: nextPendingTodo.label,
+                    });
+                  }}
+                  disabled={!nextPendingTodo}
+                  className="rounded-md border border-orange-300 bg-orange-100 px-3 py-1.5 text-xs font-semibold text-orange-900 transition-colors hover:bg-orange-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-orange-700 dark:bg-orange-900/40 dark:text-orange-100"
+                  aria-label={
+                    nextPendingTodo ? `Start onboarding: ${nextPendingTodo.label}` : "No pending tasks to complete"
+                  }
+                >
+                  Start Onboarding
+                </button>
+              </div>
+            ) : null}
             {!todoExpanded && shouldCollapseTodo ? (
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 {orderedTodoItems.length - visibleTodoItems.length} more item
