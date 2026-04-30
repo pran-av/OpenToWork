@@ -447,7 +447,7 @@ All `v2` flow endpoints return:
   },
   "steps": [
     {
-      "step_key": "identify_new_signup",
+      "step_key": "introduce_sage_objectives",
       "actor_type": "SERVER | CLIENT | USER",
       "state": "STEP_ISSUED | STEP_DONE | STEP_SKIPPED",
       "is_skippable": true
