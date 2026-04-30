@@ -924,7 +924,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               <button
                 type="button"
                 onClick={skipOnboarding}
-                className="text-xs font-medium text-orange-800 underline-offset-2 hover:underline dark:text-orange-200"
+                className="hidden text-xs font-medium text-orange-800 underline-offset-2 hover:underline dark:text-orange-200 lg:block"
               >
                 Collapse window
               </button>
