@@ -556,7 +556,14 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
 
   return (
     <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col">
-      <div className={isDesktop || !sageModeEnabled ? "" : "hidden"}>{children}</div>
+      <div
+        className={cn(
+          "flex min-h-0 w-full min-w-0 flex-1 flex-col",
+          !isDesktop && sageModeEnabled && "hidden"
+        )}
+      >
+        {children}
+      </div>
       {sageInterStepBlocking ? (
         <div
           className="fixed inset-0 z-[52] flex items-center justify-center bg-zinc-950/40 p-6 backdrop-blur-[2px] motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out dark:bg-black/50"
