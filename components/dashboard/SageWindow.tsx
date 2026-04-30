@@ -797,7 +797,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         const navContext: SageTaskNavContext = {
           target: item.target,
           tooltip: item.tooltip ?? item.label,
-          message: item.message ?? null,
+          message: item.message ?? undefined,
           createdAt: Date.now(),
           flowInstanceId: flowInstanceId ?? conversationId,
           stepId:
