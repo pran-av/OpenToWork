@@ -17,6 +17,18 @@ import {
 } from "@/lib/sage-onboarding-primary";
 
 const SAGE_TASK_NAV_CONTEXT_KEY = "opentowork-sage-task-nav-v1";
+
+/** Short pause after closing the tour before navigating so the UI can settle (off when reduced motion). */
+async function sageOnboardingStepYield(): Promise<void> {
+  if (typeof window === "undefined") return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  await new Promise<void>((resolve) => window.setTimeout(resolve, 120));
+}
+
+function sagePrefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 /** First match visible in the viewport — supports responsive twins (desktop vs mobile CTA). */
 function queryVisibleSageTarget(selector: string): Element | null {
   let nodes: NodeListOf<Element>;
@@ -178,7 +190,10 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       highlightedTargetRef.current = node;
       window.requestAnimationFrame(() => repositionTaskDialogRef.current?.());
       if ("scrollIntoView" in node) {
-        (node as HTMLElement).scrollIntoView({ behavior: "smooth", block: "center" });
+        (node as HTMLElement).scrollIntoView({
+          behavior: sagePrefersReducedMotion() ? "auto" : "smooth",
+          block: "center",
+        });
       }
       return true;
     },
@@ -203,9 +218,13 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
     if (!target) return;
     if (!isDesktop) setSageModeEnabled(false);
 
-    window.setTimeout(() => {
-      setActiveHighlightTarget(target);
-    }, 0);
+    const reduceMotion = sagePrefersReducedMotion();
+    window.setTimeout(
+      () => {
+        setActiveHighlightTarget(target);
+      },
+      reduceMotion ? 0 : 40
+    );
 
     try {
       const raw = sessionStorage.getItem(SAGE_TASK_NAV_CONTEXT_KEY);
@@ -214,11 +233,14 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         const tooltip = typeof parsed.tooltip === "string" ? parsed.tooltip.trim() : "";
         const message = typeof parsed.message === "string" ? parsed.message.trim() : "";
         if (parsed.target === target && tooltip.length > 0) {
-          window.setTimeout(() => {
-            setSageTaskDialog({ open: true, tooltip, message, target });
-            setSageTaskContext(parsed);
-            setAckError(null);
-          }, 0);
+          window.setTimeout(
+            () => {
+              setSageTaskDialog({ open: true, tooltip, message, target });
+              setSageTaskContext(parsed);
+              setAckError(null);
+            },
+            reduceMotion ? 0 : 100
+          );
         }
       }
       sessionStorage.removeItem(SAGE_TASK_NAV_CONTEXT_KEY);
@@ -401,6 +423,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
             // ignore storage failures
           }
           closeSageTaskDialog();
+          await sageOnboardingStepYield();
           router.push(buildOnboardingTaskHref(base, nextIssued.target), { scroll: false });
           if (
             completedTarget === "experience.form.save" ||
@@ -509,7 +532,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       <div className={isDesktop || !sageModeEnabled ? "" : "hidden"}>{children}</div>
       {sageInterStepBlocking ? (
         <div
-          className="fixed inset-0 z-[52] flex items-center justify-center bg-zinc-950/40 p-6 backdrop-blur-[2px] dark:bg-black/50"
+          className="fixed inset-0 z-[52] flex items-center justify-center bg-zinc-950/40 p-6 backdrop-blur-[2px] motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out dark:bg-black/50"
           role="status"
           aria-live="polite"
           aria-busy="true"
@@ -527,8 +550,16 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
           outline-offset: 4px;
           box-shadow: 0 0 0 6px rgba(251, 191, 36, 0.28);
           z-index: 49 !important;
-          transition: outline-color 0.2s ease, box-shadow 0.2s ease;
+          transition:
+            outline 0.22s ease,
+            outline-offset 0.22s ease,
+            box-shadow 0.22s ease;
           animation: sage-highlight-pulse 1.2s ease-in-out 2;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .sage-target-highlight {
+            animation: none;
+          }
         }
         @keyframes sage-highlight-pulse {
           0% {
@@ -542,10 +573,13 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
 
       {sageTaskDialog.open ? (
         <>
-          <div className="pointer-events-none fixed inset-0 z-[54] bg-black/18" aria-hidden />
+          <div
+            className="pointer-events-none fixed inset-0 z-[54] bg-black/18 motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out"
+            aria-hidden
+          />
           <div
             ref={sageTaskDialogRef}
-            className="pointer-events-auto fixed z-[56] w-[min(22.5rem,calc(100vw-1.5rem))] rounded-xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+            className="pointer-events-auto fixed z-[56] w-[min(22.5rem,calc(100vw-1.5rem))] rounded-xl border border-zinc-200 bg-white p-4 shadow-xl motion-safe:origin-top motion-safe:transition-[opacity,transform] motion-safe:duration-200 motion-safe:ease-out dark:border-zinc-700 dark:bg-zinc-900"
             role="dialog"
             aria-modal="true"
             style={{
