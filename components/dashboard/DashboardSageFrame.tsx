@@ -414,6 +414,12 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         }
       }
       closeSageTaskDialog();
+      if (completedTarget === "nav.sage_window") {
+        if (!isDesktop) setSageModeEnabled(true);
+        setSageRightRailOpen(true);
+        sageRef.current?.resume();
+        window.dispatchEvent(new CustomEvent("sage-ui-action-acknowledged"));
+      }
     },
     [closeSageTaskDialog, isDesktop, router]
   );
@@ -584,7 +590,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
                       disabled={acknowledging}
                       className="rounded-md bg-orange-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
                     >
-                      Next
+                      {sageTaskDialog.target === "nav.sage_window" ? "Back to Sage window" : "Next"}
                     </button>
                   ) : null}
                 </div>
