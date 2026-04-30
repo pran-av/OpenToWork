@@ -4,13 +4,46 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SageWindow, type SageWindowHandle } from "@/components/dashboard/SageWindow";
+import { ackFlowStepV2, ackFlowUiActionV2 } from "@/lib/agent-flow-v2";
 
 const SAGE_TASK_NAV_CONTEXT_KEY = "opentowork-sage-task-nav-v1";
 const SAGE_TARGET_SELECTOR: Record<string, string> = {
+  "nav.experience_dashboard": "#experience-dashboard-root",
+  "experience_dashboard.experience.create_cta": "#experience-create-cta",
+  "experience.form.service_class": "#service_class",
+  "experience.form.display_year": "#display_year",
+  "experience.form.case_title": "#case_title",
+  "experience.form.case_summary": "#case_summary",
+  "experience.form.prototype_link": "#prototype_link",
+  "experience.form.highlights": "#highlights",
+  "experience.form.save": "#save-experience",
+  "onboarding.congrats.experience_recorded": "#experience-created-highlight",
+  "nav.campaigns_dashboard": "#projects-root",
+  "campaigns_dashboard.project.create_cta": "#create-project-cta",
+  "campaigns_dashboard.project.campaign.create_cta": "#create-campaign-cta",
+  "campaign.form.title": "#campaign-title",
+  "campaign.form.summary": "#campaign-summary",
+  "campaign.form.call_to_action": "#campaign-cta",
+  "campaign.form.link_experiences": "#campaign-link-experiences",
+  "campaign.form.publish": "#campaign-publish",
+  "campaigns.project_url.copy": "#project-url-copy",
+  "onboarding.congrats.campaign_launched": "#campaign-highlight",
+  "nav.profile": "#profile-nav-cta",
+  "profile.user_name.edit": "#first_name",
   "profile.user_first_name.edit_cta": "#first_name",
   "profile.resume.upload_cta": "#resumes",
   "profile.linkedin.connect_cta": "#linkedin-connect",
-  "nav.campaigns_dashboard": "#projects-root",
+  "nav.sage_window": "#sage-window-root",
+};
+
+const TARGET_PREFILL_VALUE: Record<string, string> = {
+  "experience.form.display_year": "2026",
+  "experience.form.case_title": "Sample Onboarding Experience",
+  "experience.form.case_summary": "Sample Case Summary for Onboarding Flow",
+  "experience.form.highlights": "Add a Quantitative Impact here",
+  "campaign.form.title": "Hire Me for XYZ Role",
+  "campaign.form.summary": "Summary about me",
+  "campaign.form.call_to_action": "youremail@example.com",
 };
 
 type DashboardSageFrameProps = {
@@ -23,7 +56,7 @@ type SageTaskNavContext = {
   target?: string;
   tooltip?: string;
   createdAt?: number;
-  conversationId?: string | null;
+  flowInstanceId?: string | null;
   stepId?: string | null;
 };
 
@@ -33,6 +66,8 @@ type SageTaskNavContext = {
  * rest of the app (below the header) is dimmed and blurred; the header stays clear (z-50).
  */
 export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFrameProps) {
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [sageModeEnabled, setSageModeEnabled] = useState(true);
   const [sageLayerActive, setSageLayerActive] = useState(false);
   const [sageRightRailOpen, setSageRightRailOpen] = useState(true);
   const [sageTaskDialog, setSageTaskDialog] = useState<{ open: boolean; message: string; target: string | null }>({
@@ -51,11 +86,32 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
   const sageTaskDialogRef = useRef<HTMLDivElement>(null);
   const highlightedTargetRef = useRef<Element | null>(null);
   const [activeHighlightTarget, setActiveHighlightTarget] = useState<string | null>(null);
+  const isBackToSageTarget = sageTaskDialog.target === "onboarding.congrats.experience_recorded" || sageTaskDialog.target === "onboarding.congrats.campaign_launched";
+  const isProfileSensitiveTarget = sageTaskDialog.target === "profile.user_name.edit" || sageTaskDialog.target === "profile.resume.upload_cta" || sageTaskDialog.target === "profile.linkedin.connect_cta";
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsDesktop(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   const clearSageHighlight = useCallback(() => {
     if (!highlightedTargetRef.current) return;
     highlightedTargetRef.current.classList.remove("sage-target-highlight");
     highlightedTargetRef.current = null;
+  }, []);
+
+  const applyTargetPrefill = useCallback((target: string, node: Element) => {
+    const prefill = TARGET_PREFILL_VALUE[target];
+    if (!prefill) return;
+    const el = node as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+    if ("value" in el && typeof el.value === "string" && !el.value.trim()) {
+      el.value = prefill;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    }
   }, []);
 
   const tryApplyHighlight = useCallback(
@@ -66,13 +122,14 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       if (!node) return false;
       clearSageHighlight();
       node.classList.add("sage-target-highlight");
+      applyTargetPrefill(target, node);
       highlightedTargetRef.current = node;
       if ("scrollIntoView" in node) {
         (node as HTMLElement).scrollIntoView({ behavior: "smooth", block: "center" });
       }
       return true;
     },
-    [clearSageHighlight]
+    [applyTargetPrefill, clearSageHighlight]
   );
 
   const onSageLayerChange = useCallback((open: boolean) => {
@@ -91,6 +148,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
   useEffect(() => {
     const target = searchParams.get("sage_highlight");
     if (!target) return;
+    if (!isDesktop) setSageModeEnabled(false);
 
     window.setTimeout(() => {
       setActiveHighlightTarget(target);
@@ -118,7 +176,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
     params.delete("sage_highlight");
     const next = params.toString() ? `${pathname}?${params.toString()}` : pathname;
     router.replace(next, { scroll: false });
-  }, [pathname, router, searchParams]);
+  }, [isDesktop, pathname, router, searchParams]);
 
   useEffect(() => {
     if (!activeHighlightTarget || !sageTaskDialog.open) return;
@@ -233,9 +291,52 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
     };
   }, [sageTaskDialog.open, sageTaskDialog.target]);
 
+  const closeSageTaskDialog = useCallback(() => {
+    clearSageHighlight();
+    setActiveHighlightTarget(null);
+    setSageTaskDialog({ open: false, message: "", target: null });
+    setSageTaskContext(null);
+    setSageTaskDialogPos(null);
+  }, [clearSageHighlight]);
+
+  const acknowledgeAction = useCallback(
+    async (state: "STEP_DONE" | "STEP_SKIPPED", backToSage: boolean) => {
+      if (!sageTaskContext?.flowInstanceId || !sageTaskContext?.target) {
+        closeSageTaskDialog();
+        return;
+      }
+      setAcknowledging(true);
+      setAckError(null);
+      try {
+        await ackFlowUiActionV2(
+          sageTaskContext.flowInstanceId,
+          sageTaskContext.target,
+          state,
+          { source: "client" }
+        );
+        if (sageTaskContext.target === "nav.sage_window" && !isDesktop) {
+          setSageModeEnabled(true);
+        }
+        if (backToSage) {
+          await ackFlowStepV2(sageTaskContext.flowInstanceId, "execute_onboarding_todos", "STEP_SKIPPED");
+          if (!isDesktop) setSageModeEnabled(true);
+          setSageRightRailOpen(true);
+          sageRef.current?.resume();
+        }
+        window.dispatchEvent(new CustomEvent("sage-ui-action-acknowledged"));
+        closeSageTaskDialog();
+      } catch (error) {
+        setAckError(error instanceof Error ? error.message : "Failed to update action status");
+      } finally {
+        setAcknowledging(false);
+      }
+    },
+    [closeSageTaskDialog, isDesktop, sageTaskContext]
+  );
+
   return (
     <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col">
-      {children}
+      <div className={isDesktop || !sageModeEnabled ? "" : "hidden"}>{children}</div>
       <style jsx global>{`
         .sage-target-highlight {
           outline: 3px solid rgba(245, 158, 11, 0.9);
@@ -282,98 +383,34 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
                   {ackError ? (
                     <p className="w-full text-xs text-red-600 dark:text-red-400">{ackError}</p>
                   ) : null}
+                  {isBackToSageTarget ? (
+                    <button
+                      type="button"
+                      onClick={() => void acknowledgeAction("STEP_SKIPPED", true)}
+                      disabled={acknowledging}
+                      className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                    >
+                      Back to Sage
+                    </button>
+                  ) : null}
                   <button
                     type="button"
-                    onClick={async () => {
-                      if (acknowledging) return;
-                      if (sageTaskContext?.conversationId && sageTaskContext?.target && sageTaskContext?.stepId) {
-                        setAcknowledging(true);
-                        setAckError(null);
-                        try {
-                          const res = await fetch(
-                            `/api/agent/onboarding/${sageTaskContext.conversationId}/ui-actions/complete`,
-                            {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                target: sageTaskContext.target,
-                                step_id: sageTaskContext.stepId,
-                                completed: true,
-                                metadata: { source: "client", ack: "later" },
-                              }),
-                            }
-                          );
-                          if (!res.ok) {
-                            const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
-                            setAckError(data.error || data.detail || "Failed to update action status");
-                            return;
-                          }
-                          window.dispatchEvent(new CustomEvent("sage-ui-action-acknowledged"));
-                        } catch {
-                          setAckError("Failed to update action status");
-                          return;
-                        } finally {
-                          setAcknowledging(false);
-                        }
-                      }
-                      clearSageHighlight();
-                      setActiveHighlightTarget(null);
-                      setSageTaskDialog({ open: false, message: "", target: null });
-                      setSageTaskContext(null);
-                      setSageTaskDialogPos(null);
-                      setSageRightRailOpen(true);
-                      sageRef.current?.resume();
-                    }}
+                    onClick={() => void acknowledgeAction("STEP_SKIPPED", false)}
                     disabled={acknowledging}
                     className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                   >
-                    I&apos;ll do it later
+                    Skip
                   </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (acknowledging) return;
-                      if (sageTaskContext?.conversationId && sageTaskContext?.target && sageTaskContext?.stepId) {
-                        setAcknowledging(true);
-                        setAckError(null);
-                        try {
-                          const res = await fetch(
-                            `/api/agent/onboarding/${sageTaskContext.conversationId}/ui-actions/complete`,
-                            {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                target: sageTaskContext.target,
-                                step_id: sageTaskContext.stepId,
-                                completed: true,
-                                metadata: { source: "client", ack: "got_it" },
-                              }),
-                            }
-                          );
-                          if (!res.ok) {
-                            const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
-                            setAckError(data.error || data.detail || "Failed to update action status");
-                            return;
-                          }
-                          window.dispatchEvent(new CustomEvent("sage-ui-action-acknowledged"));
-                        } catch {
-                          setAckError("Failed to update action status");
-                          return;
-                        } finally {
-                          setAcknowledging(false);
-                        }
-                      }
-                      clearSageHighlight();
-                      setActiveHighlightTarget(null);
-                      setSageTaskDialog({ open: false, message: "", target: null });
-                      setSageTaskContext(null);
-                      setSageTaskDialogPos(null);
-                    }}
-                    disabled={acknowledging}
-                    className="rounded-md bg-orange-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
-                  >
-                    Got it
-                  </button>
+                  {!isProfileSensitiveTarget ? (
+                    <button
+                      type="button"
+                      onClick={() => void acknowledgeAction("STEP_DONE", false)}
+                      disabled={acknowledging}
+                      className="rounded-md bg-orange-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
+                    >
+                      Next
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -412,6 +449,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         ) : null}
 
         <div
+          id="sage-window-root"
           className={
             sageRightRailOpen
               ? "fixed right-0 bottom-0 z-[40] w-[50vw] min-w-0 pl-0"
@@ -428,6 +466,32 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
           />
         </div>
       </div>
+
+      {!isDesktop ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setSageModeEnabled((prev) => !prev)}
+            className="fixed right-2 top-1/2 z-[60] -translate-y-1/2 rounded-full border border-orange-300 bg-white px-2 py-3 text-xs font-semibold text-orange-800 shadow-md dark:border-orange-700 dark:bg-zinc-900 dark:text-orange-200 lg:hidden"
+            aria-label={sageModeEnabled ? "Disable Sage mode" : "Enable Sage mode"}
+          >
+            {sageModeEnabled ? "Sage On" : "Sage Off"}
+          </button>
+          {sageModeEnabled ? (
+            <div className="fixed inset-0 z-[55] bg-orange-50 dark:bg-zinc-950 lg:hidden" style={{ top: headerOffsetPx }}>
+              <div id="sage-window-root" className="h-full">
+                <SageWindow
+                  ref={sageRef}
+                  onSageLayerChange={onSageLayerChange}
+                  onRightRailChange={setSageRightRailOpen}
+                  className="h-full"
+                  headerOffsetPx={headerOffsetPx}
+                />
+              </div>
+            </div>
+          ) : null}
+        </>
+      ) : null}
     </div>
   );
 }

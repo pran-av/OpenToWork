@@ -18,12 +18,16 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import type {
-  ActiveOnboardingConversation,
-  OnboardingClientPayload,
-  OnboardingStatusResponse,
+  FlowEnvelopeResponse,
+  FlowStep,
+  FlowUiAction,
   OnboardingUiAction,
-  PublicUsersReadStatus,
 } from "@/lib/agent-onboarding-types";
+import {
+  getFlowV2,
+  listActiveOnboardingFlowsV2,
+  startOnboardingFlowV2,
+} from "@/lib/agent-flow-v2";
 
 type ChatMessage = { role: "agent" | "user"; text: string };
 
@@ -123,7 +127,7 @@ function isUiActionComplete(
   completedSteps: string[],
   status: string | null
 ): boolean {
-  if (status === "completed") return true;
+  if (status === "completed" || status === "FLOW_COMPLETED") return true;
   const step = onboardingStepForUiTarget(target);
   if (step) return completedSteps.includes(step);
   return false;
@@ -192,6 +196,7 @@ function getDetailMessage(data: unknown): string {
 
 const SAGE_SESSION_KEY = "opentowork-sage-onboarding-v1";
 const SAGE_TASK_NAV_CONTEXT_KEY = "opentowork-sage-task-nav-v1";
+const AUTH_LOAD_ONBOARDING_KEY = "opentowork-sage-authed-load-v1";
 
 /** Persists the Sage client state so theme toggles and remounts do not start a new conversation. */
 type SagePersistedSession = {
@@ -203,8 +208,10 @@ type SagePersistedSession = {
   currentStep: string | null;
   progressPercent: number;
   uiActions: OnboardingUiAction[] | null;
+  flowUiActions: FlowUiAction[] | null;
+  flowSteps: FlowStep[];
   stepId: string | null;
-  publicUsersRead: PublicUsersReadStatus | null;
+  flowInstanceId: string | null;
   ready: boolean;
   expanded: boolean;
   skipped: boolean;
@@ -218,7 +225,7 @@ type SageTaskNavContext = {
   target: string;
   tooltip: string;
   createdAt: number;
-  conversationId: string | null;
+  flowInstanceId: string | null;
   stepId: string | null;
 };
 
@@ -268,14 +275,16 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [uiActions, setUiActions] = useState<OnboardingUiAction[] | null>(null);
+  const [flowUiActions, setFlowUiActions] = useState<FlowUiAction[] | null>(null);
+  const [flowSteps, setFlowSteps] = useState<FlowStep[]>([]);
   const [stepId, setStepId] = useState<string | null>(null);
-  const [publicUsersRead, setPublicUsersRead] = useState<PublicUsersReadStatus | null>(null);
+  const [flowInstanceId, setFlowInstanceId] = useState<string | null>(null);
   const [flowType, setFlowType] = useState<string | null>(null);
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const [todoExpanded, setTodoExpanded] = useState(false);
   const [todoByTarget, setTodoByTarget] = useState<Record<string, { label: string; order: number }>>({});
   const [showConversationList, setShowConversationList] = useState(false);
-  const [activeConversations, setActiveConversations] = useState<ActiveOnboardingConversation[]>([]);
+  const [activeConversations, setActiveConversations] = useState<FlowEnvelopeResponse[]>([]);
   const [activeConversationsLoading, setActiveConversationsLoading] = useState(false);
   const [activeConversationsError, setActiveConversationsError] = useState<string | null>(null);
   const [selectingConversationId, setSelectingConversationId] = useState<string | null>(null);
@@ -288,25 +297,39 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     setPortalReady(true);
   }, []);
 
-  const applyOnboardingState = useCallback((data: OnboardingClientPayload, keepMessages: boolean) => {
-    setStatus(data.status ?? null);
-    setNextStep(data.next_step ?? null);
-    setCurrentStep(data.current_step ?? null);
-    if (data.flow_type !== undefined) {
-      setFlowType(data.flow_type ?? null);
-    }
-    if (data.completed_steps !== undefined) {
-      setCompletedSteps(data.completed_steps);
-    }
-    setProgressPercent(Math.max(0, Math.min(100, data.progress_percent ?? 0)));
-    setUiActions(data.ui_actions ?? null);
-    setStepId(data.step_id ?? null);
-    if (data.public_users_read !== undefined) {
-      setPublicUsersRead(data.public_users_read);
-    }
+  const applyFlowState = useCallback((flow: FlowEnvelopeResponse, keepMessages: boolean) => {
+    setFlowInstanceId(flow.flow_instance.id);
+    setStatus(flow.flow_instance.state);
+    setFlowType(flow.flow_instance.flow_type ?? null);
+    setFlowUiActions(flow.ui_actions ?? []);
+    setFlowSteps(flow.steps ?? []);
+    setProgressPercent(Math.max(0, Math.min(100, flow.progress?.percent ?? 0)));
+
+    const completed = new Set<string>();
+    (flow.steps ?? []).forEach((step) => {
+      if (step.state === "STEP_DONE" || step.state === "STEP_SKIPPED") completed.add(step.step_key);
+    });
+    setCompletedSteps(Array.from(completed));
+
+    const orderedUi = (flow.ui_actions ?? []).filter((a) => a.state === "STEP_ISSUED");
+    setUiActions(
+      orderedUi.map((a) => ({
+        type: "onboarding",
+        target: a.target,
+        tooltip: a.tooltip || a.message || "Complete this onboarding task",
+      }))
+    );
+    setStepId(orderedUi[0]?.target ?? null);
+
+    const firstPending = (flow.steps ?? []).find((s) => s.state === "STEP_ISSUED");
+    setCurrentStep(firstPending?.step_key ?? null);
+    setNextStep(firstPending?.step_key ?? null);
+
     if (!keepMessages) {
-      const text = getPrimaryAgentText(data);
-      if (text) setMessages([{ role: "agent", text }]);
+      const line = firstPending
+        ? `Let’s continue onboarding. Next step: ${firstPending.step_key.replaceAll("_", " ")}.`
+        : "Onboarding is ready. Follow the highlighted tasks.";
+      setMessages([{ role: "agent", text: line }]);
     }
   }, []);
 
@@ -331,14 +354,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     setActiveConversationsLoading(true);
     setActiveConversationsError(null);
     try {
-      const res = await fetch("/api/agent/onboarding/active-conversations");
-      const data = (await res.json()) as { conversations?: ActiveOnboardingConversation[] };
-      if (!res.ok) {
-        setActiveConversations([]);
-        setActiveConversationsError(getDetailMessage(data));
-        return;
-      }
-      setActiveConversations(Array.isArray(data.conversations) ? data.conversations : []);
+      const flows = await listActiveOnboardingFlowsV2();
+      setActiveConversations(flows);
     } catch {
       setActiveConversations([]);
       setActiveConversationsError("Failed to load active conversations.");
@@ -347,12 +364,12 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     }
   }, []);
 
-  const startOnboarding = useCallback(async (resumeConversationId?: string | null) => {
+  const startOnboarding = useCallback(async (resumeFlowInstanceId?: string | null) => {
     if (startOnboardingInFlight.current) return;
     startOnboardingInFlight.current = true;
     try {
       try {
-        if (!resumeConversationId) sessionStorage.removeItem(SAGE_SESSION_KEY);
+        if (!resumeFlowInstanceId) sessionStorage.removeItem(SAGE_SESSION_KEY);
       } catch {
         // ignore
       }
@@ -362,34 +379,18 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       setShowConversationList(false);
       setError(null);
       setInput("");
-      setPublicUsersRead(null);
       setFlowType(null);
       setCompletedSteps([]);
       setTodoByTarget({});
       try {
-        const payload =
-          typeof resumeConversationId === "string" && resumeConversationId
-            ? { conversation_id: resumeConversationId }
-            : {};
-        const res = await fetch("/api/agent/onboarding/start", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const data = (await res.json()) as OnboardingClientPayload;
-        if (!res.ok) {
-          setError(getDetailMessage(data));
-          return;
-        }
-        if (data.conversation_id && getPrimaryAgentText(data)) {
-          setConversationId(data.conversation_id);
-          applyOnboardingState(data, false);
-          setReady(true);
-          setExpanded(true);
-          setSkipped(false);
-        } else {
-          setError("Unexpected response from onboarding start");
-        }
+        const flow = resumeFlowInstanceId
+          ? await getFlowV2(resumeFlowInstanceId)
+          : await startOnboardingFlowV2();
+        setConversationId(flow.flow_instance.id);
+        applyFlowState(flow, false);
+        setReady(true);
+        setExpanded(true);
+        setSkipped(false);
       } catch {
         setError("Network error starting onboarding");
       } finally {
@@ -398,7 +399,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     } finally {
       startOnboardingInFlight.current = false;
     }
-  }, [applyOnboardingState]);
+  }, [applyFlowState]);
 
   startOnboardingRef.current = startOnboarding;
 
@@ -433,8 +434,10 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             setCurrentStep(snap.currentStep);
             setProgressPercent(snap.progressPercent);
             setUiActions(snap.uiActions);
+            setFlowUiActions(snap.flowUiActions ?? []);
+            setFlowSteps(snap.flowSteps ?? []);
             setStepId(snap.stepId);
-            setPublicUsersRead(snap.publicUsersRead ?? null);
+            setFlowInstanceId(snap.flowInstanceId ?? snap.conversationId);
             setReady(snap.ready);
             setExpanded(snap.expanded);
             setSkipped(snap.skipped);
@@ -458,6 +461,28 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       setReady(true);
       setExpanded(true);
       setSkipped(false);
+      try {
+        const flows = await listActiveOnboardingFlowsV2();
+        if (cancelled) return;
+        if (flows.length > 0) {
+          const first = flows[0];
+          setConversationId(first.flow_instance.id);
+          applyFlowState(first, false);
+          return;
+        }
+      } catch {
+        // ignored, fallback to start
+      }
+      try {
+        const bootKey = AUTH_LOAD_ONBOARDING_KEY;
+        if (!sessionStorage.getItem(bootKey)) {
+          sessionStorage.setItem(bootKey, "1");
+          await startOnboardingRef.current();
+          return;
+        }
+      } catch {
+        // ignore
+      }
       setShowConversationList(true);
       await fetchActiveConversations();
     };
@@ -465,7 +490,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     return () => {
       cancelled = true;
     };
-  }, [isDesktop, fetchActiveConversations]);
+  }, [applyFlowState, fetchActiveConversations, isDesktop]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !conversationId) return;
@@ -478,8 +503,10 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       currentStep,
       progressPercent,
       uiActions,
+      flowUiActions,
+      flowSteps,
       stepId,
-      publicUsersRead,
+      flowInstanceId,
       ready,
       expanded,
       skipped,
@@ -500,8 +527,10 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     currentStep,
     progressPercent,
     uiActions,
+    flowUiActions,
+    flowSteps,
     stepId,
-    publicUsersRead,
+    flowInstanceId,
     ready,
     expanded,
     skipped,
@@ -520,30 +549,15 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   }, [onSageLayerChange, layerActive]);
 
   const refreshConversationStatus = useCallback(async () => {
-    if (!conversationId) return;
+    const id = flowInstanceId ?? conversationId;
+    if (!id) return;
     try {
-      const res = await fetch(`/api/agent/onboarding/${conversationId}/status`);
-      if (!res.ok) return;
-      const data = (await res.json()) as OnboardingStatusResponse;
-      setStatus(data.status);
-      setNextStep(data.next_step);
-      setCurrentStep(data.current_step ?? null);
-      setProgressPercent(Math.max(0, Math.min(100, data.progress_percent ?? 0)));
-      setUiActions(data.ui_actions ?? null);
-      setStepId(data.step_id ?? null);
-      if (data.public_users_read !== undefined) {
-        setPublicUsersRead(data.public_users_read);
-      }
-      if (data.flow_type !== undefined) {
-        setFlowType(data.flow_type ?? null);
-      }
-      if (data.completed_steps !== undefined) {
-        setCompletedSteps(data.completed_steps);
-      }
+      const flow = await getFlowV2(id);
+      applyFlowState(flow, true);
     } catch {
       // ignore background sync errors
     }
-  }, [conversationId]);
+  }, [applyFlowState, conversationId, flowInstanceId]);
 
   useEffect(() => {
     if (!isDesktop || !conversationId || !expanded || skipped || showConversationList) return;
@@ -562,16 +576,27 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   }, [expanded, showConversationList, refreshConversationStatus]);
 
   const flowLabel = formatFlowTypeLabel(flowType);
+  const onboardingCtaLabel = useMemo(() => {
+    const hasPartial =
+      (flowUiActions ?? []).some((a) => a.state === "STEP_DONE" || a.state === "STEP_SKIPPED") ||
+      flowSteps.some(
+        (s) =>
+          s.step_key === "execute_onboarding_todos" &&
+          (s.state === "STEP_DONE" || s.state === "STEP_SKIPPED")
+      );
+    return hasPartial ? "Resume Onboarding" : "Start Onboarding";
+  }, [flowSteps, flowUiActions]);
 
   const progressLabel = useMemo(() => {
     if (showConversationList) return "Select an active conversation";
     if (!ready) return `Preparing ${flowLabel.toLowerCase()}`;
-    if (status === "completed") return `${flowLabel} complete`;
+    if (status === "completed" || status === "FLOW_COMPLETED") return `${flowLabel} complete`;
     return flowLabel;
   }, [flowLabel, ready, showConversationList, status]);
 
   const sageHubPendingLine = useMemo(() => {
-    if (status === "completed") return "Hi, I am Sage! Let me know if you need help.";
+    if (status === "completed" || status === "FLOW_COMPLETED")
+      return "Hi, I am Sage! Let me know if you need help.";
     if (currentStep) return `Finish: ${flowLabel}`;
     if (nextStep) return `Up next: ${flowLabel}`;
     if (status && status !== "completed") return `${flowLabel}: ${status}`;
@@ -590,18 +615,28 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     () => {
       const allTargets = new Set<string>(Object.keys(todoByTarget));
       for (const a of uiActions ?? []) allTargets.add(a.target);
+      for (const step of flowSteps) {
+        if (step.actor_type === "SERVER") continue;
+        allTargets.add(step.step_key);
+      }
       for (const [target, step] of Object.entries(ONBOARDING_TARGET_TO_COMPLETION_STEP)) {
         if (completedSteps.includes(step)) allTargets.add(target);
       }
 
       return Array.from(allTargets).map((target) => {
         const fromAgent = (uiActions ?? []).find((a) => a.target === target);
+        const fromFlowStep = flowSteps.find((s) => s.step_key === target && s.actor_type !== "SERVER");
         const history = todoByTarget[target];
         const label = fromAgent
           ? uiActionDisplayLabel(fromAgent.tooltip)
-          : history?.label ?? defaultLabelForTarget(target);
-        const order = history?.order ?? (fromAgent ? Number.MAX_SAFE_INTEGER : 0);
-        const done = isUiActionComplete(target, completedSteps, status);
+          : fromFlowStep
+            ? fromFlowStep.step_key.replaceAll("_", " ")
+            : history?.label ?? defaultLabelForTarget(target);
+        const order =
+          history?.order ?? (fromAgent || fromFlowStep ? Number.MAX_SAFE_INTEGER : 0);
+        const done = fromFlowStep
+          ? fromFlowStep.state === "STEP_DONE" || fromFlowStep.state === "STEP_SKIPPED"
+          : isUiActionComplete(target, completedSteps, status);
         return {
           key: target,
           href: targetToHref(target),
@@ -612,7 +647,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         };
       });
     },
-    [completedSteps, status, todoByTarget, uiActions]
+    [completedSteps, flowSteps, status, todoByTarget, uiActions]
   );
 
   const orderedTodoItems = useMemo(
@@ -665,7 +700,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
   const showDesktopLoadingBanner = loading && isDesktop;
   const pausedHubDesktop = skipped && isDesktop && !loading;
-  const showPausedHubAttention = status === "active";
+  const showPausedHubAttention = status === "active" || status === "FLOW_ACTIVE";
 
   useLayoutEffect(() => {
     onRightRailChange?.(!pausedHubDesktop);
@@ -673,34 +708,18 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
-    if (!text || !conversationId || sending || loading) return;
+    if (!text || sending || loading) return;
 
     setInput("");
     setMessages((prev) => [...prev, { role: "user", text }]);
-    setSending(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/agent/onboarding/${conversationId}/message`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_message: text }),
-      });
-      const data = (await res.json()) as OnboardingClientPayload;
-      if (!res.ok) {
-        setError(getDetailMessage(data));
-        return;
-      }
-      const reply = getPrimaryAgentText(data);
-      if (reply) {
-        setMessages((prev) => [...prev, { role: "agent", text: reply }]);
-      }
-      applyOnboardingState(data, true);
-    } catch {
-      setError("Network error sending message");
-    } finally {
-      setSending(false);
-    }
-  }, [applyOnboardingState, conversationId, input, loading, sending]);
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "agent",
+        text: "Onboarding V2 is currently guided through highlights and tasks. Use the To Do list actions to proceed.",
+      },
+    ]);
+  }, [input, loading, sending]);
 
   const handleTodoCtaClick = useCallback(
     (item: { href: string; target: string; label: string }) => {
@@ -709,8 +728,12 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           target: item.target,
           tooltip: item.label,
           createdAt: Date.now(),
-          conversationId,
-          stepId: stepId ?? onboardingStepForUiTarget(item.target) ?? null,
+          flowInstanceId: flowInstanceId ?? conversationId,
+          stepId:
+            stepId ??
+            flowSteps.find((s) => s.actor_type !== "SERVER" && s.state === "STEP_ISSUED")?.step_key ??
+            onboardingStepForUiTarget(item.target) ??
+            null,
         };
         sessionStorage.setItem(
           SAGE_TASK_NAV_CONTEXT_KEY,
@@ -724,7 +747,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       setExpanded(false);
       router.push(taskCtaHref(item.href, item.target), { scroll: false });
     },
-    [conversationId, router, stepId]
+    [conversationId, flowInstanceId, flowSteps, router, stepId]
   );
 
   return (
@@ -887,21 +910,6 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           {stepId ? <span className="ml-2 font-mono text-[0.7rem] opacity-80">Step: {stepId}</span> : null}
         </div>
 
-        {expanded && !loading && !skipped && !showConversationList && publicUsersRead && publicUsersRead.ok === false && (
-          <div
-            className="border-t border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
-            role="status"
-          >
-            <p className="font-medium">We couldn’t load your account profile for this step.</p>
-            {publicUsersRead.error ? (
-              <p className="mt-1 text-amber-900/90 dark:text-amber-200/90">{publicUsersRead.error}</p>
-            ) : null}
-            <p className="mt-1 text-amber-900/80 dark:text-amber-200/80">
-              Open Profile or use the in-app links below to continue.
-            </p>
-          </div>
-        )}
-
         {expanded && !loading && !skipped && !showConversationList && orderedTodoItems.length > 0 && (
           <div className="space-y-2 border-t border-orange-200/60 bg-orange-50/50 px-4 py-2.5 dark:border-orange-800/50 dark:bg-orange-950/20">
             <div className="flex items-center justify-between gap-2">
@@ -1012,41 +1020,41 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                   onClick={() => void startOnboarding()}
                   className="rounded-md bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-orange-600"
                 >
-                  Start new conversation
+                  {onboardingCtaLabel}
                 </button>
               </div>
             ) : activeConversations.length === 0 ? (
               <div className="space-y-2">
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">No active conversations found.</p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">No active onboarding flows found.</p>
                 <button
                   type="button"
                   onClick={() => void startOnboarding()}
                   className="rounded-md bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-orange-600"
                 >
-                  Start new conversation
+                  {onboardingCtaLabel}
                 </button>
               </div>
             ) : (
               <ul className="space-y-2">
                 {activeConversations.map((conversation) => (
-                  <li key={conversation.conversation_id}>
+                  <li key={conversation.flow_instance.id}>
                     <button
                       type="button"
                       onClick={() => {
-                        setSelectingConversationId(conversation.conversation_id);
-                        void startOnboarding(conversation.conversation_id).finally(() =>
+                        setSelectingConversationId(conversation.flow_instance.id);
+                        void startOnboarding(conversation.flow_instance.id).finally(() =>
                           setSelectingConversationId(null)
                         );
                       }}
-                      disabled={selectingConversationId === conversation.conversation_id}
+                      disabled={selectingConversationId === conversation.flow_instance.id}
                       className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-left transition-colors hover:border-orange-300 hover:bg-orange-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-orange-700 dark:hover:bg-orange-900/20"
                     >
                       <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                        {conversation.last_agent_message || "Resume conversation"}
+                        Resume onboarding
                       </p>
                       <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                        Progress {conversation.progress_percent}% | Step{" "}
-                        {conversation.current_step || conversation.next_step || "unknown"}
+                        Progress {conversation.progress?.percent ?? 0}% | State{" "}
+                        {conversation.flow_instance.state}
                       </p>
                     </button>
                   </li>
