@@ -134,6 +134,8 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
   const sageTaskDialogRef = useRef<HTMLDivElement>(null);
   const highlightedTargetRef = useRef<Element | null>(null);
   const [activeHighlightTarget, setActiveHighlightTarget] = useState<string | null>(null);
+  /** When true, keep `sageInterStepBlocking` until the next `sageTaskDialog` opens (after chained navigation). */
+  const interStepOverlayHoldForNextDialogRef = useRef(false);
 
   /** Recomputes Sage tip anchor after target nodes mount async (dashboard loading, route transitions). */
   const repositionTaskDialogRef = useRef<(() => void) | null>(null);
@@ -145,6 +147,22 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
   useEffect(() => {
     sageTourDialogOpenRef.current = sageTaskDialog.open;
   }, [sageTaskDialog.open]);
+
+  useEffect(() => {
+    if (!sageTaskDialog.open || !interStepOverlayHoldForNextDialogRef.current) return;
+    interStepOverlayHoldForNextDialogRef.current = false;
+    setSageInterStepBlocking(false);
+  }, [sageTaskDialog.open]);
+
+  useEffect(() => {
+    if (!sageInterStepBlocking || !interStepOverlayHoldForNextDialogRef.current) return;
+    if (sageTaskDialog.open) return;
+    const id = window.setTimeout(() => {
+      interStepOverlayHoldForNextDialogRef.current = false;
+      setSageInterStepBlocking(false);
+    }, 12_000);
+    return () => window.clearTimeout(id);
+  }, [sageInterStepBlocking, sageTaskDialog.open]);
 
   const isBackToSageTarget = sageTaskDialog.target === "onboarding.congrats.experience_recorded" || sageTaskDialog.target === "onboarding.congrats.campaign_launched";
   const hidesNextForPrimaryInPageOnly = onboardingHidesNextForPrimary(sageTaskDialog.target);
@@ -380,6 +398,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
 
   const finalizeAfterUiAckFlow = useCallback(
     async (flowEnvelope: FlowEnvelopeResponse, ctx: SageTaskNavContext | null, completedTarget: string) => {
+      interStepOverlayHoldForNextDialogRef.current = false;
       if (!ctx?.flowInstanceId) {
         closeSageTaskDialog();
         return;
@@ -422,6 +441,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
           } catch {
             // ignore storage failures
           }
+          interStepOverlayHoldForNextDialogRef.current = true;
           closeSageTaskDialog();
           await sageOnboardingStepYield();
           router.push(buildOnboardingTaskHref(base, nextIssued.target), { scroll: false });
@@ -477,10 +497,13 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         }
         await finalizeAfterUiAckFlow(flowEnvelope, sageTaskContext, sageTaskContext.target);
       } catch (error) {
+        interStepOverlayHoldForNextDialogRef.current = false;
         setAckError(error instanceof Error ? error.message : "Failed to update action status");
       } finally {
         setAcknowledging(false);
-        setSageInterStepBlocking(false);
+        if (!interStepOverlayHoldForNextDialogRef.current) {
+          setSageInterStepBlocking(false);
+        }
       }
     },
     [closeSageTaskDialog, finalizeAfterUiAckFlow, isDesktop, sageTaskContext]
@@ -517,10 +540,13 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         });
         await finalizeAfterUiAckFlow(flowEnvelope, ctx, typedTarget);
       } catch (error) {
+        interStepOverlayHoldForNextDialogRef.current = false;
         setAckError(error instanceof Error ? error.message : "Failed to update action status");
       } finally {
         setAcknowledging(false);
-        setSageInterStepBlocking(false);
+        if (!interStepOverlayHoldForNextDialogRef.current) {
+          setSageInterStepBlocking(false);
+        }
       }
     };
     window.addEventListener(SAGE_PRIMARY_ACTION_DONE_EVENT, onPrimaryDone);
