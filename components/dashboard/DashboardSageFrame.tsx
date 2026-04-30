@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
+import { cn } from "@/lib/utils";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { FlowEnvelopeResponse } from "@/lib/agent-onboarding-types";
 import { SageWindow, type SageWindowHandle } from "@/components/dashboard/SageWindow";
@@ -713,11 +714,53 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         <>
           <button
             type="button"
+            role="switch"
+            aria-checked={sageModeEnabled}
             onClick={() => setSageModeEnabled((prev) => !prev)}
-            className="fixed right-2 top-1/2 z-[60] -translate-y-1/2 rounded-full border border-orange-300 bg-white px-2 py-3 text-xs font-semibold text-orange-800 shadow-md dark:border-orange-700 dark:bg-zinc-900 dark:text-orange-200 lg:hidden"
             aria-label={sageModeEnabled ? "Disable Sage mode" : "Enable Sage mode"}
+            className={cn(
+              "fixed right-2 top-1/2 z-[60] -translate-y-1/2 touch-manipulation select-none lg:hidden",
+              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
+            )}
           >
-            {sageModeEnabled ? "Sage On" : "Sage Off"}
+            <div
+              className={cn(
+                "flex h-[6.25rem] w-[3rem] flex-col items-stretch justify-between gap-1 overflow-hidden rounded-[1.5rem] border-2 p-1 shadow-md transition-[background-color,border-color,box-shadow] duration-300",
+                sageModeEnabled
+                  ? "border-emerald-300/90 bg-gradient-to-b from-emerald-50 via-white to-emerald-50/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_4px_14px_rgba(16,185,129,0.2)] dark:border-emerald-800/50 dark:bg-gradient-to-b dark:from-zinc-900 dark:via-zinc-950 dark:to-zinc-900 dark:shadow-[inset_0_2px_8px_rgba(0,0,0,0.35)]"
+                  : "border-emerald-200/80 bg-gradient-to-b from-zinc-200 via-zinc-300 to-zinc-400 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12)] dark:border-zinc-800 dark:from-zinc-900 dark:via-zinc-950 dark:to-black dark:shadow-[inset_0_2px_10px_rgba(0,0,0,0.45)]"
+              )}
+            >
+              {sageModeEnabled ? (
+                <>
+                  <span
+                    className="relative z-10 mx-auto flex size-9 shrink-0 items-center justify-center rounded-full border border-emerald-300 bg-white text-center text-[9px] font-bold uppercase leading-none tracking-tight text-emerald-950 shadow-[0_2px_0_rgba(255,255,255,0.95),0_3px_10px_rgba(16,185,129,0.22)] dark:border-emerald-600 dark:bg-zinc-800 dark:text-emerald-100 dark:shadow-[0_3px_12px_rgba(0,0,0,0.35)]"
+                    aria-hidden
+                  >
+                    On
+                  </span>
+                  <div className="flex min-h-0 flex-1 items-center justify-center px-0.5 pb-0.5" aria-hidden>
+                    <span className="text-center text-[7px] font-bold uppercase leading-snug tracking-wide text-emerald-950 dark:text-emerald-100">
+                      Sage mode
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex min-h-0 flex-1 items-center justify-center px-0.5 pt-0.5" aria-hidden>
+                    <span className="text-center text-[7px] font-bold uppercase leading-snug tracking-wide text-zinc-900 dark:text-zinc-100">
+                      Sage mode
+                    </span>
+                  </div>
+                  <span
+                    className="relative z-10 mx-auto flex size-9 shrink-0 items-center justify-center rounded-full border border-emerald-200/90 bg-emerald-50 text-center text-[9px] font-bold uppercase leading-none tracking-tight text-emerald-950 shadow-[0_2px_0_rgba(255,255,255,0.75),0_3px_10px_rgba(0,0,0,0.2)] dark:border-zinc-600 dark:bg-zinc-700 dark:text-emerald-50 dark:shadow-[0_3px_12px_rgba(0,0,0,0.4)]"
+                    aria-hidden
+                  >
+                    Off
+                  </span>
+                </>
+              )}
+            </div>
           </button>
           {sageModeEnabled ? (
             <div className="fixed inset-0 z-[55] bg-orange-50 dark:bg-zinc-950 lg:hidden" style={{ top: headerOffsetPx }}>
