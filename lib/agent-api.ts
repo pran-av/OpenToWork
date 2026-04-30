@@ -27,6 +27,7 @@ export interface AgentRequestOptions {
   path: string;
   body?: Record<string, unknown> | FormData;
   headers?: Record<string, string>;
+  apiPrefix?: "/api/v1" | "/api/v2";
 }
 
 /**
@@ -39,8 +40,9 @@ export async function agentRequest<T = unknown>(options: AgentRequestOptions): P
   data: T | { detail?: string | unknown };
 }> {
   const base = getBaseUrl();
+  const apiPrefix = options.apiPrefix ?? API_PREFIX;
   const path = options.path.startsWith("/") ? options.path : `/${options.path}`;
-  const url = `${base}${API_PREFIX}${path}`;
+  const url = `${base}${apiPrefix}${path}`;
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${options.accessToken}`,

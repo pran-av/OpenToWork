@@ -42,3 +42,56 @@ export async function GET() {
     return noStoreJsonResponse({ error: "Failed to fetch profile" }, 500);
   }
 }
+
+/**
+ * PATCH /api/agent/profiles/me
+ * Proxies PATCH /api/v1/profiles/me.
+ */
+export async function PATCH(request: Request) {
+  try {
+    const { token, error: authError } = await getAgentAccessToken();
+    if (authError || !token) {
+      return noStoreJsonResponse({ error: authError ?? "Authentication required" }, 401);
+    }
+
+    const body = (await request.json()) as {
+      experience_summary?: unknown;
+      goals_summary?: unknown;
+      references_json?: unknown;
+    };
+
+    const payload: Record<string, unknown> = {};
+    if (typeof body.experience_summary === "string") {
+      payload.experience_summary = body.experience_summary;
+    }
+    if (typeof body.goals_summary === "string") {
+      payload.goals_summary = body.goals_summary;
+    }
+    if (body.references_json && typeof body.references_json === "object") {
+      payload.references_json = body.references_json;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      return noStoreJsonResponse(
+        { error: "At least one updatable field is required" },
+        400
+      );
+    }
+
+    const { ok, status, data } = await agentRequest<AgentProfileResponse>({
+      accessToken: token,
+      method: "PATCH",
+      path: "/profiles/me",
+      body: payload,
+    });
+
+    if (!ok) {
+      return NextResponse.json(data, { status });
+    }
+
+    return noStoreJsonResponse(data);
+  } catch (error) {
+    console.error("Error updating agent profile:", error);
+    return noStoreJsonResponse({ error: "Failed to update profile" }, 500);
+  }
+}
