@@ -100,9 +100,10 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       const raw = sessionStorage.getItem(SAGE_TASK_NAV_CONTEXT_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as SageTaskNavContext;
-        if (parsed.target === target && typeof parsed.tooltip === "string" && parsed.tooltip.trim().length > 0) {
+        const tooltip = typeof parsed.tooltip === "string" ? parsed.tooltip.trim() : "";
+        if (parsed.target === target && tooltip.length > 0) {
           window.setTimeout(() => {
-            setSageTaskDialog({ open: true, message: parsed.tooltip.trim(), target });
+            setSageTaskDialog({ open: true, message: tooltip, target });
             setSageTaskContext(parsed);
             setAckError(null);
           }, 0);
