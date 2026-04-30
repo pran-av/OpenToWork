@@ -172,9 +172,18 @@ export default function DashboardProjectsPage() {
         return;
       }
 
-      dispatchSagePrimaryActionDone("campaigns_dashboard.project.create_cta");
+      const projectPath = `/dashboard/projects/${data.project.project_id}`;
+      setIsCreating(false);
+      setIsDialogOpen(false);
+      setProjectName("");
+      setError(null);
 
-      router.push(`/dashboard/projects/${data.project.project_id}`);
+      dispatchSagePrimaryActionDone("campaigns_dashboard.project.create_cta", {
+        sageSessionProjectPath: projectPath,
+        onUnconsumed: () => {
+          router.push(projectPath);
+        },
+      });
     } catch {
       setError("An unexpected error occurred");
       setIsCreating(false);

@@ -396,6 +396,13 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
           }
           closeSageTaskDialog();
           router.push(buildOnboardingTaskHref(base, nextIssued.target), { scroll: false });
+          if (
+            completedTarget === "experience.form.save" ||
+            completedTarget === "campaigns_dashboard.project.create_cta" ||
+            completedTarget === "campaigns_dashboard.project.campaign.create_cta"
+          ) {
+            router.refresh();
+          }
           return;
         }
       }

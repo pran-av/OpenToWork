@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ExperienceCaseStudyCard } from "@/components/dashboard/ExperienceCaseStudyCard";
 import { DashboardMobileFab } from "@/components/dashboard/DashboardMobileFab";
-import { SAGE_PRIMARY_ACTION_DONE_EVENT } from "@/lib/sage-onboarding-primary";
+import { dispatchSagePrimaryActionDone } from "@/lib/sage-onboarding-primary";
 
 interface ExperienceCaseStudy {
   case_id: string;
@@ -121,19 +121,8 @@ function DashboardPageContent() {
 
   const onAddExperiencePrimaryClick = (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
-    let handled = false;
-    window.dispatchEvent(
-      new CustomEvent(SAGE_PRIMARY_ACTION_DONE_EVENT, {
-        detail: {
-          target: "experience_dashboard.experience.create_cta",
-          markHandled: () => {
-            handled = true;
-          },
-        },
-      })
-    );
-    queueMicrotask(() => {
-      if (!handled) router.push("/dashboard/experience/new");
+    dispatchSagePrimaryActionDone("experience_dashboard.experience.create_cta", {
+      onUnconsumed: () => router.push("/dashboard/experience/new"),
     });
   };
 

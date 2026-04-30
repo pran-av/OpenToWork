@@ -308,16 +308,22 @@ export default function ProjectOverviewClient({
       // Fetch fresh data in background to sync with server
       fetchCampaigns().catch(console.error);
 
-      dispatchSagePrimaryActionDone("campaigns_dashboard.project.campaign.create_cta");
+      const projectPath = `/dashboard/projects/${project.project_id}`;
+      const campaignPath = `${projectPath}/campaigns/${data.campaign.campaign_id}`;
 
       setIsDialogOpen(false);
       setCampaignName("");
       setError(null);
-      
-      // Show loading state and navigate to the new campaign
       setIsCreating(false);
-      setIsNavigating(true);
-      router.push(`/dashboard/projects/${project.project_id}/campaigns/${data.campaign.campaign_id}`);
+
+      dispatchSagePrimaryActionDone("campaigns_dashboard.project.campaign.create_cta", {
+        sageSessionProjectPath: projectPath,
+        sageSessionCampaignPath: campaignPath,
+        onUnconsumed: () => {
+          setIsNavigating(true);
+          router.push(campaignPath);
+        },
+      });
     } catch (error) {
       // Revert optimistic update on error
       setCampaigns(previousCampaigns);

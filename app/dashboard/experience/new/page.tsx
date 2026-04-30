@@ -257,10 +257,13 @@ function NewExperienceCaseStudyForm() {
         throw new Error(caseStudyPayload.error || "Failed to create case study");
       }
 
-      dispatchSagePrimaryActionDone("experience.form.save");
-
-      router.push(returnToPath ?? "/dashboard");
-      router.refresh();
+      const destination = returnToPath ?? "/dashboard";
+      dispatchSagePrimaryActionDone("experience.form.save", {
+        onUnconsumed: () => {
+          router.push(destination);
+          router.refresh();
+        },
+      });
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Failed to create experience");
     } finally {
