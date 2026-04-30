@@ -401,7 +401,6 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
   /** One-shot bootstrap: restore from sessionStorage, otherwise show conversation list. */
   useEffect(() => {
-    if (!isDesktop) return;
     let cancelled = false;
     const run = async () => {
       try {
@@ -478,7 +477,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     return () => {
       cancelled = true;
     };
-  }, [applyFlowState, fetchActiveConversations, isDesktop]);
+    /* Intentionally omit `isDesktop`: bootstrap must run on mobile/tablet; including it re-ran the flow after the media query flip and duplicated work on desktop. */
+  }, [applyFlowState, fetchActiveConversations]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !conversationId) return;
@@ -874,7 +874,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       <div
         className={cn(
           "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-orange-50/80 transition-all duration-500 dark:bg-orange-950/30 lg:bg-orange-50 dark:lg:bg-zinc-950",
-          expanded ? "lg:max-h-full" : "max-h-16",
+          /* Desktop collapsed rail stays short; mobile/tablet full-screen needs full height while loading (expanded is false). */
+          expanded ? "max-h-full" : isDesktop ? "max-h-16" : "max-h-full",
           showDesktopLoadingBanner &&
             "max-h-0 min-h-0 border-0 p-0 opacity-0 [visibility:hidden] pointer-events-none"
         )}
