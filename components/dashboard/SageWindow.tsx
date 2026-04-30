@@ -564,15 +564,12 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const flowLabel = formatFlowTypeLabel(flowType);
   const isOnboardingFlow = (flowType ?? "").trim().toUpperCase() === "ONBOARDING";
   const onboardingCtaLabel = useMemo(() => {
-    const hasPartial =
-      (flowUiActions ?? []).some((a) => a.state === "STEP_DONE" || a.state === "STEP_SKIPPED") ||
-      flowSteps.some(
-        (s) =>
-          s.step_key === "execute_onboarding_todos" &&
-          (s.state === "STEP_DONE" || s.state === "STEP_SKIPPED")
-      );
+    if ((flowType ?? "").trim().toUpperCase() !== "ONBOARDING") return "Start Onboarding";
+    const hasPartial = (flowUiActions ?? []).some(
+      (a) => a.state === "STEP_DONE" || a.state === "STEP_SKIPPED"
+    );
     return hasPartial ? "Resume Onboarding" : "Start Onboarding";
-  }, [flowSteps, flowUiActions]);
+  }, [flowType, flowUiActions]);
 
   const progressLabel = useMemo(() => {
     if (showConversationList) return "Select an active conversation";
@@ -1027,10 +1024,12 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                   disabled={!nextPendingTodo}
                   className="rounded-md border border-orange-300 bg-orange-100 px-3 py-1.5 text-xs font-semibold text-orange-900 transition-colors hover:bg-orange-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-orange-700 dark:bg-orange-900/40 dark:text-orange-100"
                   aria-label={
-                    nextPendingTodo ? `Start onboarding: ${nextPendingTodo.label}` : "No pending tasks to complete"
+                    nextPendingTodo
+                      ? `${onboardingCtaLabel}: ${nextPendingTodo.label}`
+                      : "No pending onboarding tasks available"
                   }
                 >
-                  Start Onboarding
+                  {onboardingCtaLabel}
                 </button>
               </div>
             ) : null}

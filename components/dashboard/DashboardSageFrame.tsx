@@ -133,7 +133,6 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
   }, [sageTaskDialog.open]);
 
   const isBackToSageTarget = sageTaskDialog.target === "onboarding.congrats.experience_recorded" || sageTaskDialog.target === "onboarding.congrats.campaign_launched";
-  const isProfileSensitiveTarget = sageTaskDialog.target === "profile.user_name.edit" || sageTaskDialog.target === "profile.resume.upload_cta" || sageTaskDialog.target === "profile.linkedin.connect_cta";
   const hidesNextForPrimaryInPageOnly = onboardingHidesNextForPrimary(sageTaskDialog.target);
 
   useEffect(() => {
@@ -530,7 +529,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
                 ) : null}
                 {hidesNextForPrimaryInPageOnly && !isBackToSageTarget ? (
                   <p className="mt-2 text-xs leading-snug text-zinc-500 dark:text-zinc-400">
-                    Use the highlighted control (Save, Create, or Add) to finish this step — or Skip to defer.
+                    Use the highlighted control (Save, Create, or Add) to finish this step.
                   </p>
                 ) : null}
                 <div className="mt-4 flex w-full flex-wrap items-center justify-end gap-2">
@@ -547,15 +546,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
                       Back to Sage
                     </button>
                   ) : null}
-                  <button
-                    type="button"
-                    onClick={() => void acknowledgeAction("STEP_SKIPPED", false)}
-                    disabled={acknowledging}
-                    className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                  >
-                    Skip
-                  </button>
-                  {!isProfileSensitiveTarget && !hidesNextForPrimaryInPageOnly ? (
+                  {!isBackToSageTarget && !hidesNextForPrimaryInPageOnly ? (
                     <button
                       type="button"
                       onClick={() => void acknowledgeAction("STEP_DONE", false)}
