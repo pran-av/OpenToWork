@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, useLayoutEffect } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { CampaignData, ClientService, CaseStudy } from "@/lib/db/campaigns";
 import type { ProjectData } from "@/lib/db/projects";
 import type { AttachedExperienceCaseStudy } from "@/lib/db/experience";
@@ -20,6 +20,10 @@ import {
   sanitizePlainTextMultiline,
   sanitizeSearchQuery,
 } from "@/lib/utils/client-input-security";
+import {
+  SAGE_ONBOARDING_CAMPAIGN_EDITOR_PATH_KEY,
+  SAGE_ONBOARDING_PROJECT_EDITOR_PATH_KEY,
+} from "@/lib/sage-onboarding-nav";
 
 interface ServiceWithCaseStudies extends ClientService {
   caseStudies: CaseStudy[];
@@ -641,6 +645,8 @@ export default function CampaignOverviewClient({
   isPublishable: initialIsPublishable,
 }: CampaignOverviewClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const isDraft = initialCampaign.campaign_status === "DRAFT";
   const isEditMode = isDraft && !project.is_archived;
 
@@ -726,6 +732,42 @@ export default function CampaignOverviewClient({
     emitStudioCampaignWriteMode(isEditMode);
     return () => emitStudioCampaignWriteMode(false);
   }, [isEditMode]);
+
+  useEffect(() => {
+    if (!pathname) return;
+    if (/^\/dashboard\/projects\/[^/]+\/campaigns\/[^/]+$/.test(pathname)) {
+      try {
+        sessionStorage.setItem(SAGE_ONBOARDING_CAMPAIGN_EDITOR_PATH_KEY, pathname);
+        const segment = pathname.match(/^\/dashboard\/projects\/([^/]+)/);
+        if (segment?.[1]) {
+          sessionStorage.setItem(
+            SAGE_ONBOARDING_PROJECT_EDITOR_PATH_KEY,
+            `/dashboard/projects/${segment[1]}`
+          );
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [pathname]);
+
+  useLayoutEffect(() => {
+    const hl = searchParams.get("sage_highlight");
+    if (!hl?.startsWith("campaign.form.") || !isEditMode) return;
+    switch (hl) {
+      case "campaign.form.title":
+        setClientName((v) => (v.trim() ? v : "Hire Me for XYZ Role"));
+        break;
+      case "campaign.form.summary":
+        setClientSummary((v) => (v.trim() ? v : "Summary about me"));
+        break;
+      case "campaign.form.call_to_action":
+        setCtaMailto((v) => (v.trim() ? v : "youremail@example.com"));
+        break;
+      default:
+        break;
+    }
+  }, [searchParams, isEditMode]);
 
   // Track unsaved changes
   useEffect(() => {
@@ -1594,6 +1636,7 @@ export default function CampaignOverviewClient({
           {shouldShowPrimaryCTA() && (
             <button
               type="button"
+              data-sage-target="campaign-publish"
               onClick={runPrimaryCTA}
               disabled={primaryCTADisabled}
               className={`rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200 ${
@@ -1613,6 +1656,7 @@ export default function CampaignOverviewClient({
               </label>
               {isEditMode ? (
                 <input
+                  id="campaign-title"
                   type="text"
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
@@ -1636,6 +1680,7 @@ export default function CampaignOverviewClient({
               {isEditMode ? (
                 <div className="relative mt-1">
                   <textarea
+                    id="campaign-summary"
                     value={clientSummary}
                     onChange={(e) => setClientSummary(e.target.value)}
                     maxLength={400}
@@ -1723,6 +1768,7 @@ export default function CampaignOverviewClient({
                       <Mail className="h-4 w-4 text-zinc-400" aria-hidden />
                     </span>
                     <input
+                      id="campaign-cta"
                       type="email"
                       value={ctaMailto}
                       onChange={(e) => setCtaMailto(e.target.value)}
@@ -1798,7 +1844,10 @@ export default function CampaignOverviewClient({
         </div>
 
         {/* Experience Search and Attach */}
-        <div className="mt-8 border-t border-orange-100 pt-8 dark:border-zinc-800">
+        <div
+          id="campaign-link-experiences"
+          className="scroll-mt-4 mt-8 border-t border-orange-100 pt-8 dark:border-zinc-800"
+        >
           <div className="mb-4">
             <h3 className="text-lg font-semibold text-black dark:text-zinc-50">
               Select and Add Experiences <span className="text-red-600 dark:text-red-400">*</span>
@@ -1978,6 +2027,7 @@ export default function CampaignOverviewClient({
           <div className="mx-auto flex max-w-5xl gap-3">
             <button
               type="button"
+              data-sage-target="campaign-publish"
               onClick={runPrimaryCTA}
               disabled={primaryCTADisabled}
               className="min-w-0 flex-[1.35] rounded-md bg-orange-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"

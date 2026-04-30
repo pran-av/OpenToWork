@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getCampaignById } from "@/lib/db/campaigns";
 import { getProjectById } from "@/lib/db/projects";
@@ -45,14 +46,22 @@ export default async function CampaignOverviewPage({ params }: PageProps) {
     : false;
 
   return (
-    <CampaignOverviewClient
-      campaign={campaign}
-      project={project}
-      servicesWithCaseStudies={servicesWithCaseStudies}
-      attachedCaseStudies={attachedCaseStudies}
-      hasActiveCampaign={hasActiveCampaign}
-      isPublishable={isPublishable}
-    />
+    <Suspense
+      fallback={
+        <div className="flex min-h-[240px] items-center justify-center text-sm text-zinc-500 dark:text-zinc-400">
+          Loading campaign…
+        </div>
+      }
+    >
+      <CampaignOverviewClient
+        campaign={campaign}
+        project={project}
+        servicesWithCaseStudies={servicesWithCaseStudies}
+        attachedCaseStudies={attachedCaseStudies}
+        hasActiveCampaign={hasActiveCampaign}
+        isPublishable={isPublishable}
+      />
+    </Suspense>
   );
 }
 

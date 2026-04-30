@@ -8,6 +8,7 @@ import { useTheme } from "next-themes";
 import { BriefcaseBusiness, Megaphone, User } from "lucide-react";
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import LinkIdentityBanner from "./LinkIdentityBanner";
+import Link from "next/link";
 
 interface ProfileData {
   display_name: string | null;
@@ -130,6 +131,14 @@ export default function DashboardHeader() {
           >
             {switchLabel}
           </button>
+
+          <Link
+            href="/dashboard/profile"
+            id="profile-desktop-sage-target"
+            className="rounded-md border border-orange-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+          >
+            Profile
+          </Link>
 
           {/* Theme Toggle */}
           {mounted && (
@@ -329,6 +338,8 @@ export default function DashboardHeader() {
             </span>
           </button>
           <button
+            id="profile-nav-cta"
+            type="button"
             onClick={() => router.push("/dashboard/profile")}
             className={`rounded-xl px-2 py-2 text-[11px] font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 ${
               isProfileArea

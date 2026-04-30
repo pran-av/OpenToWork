@@ -29,8 +29,7 @@ import {
 } from "@/lib/agent-flow-v2";
 import {
   buildOnboardingTaskHref,
-  getOnboardingTargetHref,
-  isOnboardingFlowType,
+  getResolvedOnboardingTaskHref,
   onboardingUiActionOrder,
 } from "@/lib/sage-onboarding-nav";
 
@@ -93,10 +92,6 @@ const ONBOARDING_TARGET_DEFAULT_LABEL: Record<string, string> = {
   "profile.linkedin.connect_cta": "Finish your LinkedIn connection in profile settings.",
   "nav.campaigns_dashboard": "Open Campaigns to build pitches from your experiences.",
 };
-
-function targetToHref(target: string): string | null {
-  return getOnboardingTargetHref(target);
-}
 
 /**
  * Maps fixed `ui_actions[].target` IDs to onboarding `completed_steps` keys (agent API v0.2.3).
@@ -560,15 +555,14 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
   useEffect(() => {
     const onUiActionAck = () => {
-      if (showConversationList) return;
       void refreshConversationStatus();
     };
     window.addEventListener("sage-ui-action-acknowledged", onUiActionAck);
     return () => window.removeEventListener("sage-ui-action-acknowledged", onUiActionAck);
-  }, [showConversationList, refreshConversationStatus]);
+  }, [refreshConversationStatus]);
 
   const flowLabel = formatFlowTypeLabel(flowType);
-  const isOnboardingFlow = isOnboardingFlowType(flowType);
+  const isOnboardingFlow = (flowType ?? "").trim().toUpperCase() === "ONBOARDING";
   const onboardingCtaLabel = useMemo(() => {
     const hasPartial =
       (flowUiActions ?? []).some((a) => a.state === "STEP_DONE" || a.state === "STEP_SKIPPED") ||
@@ -618,32 +612,39 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
       return Array.from(allTargets).map((target) => {
         const fromAgent = (uiActions ?? []).find((a) => a.target === target);
+        const fromFlowUi = (flowUiActions ?? []).find((a) => a.target === target);
         const fromFlowStep = flowSteps.find((s) => s.step_key === target && s.actor_type !== "SERVER");
         const history = todoByTarget[target];
         const label = fromAgent
           ? uiActionDisplayLabel(fromAgent.tooltip)
+          : fromFlowUi
+            ? uiActionDisplayLabel(fromFlowUi.tooltip || fromFlowUi.message || "")
           : fromFlowStep
             ? fromFlowStep.step_key.replaceAll("_", " ")
             : history?.label ?? defaultLabelForTarget(target);
         const order =
-          history?.order ?? (fromAgent || fromFlowStep ? Number.MAX_SAFE_INTEGER : 0);
-        const done = fromFlowStep
-          ? fromFlowStep.state === "STEP_DONE" || fromFlowStep.state === "STEP_SKIPPED"
-          : isUiActionComplete(target, completedSteps, status);
+          history?.order ?? (fromAgent || fromFlowUi || fromFlowStep ? Number.MAX_SAFE_INTEGER : 0);
+        const uiActionDone =
+          fromFlowUi?.state === "STEP_DONE" || fromFlowUi?.state === "STEP_SKIPPED";
+        const done = uiActionDone
+          ? true
+          : fromFlowStep
+            ? fromFlowStep.state === "STEP_DONE" || fromFlowStep.state === "STEP_SKIPPED"
+            : isUiActionComplete(target, completedSteps, status);
         return {
           key: target,
-          href: targetToHref(target),
+          href: getResolvedOnboardingTaskHref(target),
           done,
           label,
-          tooltip: fromAgent?.tooltip ?? label,
-          message: fromAgent?.message ?? null,
+          tooltip: fromAgent?.tooltip ?? fromFlowUi?.tooltip ?? label,
+          message: fromAgent?.message ?? fromFlowUi?.message ?? null,
           target,
           order,
           sequence: onboardingUiActionOrder(target),
         };
       });
     },
-    [completedSteps, flowSteps, status, todoByTarget, uiActions]
+    [completedSteps, flowSteps, flowUiActions, status, todoByTarget, uiActions]
   );
 
   const orderedTodoItems = useMemo(
@@ -657,10 +658,34 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     [todoItems]
   );
 
-  const nextPendingTodo = useMemo(
-    () => orderedTodoItems.find((item) => !item.done && Boolean(item.href)) ?? null,
-    [orderedTodoItems]
-  );
+  const nextPendingTodo = useMemo(() => {
+    if (!isOnboardingFlow) {
+      return orderedTodoItems.find((item) => !item.done && Boolean(item.href)) ?? null;
+    }
+    // Single CTA: follow server ISSUED queue in PRD order (not inferred rows that lack STEP_DONE tracking).
+    const issued = uiActions ?? [];
+    if (issued.length === 0) return null;
+    const sorted = [...issued].sort(
+      (a, b) => onboardingUiActionOrder(a.target) - onboardingUiActionOrder(b.target)
+    );
+    const first = sorted[0];
+    const href = getResolvedOnboardingTaskHref(first.target);
+    if (!href) return null;
+    const baseLabel = uiActionDisplayLabel(
+      first.tooltip || first.message || "Complete this onboarding task"
+    );
+    return {
+      key: first.target,
+      target: first.target,
+      href,
+      label: baseLabel || defaultLabelForTarget(first.target),
+      tooltip: first.tooltip?.trim().length ? first.tooltip : baseLabel || first.target,
+      message: first.message ?? null,
+      done: false as const,
+      order: Date.now(),
+      sequence: onboardingUiActionOrder(first.target),
+    };
+  }, [isOnboardingFlow, orderedTodoItems, uiActions]);
 
   useEffect(() => {
     if (!uiActions || uiActions.length === 0) return;

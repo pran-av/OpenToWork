@@ -52,6 +52,14 @@ export default function DashboardProjectsPage() {
     fetchProjects();
   }, [fetchProjects]);
 
+  useEffect(() => {
+    const hl = searchParams.get("sage_highlight");
+    if (hl !== "campaigns_dashboard.project.create_cta") return;
+    setIsDialogOpen(true);
+    setProjectName((prev) => (prev.trim() ? prev : "Onboarding Sample Project"));
+    setError(null);
+  }, [searchParams]);
+
   const getErrorMessage = (errorCode: string): string => {
     const errorMessages: Record<string, string> = {
       linkedin_already_linked: "LinkedIn is already linked to another account",
@@ -195,6 +203,8 @@ export default function DashboardProjectsPage() {
         </div>
         {projects.length > 0 && (
           <button
+            type="button"
+            data-sage-target="create-project-cta"
             onClick={() => setIsDialogOpen(true)}
             className="hidden rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 lg:inline-flex"
           >
@@ -209,6 +219,8 @@ export default function DashboardProjectsPage() {
             You don&apos;t have any projects yet.
           </p>
           <button
+            type="button"
+            data-sage-target="create-project-cta"
             onClick={() => setIsDialogOpen(true)}
             className="hidden rounded-md bg-orange-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 lg:inline-flex"
           >
@@ -259,7 +271,11 @@ export default function DashboardProjectsPage() {
       )}
 
       {!isLoading && (
-        <DashboardMobileFab onClick={() => setIsDialogOpen(true)} ariaLabel="Create new project" />
+        <DashboardMobileFab
+          dataSageTarget="create-project-cta"
+          onClick={() => setIsDialogOpen(true)}
+          ariaLabel="Create new project"
+        />
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
@@ -316,6 +332,8 @@ export default function DashboardProjectsPage() {
               Cancel
             </button>
             <button
+              type="button"
+              data-sage-target="create-project-cta"
               onClick={handleCreateProject}
               disabled={isCreating || !projectName.trim()}
               className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"

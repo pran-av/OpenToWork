@@ -12,12 +12,17 @@ const wrapperClassName =
 type DashboardMobileFabLinkProps = {
   href: string;
   ariaLabel: string;
+  /** Extra classes on the link (e.g. Sage dashboard highlight target). */
+  linkClassName?: string;
+  /** Matches `DashboardSageFrame` onboarding selectors that use `[data-sage-target=…]`. */
+  dataSageTarget?: string;
 };
 
 type DashboardMobileFabButtonProps = {
   onClick: () => void;
   ariaLabel: string;
   disabled?: boolean;
+  dataSageTarget?: string;
 };
 
 export type DashboardMobileFabProps = DashboardMobileFabLinkProps | DashboardMobileFabButtonProps;
@@ -30,7 +35,14 @@ export function DashboardMobileFab(props: DashboardMobileFabProps) {
   return (
     <div className={wrapperClassName}>
       {"href" in props ? (
-        <Link href={props.href} className={fabClassName} aria-label={props.ariaLabel}>
+        <Link
+          href={props.href}
+          className={`${fabClassName}${props.linkClassName ? ` ${props.linkClassName}` : ""}`}
+          aria-label={props.ariaLabel}
+          {...(props.dataSageTarget
+            ? { "data-sage-target": props.dataSageTarget }
+            : {})}
+        >
           {icon}
         </Link>
       ) : (
@@ -40,6 +52,7 @@ export function DashboardMobileFab(props: DashboardMobileFabProps) {
           disabled={props.disabled}
           className={fabClassName}
           aria-label={props.ariaLabel}
+          {...(props.dataSageTarget ? { "data-sage-target": props.dataSageTarget } : {})}
         >
           {icon}
         </button>

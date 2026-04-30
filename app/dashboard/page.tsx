@@ -151,17 +151,15 @@ function DashboardPageContent() {
     };
   }, [loadExperienceCaseStudies]);
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading experience timeline...</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative min-h-[70vh] space-y-6 pb-24">
-      <div className="relative min-w-0 flex-1 space-y-6">
+  const timelineBody = isLoading ? (
+    <div className="flex min-h-[400px] items-center justify-center">
+      <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading experience timeline...</p>
+    </div>
+  ) : (
+    <div
+      id="experience-dashboard-root"
+      className="relative min-w-0 flex-1 space-y-6 scroll-mt-4"
+    >
         <div className="relative z-0 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Experience Canvas</h2>
@@ -178,13 +176,16 @@ function DashboardPageContent() {
         )}
 
         {timelineGroups.byYear.length === 0 && timelineGroups.unknownYear.length === 0 ? (
-          <div className="flex min-h-[360px] items-center justify-center rounded-lg border border-dashed border-orange-200 bg-orange-50/40 p-8 text-center dark:border-zinc-700 dark:bg-zinc-900/90">
+          <div
+            id="experience-created-highlight"
+            className="flex min-h-[360px] scroll-mt-4 items-center justify-center rounded-lg border border-dashed border-orange-200 bg-orange-50/40 p-8 text-center dark:border-zinc-700 dark:bg-zinc-900/90"
+          >
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
               No experiences yet. Use Add New Experiences to start your timeline.
             </p>
           </div>
         ) : (
-          <div className="space-y-10">
+          <div id="experience-created-highlight" className="scroll-mt-4 space-y-10">
             {timelineGroups.byYear.map(({ year, caseStudies: yearCaseStudies }) => (
               <section key={year} className="grid grid-cols-[88px_1fr] gap-4">
                 <div className="pt-1 text-sm font-semibold text-zinc-500 dark:text-zinc-400">{year}</div>
@@ -208,18 +209,27 @@ function DashboardPageContent() {
             )}
           </div>
         )}
-      </div>
+    </div>
+  );
+
+  return (
+    <div className="relative min-h-[70vh] space-y-6 pb-24">
+      {timelineBody}
 
       <div className="pointer-events-none fixed bottom-8 left-1/2 z-40 hidden -translate-x-1/2 lg:block">
         <Link
           href="/dashboard/experience/new"
-          className="pointer-events-auto inline-block rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+          className="sage-highlight-exp-create pointer-events-auto inline-block rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
         >
           Add New Experiences
         </Link>
       </div>
 
-      <DashboardMobileFab href="/dashboard/experience/new" ariaLabel="Add new experience" />
+      <DashboardMobileFab
+        href="/dashboard/experience/new"
+        ariaLabel="Add new experience"
+        linkClassName="sage-highlight-exp-create"
+      />
 
       {toast && (
         <div
@@ -244,6 +254,7 @@ function DashboardPageContent() {
     </div>
   );
 }
+
 
 export default function DashboardPage() {
   return (

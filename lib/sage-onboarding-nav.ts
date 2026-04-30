@@ -1,16 +1,42 @@
 import type { FlowEnvelopeResponse, FlowUiAction } from "@/lib/agent-onboarding-types";
 
+/** Last opened project overview path (segments only, includes leading slash). */
+export const SAGE_ONBOARDING_PROJECT_EDITOR_PATH_KEY =
+  "opentowork-sage-onboarding-project-editor-path-v1";
+/** Last opened campaign editor/studio path. */
+export const SAGE_ONBOARDING_CAMPAIGN_EDITOR_PATH_KEY =
+  "opentowork-sage-onboarding-campaign-editor-path-v1";
+
+const PROJECT_PATH_RE = /^\/dashboard\/projects\/[^/]+$/;
+const CAMPAIGN_PATH_RE = /^\/dashboard\/projects\/[^/]+\/campaigns\/[^/]+$/;
+
+/** Campaign draft fields live under the studio campaign route. */
+const CAMPAIGN_STUDIO_TARGETS = new Set([
+  "campaign.form.title",
+  "campaign.form.summary",
+  "campaign.form.call_to_action",
+  "campaign.form.link_experiences",
+  "campaign.form.publish",
+]);
+
+/** Create-campaign modal + project-level congrats/URL targets use the project overview route. */
+const PROJECT_OVERVIEW_TARGETS = new Set([
+  "campaigns_dashboard.project.campaign.create_cta",
+  "campaigns.project_url.copy",
+  "onboarding.congrats.campaign_launched",
+]);
+
 /** Stable target IDs → dashboard routes (@see onboarding-flow-v2 PRD). */
 export const ONBOARDING_TARGET_HREF: Record<string, string> = {
   "nav.experience_dashboard": "/dashboard",
   "experience_dashboard.experience.create_cta": "/dashboard",
-  "experience.form.service_class": "/dashboard",
-  "experience.form.display_year": "/dashboard",
-  "experience.form.case_title": "/dashboard",
-  "experience.form.case_summary": "/dashboard",
-  "experience.form.prototype_link": "/dashboard",
-  "experience.form.highlights": "/dashboard",
-  "experience.form.save": "/dashboard",
+  "experience.form.service_class": "/dashboard/experience/new",
+  "experience.form.display_year": "/dashboard/experience/new",
+  "experience.form.case_title": "/dashboard/experience/new",
+  "experience.form.case_summary": "/dashboard/experience/new",
+  "experience.form.prototype_link": "/dashboard/experience/new",
+  "experience.form.highlights": "/dashboard/experience/new",
+  "experience.form.save": "/dashboard/experience/new",
   "onboarding.congrats.experience_recorded": "/dashboard",
   "campaigns_dashboard.project.create_cta": "/dashboard/projects",
   "campaigns_dashboard.project.campaign.create_cta": "/dashboard/projects",
@@ -64,6 +90,33 @@ export function onboardingUiActionOrder(target: string): number {
 
 export function getOnboardingTargetHref(target: string): string | null {
   return ONBOARDING_TARGET_HREF[target] ?? null;
+}
+
+/**
+ * Prefer the last-known project/campaign URLs from sessionStorage so sequential flows
+ * land on the concrete studio pages (not `/dashboard/projects` alone).
+ */
+export function getResolvedOnboardingTaskHref(target: string): string | null {
+  const base = getOnboardingTargetHref(target);
+  if (base == null) return null;
+
+  if (typeof window === "undefined") return base;
+
+  try {
+    if (CAMPAIGN_STUDIO_TARGETS.has(target)) {
+      const stored = sessionStorage.getItem(SAGE_ONBOARDING_CAMPAIGN_EDITOR_PATH_KEY);
+      if (stored && CAMPAIGN_PATH_RE.test(stored)) return stored;
+      return base;
+    }
+    if (PROJECT_OVERVIEW_TARGETS.has(target)) {
+      const stored = sessionStorage.getItem(SAGE_ONBOARDING_PROJECT_EDITOR_PATH_KEY);
+      if (stored && PROJECT_PATH_RE.test(stored)) return stored;
+      return base;
+    }
+    return base;
+  } catch {
+    return base;
+  }
 }
 
 /** Appends `sage_highlight` so `DashboardSageFrame` can open the tip + highlight. */
