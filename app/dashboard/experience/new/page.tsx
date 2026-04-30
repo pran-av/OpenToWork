@@ -32,6 +32,9 @@ const MAX_HIGHLIGHTS = 25;
 const normalizeForStorage = (value: string) => value.trim().toUpperCase();
 const normalizeHighlightForStorage = (value: string) => value.toUpperCase();
 
+/** Pre-filled custom service class label for Sage onboarding `experience.form.service_class` only. */
+const ONBOARDING_SAMPLE_CUSTOM_SERVICE_CLASS = "Sample Custom";
+
 /** Allow only in-app dashboard paths (e.g. return from campaign draft). */
 function getSafeReturnToPath(raw: string | null): string | null {
   if (!raw) return null;
@@ -71,6 +74,11 @@ function NewExperienceCaseStudyForm() {
     const hl = searchParams.get("sage_highlight");
     if (!hl?.startsWith("experience.form.") && hl !== "experience.form.save") return;
     switch (hl) {
+      case "experience.form.service_class":
+        setSelectedServiceClassId("");
+        setNewServiceClassName((prev) => (prev.trim() ? prev : ONBOARDING_SAMPLE_CUSTOM_SERVICE_CLASS));
+        setCustomServiceClassDraft((prev) => (prev.trim() ? prev : ONBOARDING_SAMPLE_CUSTOM_SERVICE_CLASS));
+        break;
       case "experience.form.display_year":
         setDisplayYear((y) => (y.trim() ? y : "2026"));
         break;
