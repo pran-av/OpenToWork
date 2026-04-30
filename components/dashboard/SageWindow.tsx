@@ -216,7 +216,7 @@ export interface SageWindowProps {
 export type SageWindowHandle = {
   /** Same as the in-panel “Skip onboarding” control (pauses and collapses the thread UI). */
   skip: () => void;
-  /** Re-opens the Sage thread panel after a deferred task action. */
+  /** Re-opens the Sage panel on the active onboarding conversation (not the conversation picker). */
   resume: () => void;
 };
 
@@ -332,6 +332,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       resume: () => {
         setSkipped(false);
         setExpanded(true);
+        setShowConversationList(false);
       },
     }),
     [skipOnboarding]
@@ -593,6 +594,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const resumeSageFromPausedHub = useCallback(() => {
     setSkipped(false);
     setExpanded(true);
+    setShowConversationList(false);
   }, []);
 
   const todoItems = useMemo(

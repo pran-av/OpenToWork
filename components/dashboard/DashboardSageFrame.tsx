@@ -577,7 +577,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
                       Back to Sage
                     </button>
                   ) : null}
-                  {!isBackToSageTarget && !hidesNextForPrimaryInPageOnly ? (
+                  {!hidesNextForPrimaryInPageOnly ? (
                     <button
                       type="button"
                       onClick={() => void acknowledgeAction("STEP_DONE", false)}
