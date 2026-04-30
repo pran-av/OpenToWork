@@ -21,7 +21,6 @@ import type {
   FlowEnvelopeResponse,
   FlowStep,
   FlowUiAction,
-  OnboardingUiAction,
 } from "@/lib/agent-onboarding-types";
 import {
   getFlowV2,
@@ -82,22 +81,37 @@ const SAGE_MARKDOWN_COMPONENTS: Components = {
   hr: () => <hr className="my-3 border-orange-200/50 dark:border-orange-800/50" />,
 };
 
-function getPrimaryAgentText(data: { agent_message?: string; message?: string }): string {
-  if (typeof data.agent_message === "string" && data.agent_message) return data.agent_message;
-  if (typeof data.message === "string" && data.message) return data.message;
-  return "";
-}
-
 /** v0.2.3 server target IDs -> in-app routes (see api_contracts/agent-serviceapi-v0.2.3.md). */
 const ONBOARDING_TARGET_HREF: Record<string, string> = {
-  "profile.user_first_name.edit_cta": "/dashboard/profile#first_name",
+  "nav.experience_dashboard": "/dashboard",
+  "experience_dashboard.experience.create_cta": "/dashboard",
+  "experience.form.service_class": "/dashboard",
+  "experience.form.display_year": "/dashboard",
+  "experience.form.case_title": "/dashboard",
+  "experience.form.case_summary": "/dashboard",
+  "experience.form.prototype_link": "/dashboard",
+  "experience.form.highlights": "/dashboard",
+  "experience.form.save": "/dashboard",
+  "onboarding.congrats.experience_recorded": "/dashboard",
+  "campaigns_dashboard.project.create_cta": "/dashboard/projects",
+  "campaigns_dashboard.project.campaign.create_cta": "/dashboard/projects",
+  "campaign.form.title": "/dashboard/projects",
+  "campaign.form.summary": "/dashboard/projects",
+  "campaign.form.call_to_action": "/dashboard/projects",
+  "campaign.form.link_experiences": "/dashboard/projects",
+  "campaign.form.publish": "/dashboard/projects",
+  "campaigns.project_url.copy": "/dashboard/projects",
+  "onboarding.congrats.campaign_launched": "/dashboard/projects",
+  "nav.profile": "/dashboard/profile",
+  "profile.user_name.edit": "/dashboard/profile#first_name",
   "profile.resume.upload_cta": "/dashboard/profile#resumes",
-  "profile.linkedin.connect_cta": "/dashboard/profile",
+  "profile.linkedin.connect_cta": "/dashboard/profile#linkedin-connect",
   "nav.campaigns_dashboard": "/dashboard/projects",
+  "nav.sage_window": "/dashboard",
 };
 
 const ONBOARDING_TARGET_DEFAULT_LABEL: Record<string, string> = {
-  "profile.user_first_name.edit_cta": "Sync your preferred first name in profile.",
+  "profile.user_name.edit": "Update your first and last name in profile.",
   "profile.resume.upload_cta": "Upload your resume in profile.",
   "profile.linkedin.connect_cta": "Finish your LinkedIn connection in profile settings.",
   "nav.campaigns_dashboard": "Open Campaigns to build pitches from your experiences.",
@@ -112,7 +126,7 @@ function targetToHref(target: string): string | null {
  * @see api_contracts/agent-serviceapi-v0.2.3.md
  */
 const ONBOARDING_TARGET_TO_COMPLETION_STEP: Record<string, string> = {
-  "profile.user_first_name.edit_cta": "confirm_name",
+  "profile.user_name.edit": "profile.user_name.edit",
   "profile.resume.upload_cta": "resume_prompt",
   "profile.linkedin.connect_cta": "linkedin_connect",
   "nav.campaigns_dashboard": "introduce_app_features",
@@ -213,19 +227,14 @@ function oneLinePendingFromAgentText(text: string, max = 88): string {
   return `${first.slice(0, max - 1).trim()}…`;
 }
 
-function getDetailMessage(data: unknown): string {
-  if (data && typeof data === "object" && "detail" in data) {
-    const d = (data as { detail?: string | unknown[] }).detail;
-    if (typeof d === "string") return d;
-    if (Array.isArray(d) && d.length > 0 && typeof d[0] === "object" && d[0] !== null && "msg" in d[0]) {
-      return String((d[0] as { msg: string }).msg);
-    }
+function sageMessageForServerStep(stepKey: string): string | null {
+  if (stepKey === "introduce_sage_objectives") {
+    return "Let’s align on your goals first so I can tailor every next step to your target role.";
   }
-  if (data && typeof data === "object" && "error" in data) {
-    const e = (data as { error?: string }).error;
-    if (typeof e === "string") return e;
+  if (stepKey === "introduce_app_brief") {
+    return "Quick app brief: I will guide you through experience setup, campaign launch, and profile polish end-to-end.";
   }
-  return "Something went wrong";
+  return null;
 }
 
 const SAGE_SESSION_KEY = "opentowork-sage-onboarding-v1";
@@ -241,7 +250,7 @@ type SagePersistedSession = {
   nextStep: string | null;
   currentStep: string | null;
   progressPercent: number;
-  uiActions: OnboardingUiAction[] | null;
+  uiActions: FlowUiAction[] | null;
   flowUiActions: FlowUiAction[] | null;
   flowSteps: FlowStep[];
   stepId: string | null;
@@ -258,6 +267,7 @@ type SagePersistedSession = {
 type SageTaskNavContext = {
   target: string;
   tooltip: string;
+  message?: string;
   createdAt: number;
   flowInstanceId: string | null;
   stepId: string | null;
@@ -308,7 +318,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState("");
-  const [uiActions, setUiActions] = useState<OnboardingUiAction[] | null>(null);
+  const [uiActions, setUiActions] = useState<FlowUiAction[] | null>(null);
   const [flowUiActions, setFlowUiActions] = useState<FlowUiAction[] | null>(null);
   const [flowSteps, setFlowSteps] = useState<FlowStep[]>([]);
   const [stepId, setStepId] = useState<string | null>(null);
@@ -322,6 +332,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const [activeConversationsLoading, setActiveConversationsLoading] = useState(false);
   const [activeConversationsError, setActiveConversationsError] = useState<string | null>(null);
   const [selectingConversationId, setSelectingConversationId] = useState<string | null>(null);
+  const lastAnnouncedServerStepRef = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const startOnboardingInFlight = useRef(false);
   const startOnboardingRef = useRef<() => Promise<void>>(async () => {});
@@ -348,8 +359,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     const orderedUi = (flow.ui_actions ?? []).filter((a) => a.state === "STEP_ISSUED");
     setUiActions(
       orderedUi.map((a) => ({
-        type: "onboarding",
-        target: a.target,
+        ...a,
         tooltip: a.tooltip || a.message || "Complete this onboarding task",
       }))
     );
@@ -359,11 +369,27 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     setCurrentStep(firstPending?.step_key ?? null);
     setNextStep(firstPending?.step_key ?? null);
 
+    const serverPendingStep =
+      firstPending && firstPending.actor_type === "SERVER" ? firstPending.step_key : null;
+    const serverPendingMessage = serverPendingStep ? sageMessageForServerStep(serverPendingStep) : null;
+
     if (!keepMessages) {
-      const line = firstPending
+      const line = serverPendingMessage
+        ? serverPendingMessage
+        : firstPending
         ? `Let’s continue onboarding. Next step: ${firstPending.step_key.replaceAll("_", " ")}.`
         : "Onboarding is ready. Follow the highlighted tasks.";
       setMessages([{ role: "agent", text: line }]);
+      lastAnnouncedServerStepRef.current = serverPendingStep;
+    } else if (
+      serverPendingStep &&
+      serverPendingMessage &&
+      lastAnnouncedServerStepRef.current !== serverPendingStep
+    ) {
+      setMessages((prev) => [...prev, { role: "agent", text: serverPendingMessage }]);
+      lastAnnouncedServerStepRef.current = serverPendingStep;
+    } else if (!serverPendingStep) {
+      lastAnnouncedServerStepRef.current = null;
     }
   }, []);
 
@@ -677,6 +703,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           href: targetToHref(target),
           done,
           label,
+          tooltip: fromAgent?.tooltip ?? label,
+          message: fromAgent?.message ?? null,
           target,
           order,
           sequence: onboardingUiActionOrder(target),
@@ -746,25 +774,30 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
-    if (!text || sending || loading) return;
+    if (!text || loading || sending) return;
 
+    setSending(true);
     setInput("");
     setMessages((prev) => [...prev, { role: "user", text }]);
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: "agent",
-        text: "Onboarding V2 is currently guided through highlights and tasks. Use the To Do list actions to proceed.",
-      },
-    ]);
+    window.setTimeout(() => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "agent",
+          text: "Onboarding V2 is currently guided through highlights and tasks. Use the To Do list actions to proceed.",
+        },
+      ]);
+      setSending(false);
+    }, 450);
   }, [input, loading, sending]);
 
   const handleTodoCtaClick = useCallback(
-    (item: { href: string; target: string; label: string }) => {
+    (item: { href: string; target: string; label: string; tooltip?: string; message?: string | null }) => {
       try {
         const navContext: SageTaskNavContext = {
           target: item.target,
-          tooltip: item.label,
+          tooltip: item.tooltip ?? item.label,
+          message: item.message ?? null,
           createdAt: Date.now(),
           flowInstanceId: flowInstanceId ?? conversationId,
           stepId:
@@ -1004,6 +1037,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                                 href,
                                 target: item.target,
                                 label: item.label,
+                                tooltip: item.tooltip,
+                                message: item.message,
                               });
                             }}
                             className="shrink-0 rounded-md border border-orange-300 bg-orange-100 px-2 py-1 text-[11px] font-semibold text-orange-900 transition-colors hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/40 dark:text-orange-100"
@@ -1028,6 +1063,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                       href: nextPendingTodo.href,
                       target: nextPendingTodo.target,
                       label: nextPendingTodo.label,
+                    tooltip: nextPendingTodo.tooltip,
+                    message: nextPendingTodo.message,
                     });
                   }}
                   disabled={!nextPendingTodo}

@@ -30,7 +30,6 @@ const SAGE_TARGET_SELECTOR: Record<string, string> = {
   "onboarding.congrats.campaign_launched": "#campaign-highlight",
   "nav.profile": "#profile-nav-cta",
   "profile.user_name.edit": "#first_name",
-  "profile.user_first_name.edit_cta": "#first_name",
   "profile.resume.upload_cta": "#resumes",
   "profile.linkedin.connect_cta": "#linkedin-connect",
   "nav.sage_window": "#sage-window-root",
@@ -55,6 +54,7 @@ type DashboardSageFrameProps = {
 type SageTaskNavContext = {
   target?: string;
   tooltip?: string;
+  message?: string | null;
   createdAt?: number;
   flowInstanceId?: string | null;
   stepId?: string | null;
@@ -70,8 +70,14 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
   const [sageModeEnabled, setSageModeEnabled] = useState(true);
   const [sageLayerActive, setSageLayerActive] = useState(false);
   const [sageRightRailOpen, setSageRightRailOpen] = useState(true);
-  const [sageTaskDialog, setSageTaskDialog] = useState<{ open: boolean; message: string; target: string | null }>({
+  const [sageTaskDialog, setSageTaskDialog] = useState<{
+    open: boolean;
+    tooltip: string;
+    message: string;
+    target: string | null;
+  }>({
     open: false,
+    tooltip: "",
     message: "",
     target: null,
   });
@@ -159,9 +165,10 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       if (raw) {
         const parsed = JSON.parse(raw) as SageTaskNavContext;
         const tooltip = typeof parsed.tooltip === "string" ? parsed.tooltip.trim() : "";
+        const message = typeof parsed.message === "string" ? parsed.message.trim() : "";
         if (parsed.target === target && tooltip.length > 0) {
           window.setTimeout(() => {
-            setSageTaskDialog({ open: true, message: tooltip, target });
+            setSageTaskDialog({ open: true, tooltip, message, target });
             setSageTaskContext(parsed);
             setAckError(null);
           }, 0);
@@ -294,7 +301,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
   const closeSageTaskDialog = useCallback(() => {
     clearSageHighlight();
     setActiveHighlightTarget(null);
-    setSageTaskDialog({ open: false, message: "", target: null });
+    setSageTaskDialog({ open: false, tooltip: "", message: "", target: null });
     setSageTaskContext(null);
     setSageTaskDialogPos(null);
   }, [clearSageHighlight]);
@@ -377,8 +384,10 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
                 className="mt-0.5 h-10 w-auto shrink-0 object-contain"
               />
               <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Sage tip</h2>
-                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{sageTaskDialog.message}</p>
+                <h2 className="text-lg font-semibold text-black dark:text-zinc-50">{sageTaskDialog.tooltip}</h2>
+                {sageTaskDialog.message ? (
+                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{sageTaskDialog.message}</p>
+                ) : null}
                 <div className="mt-4 flex flex-wrap justify-end gap-2">
                   {ackError ? (
                     <p className="w-full text-xs text-red-600 dark:text-red-400">{ackError}</p>
