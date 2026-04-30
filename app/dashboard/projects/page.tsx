@@ -13,6 +13,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { DashboardMobileFab } from "@/components/dashboard/DashboardMobileFab";
+import { dispatchSagePrimaryActionDone } from "@/lib/sage-onboarding-primary";
 
 export default function DashboardProjectsPage() {
   const [projects, setProjects] = useState<ProjectData[]>([]);
@@ -170,6 +171,8 @@ export default function DashboardProjectsPage() {
         setIsCreating(false);
         return;
       }
+
+      dispatchSagePrimaryActionDone("campaigns_dashboard.project.create_cta");
 
       router.push(`/dashboard/projects/${data.project.project_id}`);
     } catch {
@@ -333,7 +336,7 @@ export default function DashboardProjectsPage() {
             </button>
             <button
               type="button"
-              data-sage-target="create-project-cta"
+              id="sage-onboarding-project-dialog-submit"
               onClick={handleCreateProject}
               disabled={isCreating || !projectName.trim()}
               className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"

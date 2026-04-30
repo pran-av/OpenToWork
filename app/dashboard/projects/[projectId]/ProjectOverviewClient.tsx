@@ -10,6 +10,7 @@ import { DashboardMobileFab } from "@/components/dashboard/DashboardMobileFab";
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Copy, Settings } from "lucide-react";
 import { SAGE_ONBOARDING_PROJECT_EDITOR_PATH_KEY } from "@/lib/sage-onboarding-nav";
+import { dispatchSagePrimaryActionDone } from "@/lib/sage-onboarding-primary";
 
 interface ProjectOverviewClientProps {
   project: ProjectData;
@@ -306,6 +307,8 @@ export default function ProjectOverviewClient({
       
       // Fetch fresh data in background to sync with server
       fetchCampaigns().catch(console.error);
+
+      dispatchSagePrimaryActionDone("campaigns_dashboard.project.campaign.create_cta");
 
       setIsDialogOpen(false);
       setCampaignName("");
@@ -681,7 +684,7 @@ export default function ProjectOverviewClient({
             </button>
             <button
               type="button"
-              data-sage-target="create-campaign-cta"
+              id="sage-onboarding-campaign-dialog-submit"
               onClick={handleCreateCampaign}
               disabled={isCreating || !campaignName.trim()}
               className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"

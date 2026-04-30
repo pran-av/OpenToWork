@@ -1,5 +1,6 @@
 "use client";
 
+import type { MouseEventHandler } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 
@@ -16,6 +17,8 @@ type DashboardMobileFabLinkProps = {
   linkClassName?: string;
   /** Matches `DashboardSageFrame` onboarding selectors that use `[data-sage-target=…]`. */
   dataSageTarget?: string;
+  /** Runs when the FAB link navigation is clicked (e.g. intercept onboarding ACK before navigate). */
+  linkOnNavigateClick?: MouseEventHandler<HTMLAnchorElement>;
 };
 
 type DashboardMobileFabButtonProps = {
@@ -37,6 +40,7 @@ export function DashboardMobileFab(props: DashboardMobileFabProps) {
       {"href" in props ? (
         <Link
           href={props.href}
+          onClick={props.linkOnNavigateClick}
           className={`${fabClassName}${props.linkClassName ? ` ${props.linkClassName}` : ""}`}
           aria-label={props.ariaLabel}
           {...(props.dataSageTarget

@@ -11,6 +11,7 @@ import {
   sanitizePlainTextMultiline,
 } from "@/lib/utils/client-input-security";
 import StudioBackButton from "@/components/dashboard/StudioBackButton";
+import { dispatchSagePrimaryActionDone } from "@/lib/sage-onboarding-primary";
 
 interface ServiceClassData {
   service_class_id: string;
@@ -255,6 +256,8 @@ function NewExperienceCaseStudyForm() {
       if (!caseStudyRes.ok) {
         throw new Error(caseStudyPayload.error || "Failed to create case study");
       }
+
+      dispatchSagePrimaryActionDone("experience.form.save");
 
       router.push(returnToPath ?? "/dashboard");
       router.refresh();

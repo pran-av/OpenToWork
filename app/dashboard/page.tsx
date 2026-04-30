@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
+import { useCallback, useEffect, useMemo, useState, Suspense, type MouseEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ExperienceCaseStudyCard } from "@/components/dashboard/ExperienceCaseStudyCard";
 import { DashboardMobileFab } from "@/components/dashboard/DashboardMobileFab";
+import { SAGE_PRIMARY_ACTION_DONE_EVENT } from "@/lib/sage-onboarding-primary";
 
 interface ExperienceCaseStudy {
   case_id: string;
@@ -118,6 +119,24 @@ function DashboardPageContent() {
     }
   }, [searchParams, router]);
 
+  const onAddExperiencePrimaryClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    let handled = false;
+    window.dispatchEvent(
+      new CustomEvent(SAGE_PRIMARY_ACTION_DONE_EVENT, {
+        detail: {
+          target: "experience_dashboard.experience.create_cta",
+          markHandled: () => {
+            handled = true;
+          },
+        },
+      })
+    );
+    queueMicrotask(() => {
+      if (!handled) router.push("/dashboard/experience/new");
+    });
+  };
+
   const loadExperienceCaseStudies = useCallback(async () => {
     try {
       const caseStudiesRes = await fetch("/api/experience/case-studies");
@@ -219,6 +238,7 @@ function DashboardPageContent() {
       <div className="pointer-events-none fixed bottom-8 left-1/2 z-40 hidden -translate-x-1/2 lg:block">
         <Link
           href="/dashboard/experience/new"
+          onClick={onAddExperiencePrimaryClick}
           className="sage-highlight-exp-create pointer-events-auto inline-block rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
         >
           Add New Experiences
@@ -229,6 +249,7 @@ function DashboardPageContent() {
         href="/dashboard/experience/new"
         ariaLabel="Add new experience"
         linkClassName="sage-highlight-exp-create"
+        linkOnNavigateClick={onAddExperiencePrimaryClick}
       />
 
       {toast && (

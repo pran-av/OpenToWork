@@ -3,13 +3,18 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import type { FlowEnvelopeResponse } from "@/lib/agent-onboarding-types";
 import { SageWindow, type SageWindowHandle } from "@/components/dashboard/SageWindow";
-import { ackFlowStepV2, ackFlowUiActionV2 } from "@/lib/agent-flow-v2";
+import { ackFlowStepV2, ackFlowUiActionV2, getFlowV2 } from "@/lib/agent-flow-v2";
 import {
   buildOnboardingTaskHref,
   getFirstPendingUiActionSorted,
   getResolvedOnboardingTaskHref,
 } from "@/lib/sage-onboarding-nav";
+import {
+  SAGE_PRIMARY_ACTION_DONE_EVENT,
+  onboardingHidesNextForPrimary,
+} from "@/lib/sage-onboarding-primary";
 
 const SAGE_TASK_NAV_CONTEXT_KEY = "opentowork-sage-task-nav-v1";
 /** First match visible in the viewport — supports responsive twins (desktop vs mobile CTA). */
@@ -42,8 +47,8 @@ const SAGE_TARGET_SELECTOR: Record<string, string> = {
   "experience.form.save": "#save-experience",
   "onboarding.congrats.experience_recorded": "#experience-created-highlight",
   "nav.campaigns_dashboard": "#projects-root",
-  "campaigns_dashboard.project.create_cta": `[data-sage-target="create-project-cta"]`,
-  "campaigns_dashboard.project.campaign.create_cta": `[data-sage-target="create-campaign-cta"]`,
+  "campaigns_dashboard.project.create_cta": `#sage-onboarding-project-dialog-submit, [data-sage-target="create-project-cta"]`,
+  "campaigns_dashboard.project.campaign.create_cta": `#sage-onboarding-campaign-dialog-submit, [data-sage-target="create-campaign-cta"]`,
   "campaign.form.title": "#campaign-title",
   "campaign.form.summary": "#campaign-summary",
   "campaign.form.call_to_action": "#campaign-cta",
@@ -118,8 +123,18 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
 
   /** Recomputes Sage tip anchor after target nodes mount async (dashboard loading, route transitions). */
   const repositionTaskDialogRef = useRef<(() => void) | null>(null);
+  const sageTaskContextRef = useRef(sageTaskContext);
+  const sageTourDialogOpenRef = useRef(false);
+  useEffect(() => {
+    sageTaskContextRef.current = sageTaskContext;
+  }, [sageTaskContext]);
+  useEffect(() => {
+    sageTourDialogOpenRef.current = sageTaskDialog.open;
+  }, [sageTaskDialog.open]);
+
   const isBackToSageTarget = sageTaskDialog.target === "onboarding.congrats.experience_recorded" || sageTaskDialog.target === "onboarding.congrats.campaign_launched";
   const isProfileSensitiveTarget = sageTaskDialog.target === "profile.user_name.edit" || sageTaskDialog.target === "profile.resume.upload_cta" || sageTaskDialog.target === "profile.linkedin.connect_cta";
+  const hidesNextForPrimaryInPageOnly = onboardingHidesNextForPrimary(sageTaskDialog.target);
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1024px)");
@@ -336,6 +351,60 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
     setSageTaskDialogPos(null);
   }, [clearSageHighlight]);
 
+  const finalizeAfterUiAckFlow = useCallback(
+    async (flowEnvelope: FlowEnvelopeResponse, ctx: SageTaskNavContext | null, completedTarget: string) => {
+      if (!ctx?.flowInstanceId) {
+        closeSageTaskDialog();
+        return;
+      }
+      if (completedTarget === "nav.sage_window" && !isDesktop) {
+        setSageModeEnabled(true);
+      }
+      window.dispatchEvent(new CustomEvent("sage-ui-action-acknowledged"));
+      const fid = ctx.flowInstanceId;
+      let nextIssued = getFirstPendingUiActionSorted(flowEnvelope);
+      if (!nextIssued?.target && fid) {
+        try {
+          const fresh = await getFlowV2(fid);
+          nextIssued = getFirstPendingUiActionSorted(fresh);
+        } catch {
+          // use nextIssued from ack envelope only
+        }
+      }
+      if (nextIssued?.target && fid) {
+        const base = getResolvedOnboardingTaskHref(nextIssued.target);
+        if (base) {
+          const tooltipTrim =
+            typeof nextIssued.tooltip === "string" && nextIssued.tooltip.trim().length > 0
+              ? nextIssued.tooltip.trim()
+              : "Complete this onboarding step.";
+          const msg =
+            typeof nextIssued.message === "string"
+              ? nextIssued.message.trim()
+              : nextIssued.message ?? undefined;
+          try {
+            const navContext = {
+              target: nextIssued.target,
+              tooltip: tooltipTrim,
+              message: msg && msg.length > 0 ? msg : undefined,
+              createdAt: Date.now(),
+              flowInstanceId: fid,
+              stepId: ctx.stepId ?? null,
+            };
+            sessionStorage.setItem(SAGE_TASK_NAV_CONTEXT_KEY, JSON.stringify(navContext));
+          } catch {
+            // ignore storage failures
+          }
+          closeSageTaskDialog();
+          router.push(buildOnboardingTaskHref(base, nextIssued.target), { scroll: false });
+          return;
+        }
+      }
+      closeSageTaskDialog();
+    },
+    [closeSageTaskDialog, isDesktop, router]
+  );
+
   const acknowledgeAction = useCallback(
     async (state: "STEP_DONE" | "STEP_SKIPPED", backToSage: boolean) => {
       if (!sageTaskContext?.flowInstanceId || !sageTaskContext?.target) {
@@ -363,49 +432,53 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
           closeSageTaskDialog();
           return;
         }
-        window.dispatchEvent(new CustomEvent("sage-ui-action-acknowledged"));
-
-        const fid = sageTaskContext.flowInstanceId;
-        const nextIssued = getFirstPendingUiActionSorted(flowEnvelope);
-        if (nextIssued?.target && fid) {
-          const base = getResolvedOnboardingTaskHref(nextIssued.target);
-          if (base) {
-            const tooltipTrim =
-              typeof nextIssued.tooltip === "string" && nextIssued.tooltip.trim().length > 0
-                ? nextIssued.tooltip.trim()
-                : "Complete this onboarding step.";
-            const msg =
-              typeof nextIssued.message === "string"
-                ? nextIssued.message.trim()
-                : nextIssued.message ?? undefined;
-            try {
-              const navContext = {
-                target: nextIssued.target,
-                tooltip: tooltipTrim,
-                message: msg && msg.length > 0 ? msg : undefined,
-                createdAt: Date.now(),
-                flowInstanceId: fid,
-                stepId: sageTaskContext.stepId ?? null,
-              };
-              sessionStorage.setItem(SAGE_TASK_NAV_CONTEXT_KEY, JSON.stringify(navContext));
-            } catch {
-              // ignore storage failures
-            }
-            closeSageTaskDialog();
-            router.push(buildOnboardingTaskHref(base, nextIssued.target), { scroll: false });
-            return;
-          }
-        }
-
-        closeSageTaskDialog();
+        await finalizeAfterUiAckFlow(flowEnvelope, sageTaskContext, sageTaskContext.target);
       } catch (error) {
         setAckError(error instanceof Error ? error.message : "Failed to update action status");
       } finally {
         setAcknowledging(false);
       }
     },
-    [closeSageTaskDialog, isDesktop, router, sageTaskContext]
+    [closeSageTaskDialog, finalizeAfterUiAckFlow, isDesktop, sageTaskContext]
   );
+
+  useEffect(() => {
+    const onPrimaryDone = async (ev: Event) => {
+      const ce = ev as CustomEvent<{ target?: unknown; markHandled?: () => void }>;
+      const tgt = ce.detail?.target;
+      if (
+        tgt !== "experience.form.save" &&
+        tgt !== "experience_dashboard.experience.create_cta" &&
+        tgt !== "campaigns_dashboard.project.create_cta" &&
+        tgt !== "campaigns_dashboard.project.campaign.create_cta"
+      ) {
+        return;
+      }
+      const typedTarget = tgt;
+
+      if (!sageTourDialogOpenRef.current) return;
+      const ctx = sageTaskContextRef.current;
+      if (!ctx?.flowInstanceId || ctx.target !== typedTarget) return;
+
+      ce.detail.markHandled?.();
+
+      setAcknowledging(true);
+      setAckError(null);
+      try {
+        const flowEnvelope = await ackFlowUiActionV2(ctx.flowInstanceId, typedTarget, "STEP_DONE", {
+          source: "client",
+          via: "primary_action",
+        });
+        await finalizeAfterUiAckFlow(flowEnvelope, ctx, typedTarget);
+      } catch (error) {
+        setAckError(error instanceof Error ? error.message : "Failed to update action status");
+      } finally {
+        setAcknowledging(false);
+      }
+    };
+    window.addEventListener(SAGE_PRIMARY_ACTION_DONE_EVENT, onPrimaryDone);
+    return () => window.removeEventListener(SAGE_PRIMARY_ACTION_DONE_EVENT, onPrimaryDone);
+  }, [finalizeAfterUiAckFlow]);
 
   return (
     <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col">
@@ -431,10 +504,10 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
 
       {sageTaskDialog.open ? (
         <>
-          <div className="pointer-events-none fixed inset-0 z-[48] bg-black/18" aria-hidden />
+          <div className="pointer-events-none fixed inset-0 z-[54] bg-black/18" aria-hidden />
           <div
             ref={sageTaskDialogRef}
-            className="fixed z-[50] w-[min(22.5rem,calc(100vw-1.5rem))] rounded-xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+            className="pointer-events-auto fixed z-[56] w-[min(22.5rem,calc(100vw-1.5rem))] rounded-xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
             role="dialog"
             aria-modal="true"
             style={{
@@ -442,7 +515,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
               left: sageTaskDialogPos?.left ?? 24,
             }}
           >
-            <div className="flex items-start gap-3">
+            <div className="flex w-full items-start gap-3">
               <Image
                 src="/sage_mascot.png"
                 alt="Sage"
@@ -450,12 +523,17 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
                 height={56}
                 className="mt-0.5 h-10 w-auto shrink-0 object-contain"
               />
-              <div className="min-w-0">
+              <div className="flex min-w-0 flex-1 flex-col">
                 <h2 className="text-lg font-semibold text-black dark:text-zinc-50">{sageTaskDialog.tooltip}</h2>
                 {sageTaskDialog.message ? (
                   <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{sageTaskDialog.message}</p>
                 ) : null}
-                <div className="mt-4 flex flex-wrap justify-end gap-2">
+                {hidesNextForPrimaryInPageOnly && !isBackToSageTarget ? (
+                  <p className="mt-2 text-xs leading-snug text-zinc-500 dark:text-zinc-400">
+                    Use the highlighted control (Save, Create, or Add) to finish this step — or Skip to defer.
+                  </p>
+                ) : null}
+                <div className="mt-4 flex w-full flex-wrap items-center justify-end gap-2">
                   {ackError ? (
                     <p className="w-full text-xs text-red-600 dark:text-red-400">{ackError}</p>
                   ) : null}
@@ -477,7 +555,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
                   >
                     Skip
                   </button>
-                  {!isProfileSensitiveTarget ? (
+                  {!isProfileSensitiveTarget && !hidesNextForPrimaryInPageOnly ? (
                     <button
                       type="button"
                       onClick={() => void acknowledgeAction("STEP_DONE", false)}
@@ -498,7 +576,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       <div className="max-lg:hidden">
         {sageLayerActive ? (
           <div
-            className="pointer-events-auto fixed inset-0 z-[32] bg-zinc-900/20 backdrop-blur-md dark:bg-black/35"
+            className="pointer-events-none fixed inset-0 z-[32] bg-zinc-900/20 backdrop-blur-md dark:bg-black/35"
             role="presentation"
             aria-hidden
           />
@@ -506,7 +584,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
 
         {sageLayerActive ? (
           <div
-            className="pointer-events-auto fixed bottom-8 right-[calc(50vw+1.75rem)] z-[36] flex max-w-[19rem] flex-col items-center gap-3"
+            className="pointer-events-none fixed bottom-8 right-[calc(50vw+1.75rem)] z-[36] flex max-w-[19rem] flex-col items-center gap-3"
             role="complementary"
             aria-label="Sage"
           >
