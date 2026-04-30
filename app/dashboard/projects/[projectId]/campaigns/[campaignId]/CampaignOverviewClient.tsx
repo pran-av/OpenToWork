@@ -24,6 +24,7 @@ import {
   SAGE_ONBOARDING_CAMPAIGN_EDITOR_PATH_KEY,
   SAGE_ONBOARDING_PROJECT_EDITOR_PATH_KEY,
 } from "@/lib/sage-onboarding-nav";
+import { dispatchSagePrimaryActionDone } from "@/lib/sage-onboarding-primary";
 
 interface ServiceWithCaseStudies extends ClientService {
   caseStudies: CaseStudy[];
@@ -1347,14 +1348,21 @@ export default function CampaignOverviewClient({
       }
 
       setSuccess(data.message || "Campaign published successfully!");
-      
-      // Revalidate server data before navigation
-      router.refresh();
-      
-      // Redirect to project overview after a short delay
-      setTimeout(() => {
-        router.push(`/dashboard/projects/${project.project_id}`);
-      }, 1500);
+      setIsPublishing(false);
+
+      const projectPath = `/dashboard/projects/${project.project_id}`;
+      const campaignPath = `${projectPath}/campaigns/${campaign.campaign_id}`;
+
+      dispatchSagePrimaryActionDone("campaign.form.publish", {
+        sageSessionProjectPath: projectPath,
+        sageSessionCampaignPath: campaignPath,
+        onUnconsumed: () => {
+          void router.refresh();
+          window.setTimeout(() => {
+            router.push(projectPath);
+          }, 1500);
+        },
+      });
     } catch (error: any) {
       setError(error.message || "An unexpected error occurred");
       setIsPublishing(false);

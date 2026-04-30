@@ -112,6 +112,8 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
   const [sageTaskContext, setSageTaskContext] = useState<SageTaskNavContext | null>(null);
   const [acknowledging, setAcknowledging] = useState(false);
   const [ackError, setAckError] = useState<string | null>(null);
+  /** Blocks interaction with the main canvas while a UI action ack + next-step navigation is in flight. */
+  const [sageInterStepBlocking, setSageInterStepBlocking] = useState(false);
   const [sageTaskDialogPos, setSageTaskDialogPos] = useState<{ top: number; left: number } | null>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -134,6 +136,10 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
 
   const isBackToSageTarget = sageTaskDialog.target === "onboarding.congrats.experience_recorded" || sageTaskDialog.target === "onboarding.congrats.campaign_launched";
   const hidesNextForPrimaryInPageOnly = onboardingHidesNextForPrimary(sageTaskDialog.target);
+  const primaryActionHint =
+    sageTaskDialog.target === "campaign.form.publish"
+      ? "Use the highlighted Publish Campaign button to finish this step — onboarding continues only after a successful publish."
+      : "Use the highlighted control (Save, Create, or Add) to finish this step.";
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1024px)");
@@ -399,7 +405,8 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
           if (
             completedTarget === "experience.form.save" ||
             completedTarget === "campaigns_dashboard.project.create_cta" ||
-            completedTarget === "campaigns_dashboard.project.campaign.create_cta"
+            completedTarget === "campaigns_dashboard.project.campaign.create_cta" ||
+            completedTarget === "campaign.form.publish"
           ) {
             router.refresh();
           }
@@ -418,6 +425,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         return;
       }
       setAcknowledging(true);
+      setSageInterStepBlocking(true);
       setAckError(null);
       try {
         const flowEnvelope = await ackFlowUiActionV2(
@@ -443,6 +451,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         setAckError(error instanceof Error ? error.message : "Failed to update action status");
       } finally {
         setAcknowledging(false);
+        setSageInterStepBlocking(false);
       }
     },
     [closeSageTaskDialog, finalizeAfterUiAckFlow, isDesktop, sageTaskContext]
@@ -456,7 +465,8 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         tgt !== "experience.form.save" &&
         tgt !== "experience_dashboard.experience.create_cta" &&
         tgt !== "campaigns_dashboard.project.create_cta" &&
-        tgt !== "campaigns_dashboard.project.campaign.create_cta"
+        tgt !== "campaigns_dashboard.project.campaign.create_cta" &&
+        tgt !== "campaign.form.publish"
       ) {
         return;
       }
@@ -469,6 +479,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       ce.detail.markHandled?.();
 
       setAcknowledging(true);
+      setSageInterStepBlocking(true);
       setAckError(null);
       try {
         const flowEnvelope = await ackFlowUiActionV2(ctx.flowInstanceId, typedTarget, "STEP_DONE", {
@@ -480,6 +491,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         setAckError(error instanceof Error ? error.message : "Failed to update action status");
       } finally {
         setAcknowledging(false);
+        setSageInterStepBlocking(false);
       }
     };
     window.addEventListener(SAGE_PRIMARY_ACTION_DONE_EVENT, onPrimaryDone);
@@ -489,6 +501,20 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
   return (
     <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col">
       <div className={isDesktop || !sageModeEnabled ? "" : "hidden"}>{children}</div>
+      {sageInterStepBlocking ? (
+        <div
+          className="fixed inset-0 z-[52] flex items-center justify-center bg-zinc-950/40 p-6 backdrop-blur-[2px] dark:bg-black/50"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          aria-label="Loading onboarding step"
+        >
+          <div className="max-w-sm rounded-xl border border-zinc-200 bg-white px-5 py-4 text-center shadow-xl dark:border-zinc-600 dark:bg-zinc-900">
+            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Preparing your next step</p>
+            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">Please wait — the tour will continue in a moment.</p>
+          </div>
+        </div>
+      ) : null}
       <style jsx global>{`
         .sage-target-highlight {
           outline: 3px solid rgba(245, 158, 11, 0.9);
@@ -535,9 +561,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
                   <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{sageTaskDialog.message}</p>
                 ) : null}
                 {hidesNextForPrimaryInPageOnly && !isBackToSageTarget ? (
-                  <p className="mt-2 text-xs leading-snug text-zinc-500 dark:text-zinc-400">
-                    Use the highlighted control (Save, Create, or Add) to finish this step.
-                  </p>
+                  <p className="mt-2 text-xs leading-snug text-zinc-500 dark:text-zinc-400">{primaryActionHint}</p>
                 ) : null}
                 <div className="mt-4 flex w-full flex-wrap items-center justify-end gap-2">
                   {ackError ? (

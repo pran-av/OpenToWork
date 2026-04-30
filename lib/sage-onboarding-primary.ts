@@ -14,7 +14,8 @@ export type SagePrimaryActionDoneDetail = {
     | "experience.form.save"
     | "experience_dashboard.experience.create_cta"
     | "campaigns_dashboard.project.create_cta"
-    | "campaigns_dashboard.project.campaign.create_cta";
+    | "campaigns_dashboard.project.campaign.create_cta"
+    | "campaign.form.publish";
   /** Invoked synchronously by the dashboard Sage frame when it owns this primary action. */
   markHandled?: () => void;
 };
@@ -41,7 +42,8 @@ export function onboardingHidesNextForPrimary(target: string | null | undefined)
     target === "experience.form.save" ||
     target === "experience_dashboard.experience.create_cta" ||
     target === "campaigns_dashboard.project.create_cta" ||
-    target === "campaigns_dashboard.project.campaign.create_cta"
+    target === "campaigns_dashboard.project.campaign.create_cta" ||
+    target === "campaign.form.publish"
   );
 }
 
