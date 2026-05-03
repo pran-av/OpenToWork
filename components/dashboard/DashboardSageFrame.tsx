@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { FlowEnvelopeResponse } from "@/lib/agent-onboarding-types";
 import { SageWindow, type SageWindowHandle } from "@/components/dashboard/SageWindow";
-import { ackFlowStepV2, ackFlowUiActionV2, getFlowV2 } from "@/lib/agent-flow-v2";
+import { ackFlowUiActionV2, getFlowV2 } from "@/lib/agent-flow-v2";
 import {
   buildOnboardingTaskHref,
   getFirstPendingUiActionSorted,
@@ -478,17 +478,17 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       setSageInterStepBlocking(true);
       setAckError(null);
       try {
+        const uiAckState: "STEP_DONE" | "STEP_SKIPPED" = backToSage ? "STEP_DONE" : state;
         const flowEnvelope = await ackFlowUiActionV2(
           sageTaskContext.flowInstanceId,
           sageTaskContext.target,
-          state,
+          uiAckState,
           { source: "client" }
         );
         if (sageTaskContext.target === "nav.sage_window" && !isDesktop) {
           setSageModeEnabled(true);
         }
         if (backToSage) {
-          await ackFlowStepV2(sageTaskContext.flowInstanceId, "execute_onboarding_todos", "STEP_SKIPPED");
           if (!isDesktop) setSageModeEnabled(true);
           setSageRightRailOpen(true);
           sageRef.current?.resume();
@@ -644,7 +644,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
                   {isBackToSageTarget ? (
                     <button
                       type="button"
-                      onClick={() => void acknowledgeAction("STEP_SKIPPED", true)}
+                      onClick={() => void acknowledgeAction("STEP_DONE", true)}
                       disabled={acknowledging}
                       className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                     >

@@ -13,11 +13,11 @@ Use the same UI-UX for Onboarding highlights. However following optimizations:
 4. Contract wording for client acknowledgements:
    - UI Action done: send `ui-actions/ack` with `state: "STEP_DONE"` and the action `target`.
    - UI Action skipped: send `ui-actions/ack` with `state: "STEP_SKIPPED"` (or `ui-actions/nack` if that route is used by proxy).
-   - For early exit to Sage from onboarding action flow ("Back to Sage"): send `steps/{step_key}/ack` with `state: "STEP_SKIPPED"` for `step_key="execute_onboarding_todos"`. Any not-yet-triggered actions under that step should be treated as skipped in client state and resolved as skipped acknowledgements.
+   - **Do not** call `steps/execute_onboarding_todos/ack` with `STEP_SKIPPED` for "Back to Sage". On the server that **bulk-skips every remaining onboarding UI action**, runs the closing summary, and ends the flow—so the user gets a fresh onboarding after re-login instead of resume. For "Back to Sage", **`ack` only the checkpoint target** (`onboarding.congrats.*`) with **`STEP_DONE`** (preferred) and navigate to Sage; leave `execute_onboarding_todos` **unchanged** until Parts 2–3 are actually done or individually skipped via UI action acks.
 5. Resume model for To Do List:
    - Single CTA: "Start Onboarding" or "Resume Onboarding".
    - Show "Resume Onboarding" when any action under `execute_onboarding_todos` is already `STEP_DONE` or `STEP_SKIPPED`.
-6. On returning to SageWindow after `execute_onboarding_todos` is marked `STEP_SKIPPED`, Sage should continue remaining server steps.
+6. On returning to SageWindow mid-todo-list, `execute_onboarding_todos` remains **`STEP_ISSUED`** until all UI actions under it are done or skipped per-item; Sage then continues with remaining items or server close steps.
 6. For Mobile and Tablet Viewports - SageWindow will be fullscreen (unlike Desktop Viewport which keeps the existing design)
     - A Switch would be available to enable and disable "Sage Mode". Clicking enable opens SageWindow full screen with all its features. The same switch is available to disable Sage Mode. If the user wishes navigate to the app - they first disable Sage Mode.
     - A vertical switch is positioned on the background Canvas in center-right of the screen - adjusted to responsiveness of screen sizes. The switch remains at same position if the user wants to switch back to the app functionalities.
@@ -36,7 +36,7 @@ Part 1: Experience Creation
 6. target="experience.form.prototype_link": Just highlight and show info - no prefill as its optional
 7. target="experience.form.highlights": Prefill as "Add a Quantitative Impact here"
 8. target="experience.form.save": User has to click Save or can Click Next CTA for the Save to happen during onboarding flow
-9. target="onboarding.congrats.experience_recorded": Highlight the created experience. The info modal will have an extra secondary button that says "Back to Sage" - this marks `execute_onboarding_todos` as `STEP_SKIPPED` and takes user back to SageWindow to continue remaining steps.
+9. target="onboarding.congrats.experience_recorded": Highlight the created experience. The info modal will have an extra secondary button that says "Back to Sage": **`ack` this target with `STEP_DONE`**, then navigate to SageWindow. Do **not** step-ack `execute_onboarding_todos` as skipped.
 
 Part 1 + Part 2 completion rule:
 - These are intentionally guidance-first actions. For these targets, completion may be marked `STEP_DONE` on highlight-click or explicit "Next" CTA, as designed.
@@ -52,7 +52,7 @@ Part 2: Campaign Launch
 16. target="campaign.form.link_experiences": Highlight the Recently Added Experience so user can click add button to add it.
 17. target="campaign.form.publish": Highlight the Publish button
 18.  target="campaigns.project_url.copy": On Projects page highlight the Project URL that user can copy and share
-19. target="onboarding.congrats.campaign_launched" Highlight the Active Campaign. The info modal will have an extra secondary button that says "Back to Sage" - this marks `execute_onboarding_todos` as `STEP_SKIPPED` and takes user back to SageWindow to continue the rest of the steps.
+19. target="onboarding.congrats.campaign_launched": Highlight the Active Campaign. The info modal will have an extra secondary button that says "Back to Sage": **`ack` this target with `STEP_DONE`**, then navigate to SageWindow. Do **not** step-ack `execute_onboarding_todos` as skipped.
 
 Part 3: Update Profile
 20. target="nav.profile": Highlight Profile Navigation cta
