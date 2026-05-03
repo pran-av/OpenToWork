@@ -469,6 +469,13 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             setError(null);
             setInput("");
             setLoading(false);
+            try {
+              const serverFlow = await getFlowV2(snap.conversationId);
+              if (cancelled) return;
+              applyFlowState(serverFlow, true);
+            } catch {
+              /* keep snapshot-only state when offline */
+            }
             return;
           }
         }
@@ -487,9 +494,22 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         const flows = await listActiveOnboardingFlowsV2();
         if (cancelled) return;
         if (flows.length > 0) {
-          const first = flows[0];
-          setConversationId(first.flow_instance.id);
-          applyFlowState(first, false);
+          const sorted = [...flows].sort(
+            (a, b) =>
+              (b.flow_instance.started_at ?? "").localeCompare(
+                a.flow_instance.started_at ?? ""
+              )
+          );
+          const pick = sorted[0];
+          try {
+            const full = await getFlowV2(pick.flow_instance.id);
+            if (cancelled) return;
+            setConversationId(full.flow_instance.id);
+            applyFlowState(full, false);
+          } catch {
+            setConversationId(pick.flow_instance.id);
+            applyFlowState(pick, false);
+          }
           return;
         }
       } catch {
@@ -576,11 +596,11 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   }, [applyFlowState, conversationId, flowInstanceId]);
 
   useEffect(() => {
-    if (!isDesktop || !conversationId || !expanded || skipped || showConversationList) return;
+    if (!conversationId || !expanded || skipped || showConversationList) return;
     void refreshConversationStatus();
     const t = setInterval(() => void refreshConversationStatus(), 20000);
     return () => clearInterval(t);
-  }, [isDesktop, conversationId, expanded, skipped, showConversationList, refreshConversationStatus]);
+  }, [conversationId, expanded, skipped, showConversationList, refreshConversationStatus]);
 
   useEffect(() => {
     const onUiActionAck = () => {
@@ -627,8 +647,13 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
   const todoItems = useMemo(
     () => {
-      const allTargets = new Set<string>(Object.keys(todoByTarget));
+      /** ISSUED-only `uiActions` omits done/skipped targets; `flowUiActions` is authoritative for completion rows. */
+      const allTargets = new Set<string>();
+      for (const a of flowUiActions ?? []) {
+        allTargets.add(a.target);
+      }
       for (const a of uiActions ?? []) allTargets.add(a.target);
+      for (const target of Object.keys(todoByTarget)) allTargets.add(target);
       for (const step of flowSteps) {
         if (step.actor_type === "SERVER") continue;
         allTargets.add(step.step_key);
