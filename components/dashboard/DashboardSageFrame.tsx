@@ -14,7 +14,11 @@ import {
 } from "@/lib/sage-onboarding-nav";
 import {
   SAGE_PRIMARY_ACTION_DONE_EVENT,
+  SAGE_PROFILE_VERIFICATION_DONE_EVENT,
+  dispatchSageProfileVerificationDone,
   onboardingHidesNextForPrimary,
+  onboardingProfileRequiresDbVerification,
+  type SageProfileVerificationTarget,
 } from "@/lib/sage-onboarding-primary";
 
 const SAGE_TASK_NAV_CONTEXT_KEY = "opentowork-sage-task-nav-v1";
@@ -48,6 +52,28 @@ function queryVisibleSageTarget(selector: string): Element | null {
   return null;
 }
 
+/** Create Project / Create Campaign modals: reorder + nudge (mobile needs “below” first or clamp eats the nudge). */
+const SAGE_MODAL_STEP_TARGETS = new Set<string>([
+  "campaigns_dashboard.project.campaign.create_cta",
+  "campaigns_dashboard.project.create_cta",
+]);
+
+type SageDialogTopNudge = { desktop: number; mobile: number };
+
+function resolveSageDialogTopNudge(
+  spec: SageDialogTopNudge | undefined,
+  isLgViewport: boolean
+): number {
+  if (!spec) return 0;
+  return isLgViewport ? spec.desktop : spec.mobile;
+}
+
+/** Extra `top` after pick; mobile uses a larger value so offset survives clamping on short viewports. */
+const SAGE_TASK_DIALOG_TOP_NUDGE: Partial<Record<string, SageDialogTopNudge>> = {
+  "campaigns_dashboard.project.campaign.create_cta": { desktop: 102, mobile: 140 },
+  "campaigns_dashboard.project.create_cta": { desktop: 102, mobile: 140 },
+};
+
 const SAGE_TARGET_SELECTOR: Record<string, string> = {
   "nav.experience_dashboard": "#experience-dashboard-root",
   "experience_dashboard.experience.create_cta": ".sage-highlight-exp-create",
@@ -74,6 +100,15 @@ const SAGE_TARGET_SELECTOR: Record<string, string> = {
   "profile.resume.upload_cta": "#resumes",
   "profile.linkedin.connect_cta": "#linkedin-connect",
   "nav.sage_window": "#sage-window-root",
+};
+
+const PROFILE_VERIFICATION_HINTS: Record<SageProfileVerificationTarget, string> = {
+  "profile.user_name.edit":
+    "Save your first and last name using Save Changes. This step completes only after your profile saves successfully.",
+  "profile.resume.upload_cta":
+    "Upload a PDF using the resumes section below. This step completes only after the upload succeeds.",
+  "profile.linkedin.connect_cta":
+    "Finish LinkedIn OAuth. This step completes only after your account is linked.",
 };
 
 const TARGET_PREFILL_VALUE: Record<string, string> = {
@@ -167,6 +202,8 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
 
   const isBackToSageTarget = sageTaskDialog.target === "onboarding.congrats.experience_recorded" || sageTaskDialog.target === "onboarding.congrats.campaign_launched";
   const hidesNextForPrimaryInPageOnly = onboardingHidesNextForPrimary(sageTaskDialog.target);
+  const hidesNextForProfileVerification = onboardingProfileRequiresDbVerification(sageTaskDialog.target);
+  const hidesNextTourAction = hidesNextForPrimaryInPageOnly || hidesNextForProfileVerification;
   const primaryActionHint =
     sageTaskDialog.target === "campaign.form.publish"
       ? "Use the highlighted Publish Campaign button to finish this step — onboarding continues only after a successful publish."
@@ -303,6 +340,11 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       const cardHeight = Math.min(cardNode?.offsetHeight ?? 190, viewportH - 24);
       const gap = 14;
       const padding = 12;
+      const isLgViewport = window.matchMedia("(min-width: 1024px)").matches;
+      const topNudge = resolveSageDialogTopNudge(
+        SAGE_TASK_DIALOG_TOP_NUDGE[sageTaskDialog.target ?? ""],
+        isLgViewport
+      );
 
       const anchorRect = {
         left: rect.left,
@@ -311,25 +353,30 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         height: rect.height,
       };
 
-      /* Prefer floating above/below centered on the target so wide sections (e.g. profile card) aren't covered */
-      const candidates = [
-        {
-          left: rect.left + rect.width / 2 - cardWidth / 2,
-          top: rect.top - cardHeight - gap,
-        },
-        {
-          left: rect.left + rect.width / 2 - cardWidth / 2,
-          top: rect.bottom + gap,
-        },
-        {
-          left: rect.right + gap,
-          top: rect.top + rect.height / 2 - cardHeight / 2,
-        },
-        {
-          left: rect.left - cardWidth - gap,
-          top: rect.top + rect.height / 2 - cardHeight / 2,
-        },
-      ].map((c) => ({
+      const above = {
+        left: rect.left + rect.width / 2 - cardWidth / 2,
+        top: rect.top - cardHeight - gap,
+      };
+      const below = {
+        left: rect.left + rect.width / 2 - cardWidth / 2,
+        top: rect.bottom + gap,
+      };
+      const right = {
+        left: rect.right + gap,
+        top: rect.top + rect.height / 2 - cardHeight / 2,
+      };
+      const left = {
+        left: rect.left - cardWidth - gap,
+        top: rect.top + rect.height / 2 - cardHeight / 2,
+      };
+
+      /* Desktop: above first. Narrow viewports on stacked modals: below first so the card isn’t clamped over inputs. */
+      const targetKey = sageTaskDialog.target ?? "";
+      const preferBelowFirst =
+        !isLgViewport && SAGE_MODAL_STEP_TARGETS.has(targetKey);
+      const rawOrder = preferBelowFirst ? [below, above, right, left] : [above, below, right, left];
+
+      const candidates = rawOrder.map((c) => ({
         left: clamp(c.left, padding, viewportW - cardWidth - padding),
         top: clamp(c.top, padding, viewportH - cardHeight - padding),
         width: cardWidth,
@@ -338,7 +385,10 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
 
       const nonOverlapping = candidates.find((c) => !overlaps(c, anchorRect));
       if (nonOverlapping) {
-        setSageTaskDialogPos({ top: nonOverlapping.top, left: nonOverlapping.left });
+        setSageTaskDialogPos({
+          top: clamp(nonOverlapping.top + topNudge, padding, viewportH - cardHeight - padding),
+          left: nonOverlapping.left,
+        });
         return;
       }
 
@@ -349,7 +399,10 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         return x * y;
       };
       const best = candidates.sort((a, b) => score(a) - score(b))[0];
-      setSageTaskDialogPos({ top: best.top, left: best.left });
+      setSageTaskDialogPos({
+        top: clamp(best.top + topNudge, padding, viewportH - cardHeight - padding),
+        left: best.left,
+      });
     };
 
     repositionTaskDialogRef.current = updatePosition;
@@ -556,6 +609,90 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
     return () => window.removeEventListener(SAGE_PRIMARY_ACTION_DONE_EVENT, onPrimaryDone);
   }, [finalizeAfterUiAckFlow]);
 
+  useEffect(() => {
+    const onProfileVerificationDone = async (ev: Event) => {
+      const ce = ev as CustomEvent<{ target?: string }>;
+      const tgt = ce.detail?.target;
+      if (
+        tgt !== "profile.user_name.edit" &&
+        tgt !== "profile.resume.upload_cta" &&
+        tgt !== "profile.linkedin.connect_cta"
+      ) {
+        return;
+      }
+      const typedTarget = tgt as SageProfileVerificationTarget;
+
+      if (!sageTourDialogOpenRef.current) return;
+      const ctx = sageTaskContextRef.current;
+      if (!ctx?.flowInstanceId || ctx.target !== typedTarget) return;
+
+      setAcknowledging(true);
+      setSageInterStepBlocking(true);
+      setAckError(null);
+      try {
+        const flowEnvelope = await ackFlowUiActionV2(ctx.flowInstanceId, typedTarget, "STEP_DONE", {
+          source: "client",
+          via: "db_verification",
+        });
+        await finalizeAfterUiAckFlow(flowEnvelope, ctx, typedTarget);
+      } catch (error) {
+        interStepOverlayHoldForNextDialogRef.current = false;
+        setAckError(error instanceof Error ? error.message : "Failed to update action status");
+      } finally {
+        setAcknowledging(false);
+        if (!interStepOverlayHoldForNextDialogRef.current) {
+          setSageInterStepBlocking(false);
+        }
+      }
+    };
+    window.addEventListener(SAGE_PROFILE_VERIFICATION_DONE_EVENT, onProfileVerificationDone);
+    return () => window.removeEventListener(SAGE_PROFILE_VERIFICATION_DONE_EVENT, onProfileVerificationDone);
+  }, [finalizeAfterUiAckFlow]);
+
+  /** Already satisfied in DB → auto STEP_DONE without requiring an in-modal Next click. */
+  useEffect(() => {
+    if (!sageTaskDialog.open || !sageTaskDialog.target) return;
+    if (!onboardingProfileRequiresDbVerification(sageTaskDialog.target)) return;
+    if (!sageTaskContext?.flowInstanceId || sageTaskContext.target !== sageTaskDialog.target) return;
+
+    const target = sageTaskDialog.target;
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        if (target === "profile.user_name.edit") {
+          const res = await fetch("/api/profile");
+          const data = (await res.json()) as { profile?: { user_first_name?: unknown; user_last_name?: unknown } };
+          if (cancelled || !res.ok) return;
+          const fn =
+            typeof data.profile?.user_first_name === "string" ? data.profile.user_first_name.trim() : "";
+          const ln =
+            typeof data.profile?.user_last_name === "string" ? data.profile.user_last_name.trim() : "";
+          if (!fn || !ln) return;
+        } else if (target === "profile.resume.upload_cta") {
+          const res = await fetch("/api/agent/resumes");
+          const data = (await res.json()) as { resumes?: unknown };
+          if (cancelled || !res.ok) return;
+          if (!Array.isArray(data.resumes) || data.resumes.length === 0) return;
+        } else if (target === "profile.linkedin.connect_cta") {
+          const res = await fetch("/api/auth/link-identity/status");
+          const data = (await res.json()) as { hasLinkedIn?: boolean };
+          if (cancelled || !res.ok) return;
+          if (!data.hasLinkedIn) return;
+        }
+        if (cancelled) return;
+        dispatchSageProfileVerificationDone(target);
+      } catch {
+        /* wait for user action or explicit dispatch from profile page */
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [sageTaskDialog.open, sageTaskDialog.target, sageTaskContext]);
+
   return (
     <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col">
       <div
@@ -636,8 +773,14 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
                 {sageTaskDialog.message ? (
                   <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{sageTaskDialog.message}</p>
                 ) : null}
-                {hidesNextForPrimaryInPageOnly && !isBackToSageTarget ? (
-                  <p className="mt-2 text-xs leading-snug text-zinc-500 dark:text-zinc-400">{primaryActionHint}</p>
+                {hidesNextTourAction && !isBackToSageTarget ? (
+                  <p className="mt-2 text-xs leading-snug text-zinc-500 dark:text-zinc-400">
+                    {hidesNextForProfileVerification
+                      ? PROFILE_VERIFICATION_HINTS[
+                          sageTaskDialog.target as SageProfileVerificationTarget
+                        ] ?? "Complete the highlighted step on the page to continue."
+                      : primaryActionHint}
+                  </p>
                 ) : null}
                 <div className="mt-4 flex w-full flex-wrap items-center justify-end gap-2">
                   {ackError ? (
@@ -653,7 +796,17 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
                       Back to Sage
                     </button>
                   ) : null}
-                  {!hidesNextForPrimaryInPageOnly ? (
+                  {hidesNextForProfileVerification ? (
+                    <button
+                      type="button"
+                      onClick={() => void acknowledgeAction("STEP_SKIPPED", false)}
+                      disabled={acknowledging}
+                      className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                    >
+                      Skip
+                    </button>
+                  ) : null}
+                  {!hidesNextTourAction ? (
                     <button
                       type="button"
                       onClick={() => void acknowledgeAction("STEP_DONE", false)}

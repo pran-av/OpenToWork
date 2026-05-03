@@ -13,7 +13,7 @@ import {
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Check, Circle, Loader2, Sparkles } from "lucide-react";
+import { Check, Circle, Loader2, MinusCircle, Sparkles } from "lucide-react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
@@ -235,6 +235,30 @@ const BANNER_GAP_BELOW_HEADER_PX = 8;
 /** Reserves the typical band used by `fixed top-4` toasts (see dashboard pages) so the Sage banner does not sit under them. */
 const TOAST_STACK_RESERVE_PX = 72;
 const TODO_COLLAPSE_ITEM_LIMIT = 3;
+
+/** UI row state for onboarding todos (`STEP_SKIPPED` ≠ completed). */
+type TodoItemResolution = "pending" | "done" | "skipped";
+
+function todoResolutionRank(r: TodoItemResolution): number {
+  if (r === "pending") return 0;
+  if (r === "skipped") return 1;
+  return 2;
+}
+
+function deriveTodoResolution(
+  target: string,
+  fromFlowUi: FlowUiAction | undefined,
+  fromFlowStep: FlowStep | undefined,
+  fallbackComplete: boolean
+): TodoItemResolution {
+  if (fromFlowUi?.state === "STEP_DONE") return "done";
+  if (fromFlowUi?.state === "STEP_SKIPPED") return "skipped";
+  if (fromFlowUi) return "pending";
+  if (fromFlowStep?.state === "STEP_DONE") return "done";
+  if (fromFlowStep?.state === "STEP_SKIPPED") return "skipped";
+  if (fromFlowStep) return "pending";
+  return fallbackComplete ? "done" : "pending";
+}
 
 export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function SageWindow(
   { onSageLayerChange, onRightRailChange, className: classNameProp, headerOffsetPx },
@@ -676,17 +700,16 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             : history?.label ?? defaultLabelForTarget(target);
         const order =
           history?.order ?? (fromAgent || fromFlowUi || fromFlowStep ? Number.MAX_SAFE_INTEGER : 0);
-        const uiActionDone =
-          fromFlowUi?.state === "STEP_DONE" || fromFlowUi?.state === "STEP_SKIPPED";
-        const done = uiActionDone
-          ? true
-          : fromFlowStep
-            ? fromFlowStep.state === "STEP_DONE" || fromFlowStep.state === "STEP_SKIPPED"
-            : isUiActionComplete(target, completedSteps, status);
+        const fallbackComplete =
+          !(fromAgent || fromFlowUi || fromFlowStep) &&
+          isUiActionComplete(target, completedSteps, status);
+        const resolution = deriveTodoResolution(target, fromFlowUi, fromFlowStep, fallbackComplete);
+        const done = resolution !== "pending";
         return {
           key: target,
           href: getResolvedOnboardingTaskHref(target),
           done,
+          resolution,
           label,
           tooltip: fromAgent?.tooltip ?? fromFlowUi?.tooltip ?? label,
           message: fromAgent?.message ?? fromFlowUi?.message ?? null,
@@ -702,8 +725,9 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const orderedTodoItems = useMemo(
     () =>
       [...todoItems].sort((a, b) => {
-        // Pending first, completed below. Within each group, PRD sequence order.
-        if (a.done !== b.done) return a.done ? 1 : -1;
+        const ra = todoResolutionRank(a.resolution);
+        const rb = todoResolutionRank(b.resolution);
+        if (ra !== rb) return ra - rb;
         if (a.sequence !== b.sequence) return a.sequence - b.sequence;
         return b.order - a.order;
       }),
@@ -1017,8 +1041,10 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                       aria-hidden
                       title={onboardingStepForUiTarget(item.target) ? undefined : item.target}
                     >
-                      {item.done ? (
+                      {item.resolution === "done" ? (
                         <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500" strokeWidth={2.5} />
+                      ) : item.resolution === "skipped" ? (
+                        <MinusCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-500" strokeWidth={2.25} />
                       ) : (
                         <Circle className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" strokeWidth={2} />
                       )}
@@ -1028,15 +1054,23 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                         <span
                           className={cn(
                             "min-w-0 text-xs leading-snug",
-                            item.done ? "text-emerald-700 line-through dark:text-emerald-400" : "text-orange-800 dark:text-orange-200/90"
+                            item.resolution === "done" &&
+                              "text-emerald-700 line-through dark:text-emerald-400",
+                            item.resolution === "skipped" &&
+                              "text-amber-800/90 dark:text-amber-200/90",
+                            item.resolution === "pending" && "text-orange-800 dark:text-orange-200/90"
                           )}
                           title={item.target}
                         >
                           {item.label}
                         </span>
-                        {item.done ? (
+                        {item.resolution === "done" ? (
                           <span className="shrink-0 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 dark:border-emerald-700/70 dark:bg-emerald-900/30 dark:text-emerald-300">
                             Completed
+                          </span>
+                        ) : item.resolution === "skipped" ? (
+                          <span className="shrink-0 rounded-md border border-amber-300/90 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-900 dark:border-amber-700/70 dark:bg-amber-950/40 dark:text-amber-100">
+                            Skipped
                           </span>
                         ) : !isOnboardingFlow && item.href ? (
                           <button

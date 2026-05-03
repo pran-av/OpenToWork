@@ -47,6 +47,37 @@ export function onboardingHidesNextForPrimary(target: string | null | undefined)
   );
 }
 
+/** Profile Part 3: ACK only after server confirms persisted data (@see onboarding-flow-v2 PRD). */
+export type SageProfileVerificationTarget =
+  | "profile.user_name.edit"
+  | "profile.resume.upload_cta"
+  | "profile.linkedin.connect_cta";
+
+export const SAGE_PROFILE_VERIFICATION_DONE_EVENT = "openTowork:sage-profile-verification-done";
+
+export type SageProfileVerificationDoneDetail = {
+  target: SageProfileVerificationTarget;
+};
+
+export function onboardingProfileRequiresDbVerification(
+  target: string | null | undefined
+): target is SageProfileVerificationTarget {
+  return (
+    target === "profile.user_name.edit" ||
+    target === "profile.resume.upload_cta" ||
+    target === "profile.linkedin.connect_cta"
+  );
+}
+
+export function dispatchSageProfileVerificationDone(target: SageProfileVerificationTarget): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(SAGE_PROFILE_VERIFICATION_DONE_EVENT, {
+      detail: { target } satisfies SageProfileVerificationDoneDetail,
+    })
+  );
+}
+
 export function dispatchSagePrimaryActionDone(
   target: SagePrimaryActionDoneDetail["target"],
   options?: SagePrimaryActionDispatchOptions

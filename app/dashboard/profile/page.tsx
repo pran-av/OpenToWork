@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { dispatchSageProfileVerificationDone } from "@/lib/sage-onboarding-primary";
 
 interface ProfileData {
   user_first_name: string | null;
@@ -58,25 +59,41 @@ export default function ProfilePage() {
     }
   }, []);
 
+  const checkLinkedInStatus = useCallback(async (): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/auth/link-identity/status");
+      const data = await response.json();
+      if (response.ok) {
+        const has = Boolean(data.hasLinkedIn);
+        setIsLinkedInLinked(has);
+        return has;
+      }
+      return false;
+    } catch (error) {
+      console.error("Error checking LinkedIn status:", error);
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     fetchProfile();
-    checkLinkedInStatus();
+    void checkLinkedInStatus();
     fetchResumes();
     fetchAgentProfile();
-  }, [fetchResumes]);
+  }, [fetchResumes, checkLinkedInStatus]);
 
   // Refresh profile when returning from LinkedIn OAuth (check URL params)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const linked = urlParams.get("linked");
-    if (linked === "success") {
-      // Refresh profile to get LinkedIn data
-      fetchProfile();
-      checkLinkedInStatus();
-      // Clean URL
-      window.history.replaceState({}, "", "/dashboard/profile");
-    }
-  }, []);
+    if (linked !== "success") return;
+    window.history.replaceState({}, "", "/dashboard/profile");
+    void (async () => {
+      await fetchProfile();
+      const has = await checkLinkedInStatus();
+      if (has) dispatchSageProfileVerificationDone("profile.linkedin.connect_cta");
+    })();
+  }, [checkLinkedInStatus]);
 
   const fetchProfile = async () => {
     try {
@@ -121,18 +138,6 @@ export default function ProfilePage() {
     }
   };
 
-  const checkLinkedInStatus = async () => {
-    try {
-      const response = await fetch("/api/auth/link-identity/status");
-      const data = await response.json();
-      if (response.ok) {
-        setIsLinkedInLinked(data.hasLinkedIn || false);
-      }
-    } catch (error) {
-      console.error("Error checking LinkedIn status:", error);
-    }
-  };
-
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -162,7 +167,8 @@ export default function ProfilePage() {
         setProfile(data.profile);
         setToast({ message: "Profile updated successfully!", type: "success" });
         setTimeout(() => setToast(null), 5000);
-        
+        dispatchSageProfileVerificationDone("profile.user_name.edit");
+
         // Dispatch custom event to notify header to refresh
         window.dispatchEvent(new CustomEvent("profileUpdated"));
       } else {
@@ -207,6 +213,7 @@ export default function ProfilePage() {
         setUploadFile(null);
         setUploadName("");
         fetchResumes();
+        dispatchSageProfileVerificationDone("profile.resume.upload_cta");
       } else {
         const msg = getResumeDetailMessage(data) || data.error || "Upload failed";
         setToast({ message: msg, type: "error" });
