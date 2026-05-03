@@ -177,7 +177,6 @@ function chatMessagesFromSageList(sorted: SageFlowMessage[]): ChatMessage[] {
 
 const SAGE_SESSION_KEY = "opentowork-sage-onboarding-v1";
 const SAGE_TASK_NAV_CONTEXT_KEY = "opentowork-sage-task-nav-v1";
-const AUTH_LOAD_ONBOARDING_KEY = "opentowork-sage-authed-load-v1";
 
 /** Persists the Sage client state so theme toggles and remounts do not start a new conversation. */
 type SagePersistedSession = {
@@ -273,8 +272,9 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   /** Tracks `flow_instance.sage_messages` rows already reflected in the thread (see api v2.1 §7). */
   const appliedSageMessageKeysRef = useRef<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
-  const startOnboardingInFlight = useRef(false);
-  const startOnboardingRef = useRef<() => Promise<void>>(async () => {});
+  /** Dedupes overlapping `startOnboarding` calls (e.g. React Strict Mode double mount). */
+  const startOnboardingPromiseRef = useRef<Promise<boolean> | null>(null);
+  const startOnboardingRef = useRef<(resumeId?: string | null) => Promise<boolean>>(async () => false);
   const [portalReady, setPortalReady] = useState(false);
 
   useEffect(() => {
@@ -375,10 +375,11 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     }
   }, []);
 
-  const startOnboarding = useCallback(async (resumeFlowInstanceId?: string | null) => {
-    if (startOnboardingInFlight.current) return;
-    startOnboardingInFlight.current = true;
-    try {
+  const startOnboarding = useCallback(async (resumeFlowInstanceId?: string | null): Promise<boolean> => {
+    const pending = startOnboardingPromiseRef.current;
+    if (pending) return pending;
+
+    const promise = (async (): Promise<boolean> => {
       try {
         if (!resumeFlowInstanceId) sessionStorage.removeItem(SAGE_SESSION_KEY);
       } catch {
@@ -402,14 +403,22 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         setReady(true);
         setExpanded(true);
         setSkipped(false);
+        return true;
       } catch {
         setError("Network error starting onboarding");
+        return false;
       } finally {
         setLoading(false);
       }
-    } finally {
-      startOnboardingInFlight.current = false;
-    }
+    })();
+
+    startOnboardingPromiseRef.current = promise;
+    void promise.finally(() => {
+      if (startOnboardingPromiseRef.current === promise) {
+        startOnboardingPromiseRef.current = null;
+      }
+    });
+    return promise;
   }, [applyFlowState]);
 
   startOnboardingRef.current = startOnboarding;
@@ -422,7 +431,10 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     return () => media.removeEventListener("change", update);
   }, []);
 
-  /** One-shot bootstrap: restore from sessionStorage, otherwise show conversation list. */
+  /**
+   * Bootstrap: restore session; else hydrate from an active ONBOARDING flow; else POST start automatically.
+   * Conversation picker only appears if starting fails (e.g. network).
+   */
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
@@ -483,16 +495,9 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       } catch {
         // ignored, fallback to start
       }
-      try {
-        const bootKey = AUTH_LOAD_ONBOARDING_KEY;
-        if (!sessionStorage.getItem(bootKey)) {
-          sessionStorage.setItem(bootKey, "1");
-          await startOnboardingRef.current();
-          return;
-        }
-      } catch {
-        // ignore
-      }
+      const started = await startOnboardingRef.current();
+      if (cancelled) return;
+      if (started) return;
       setShowConversationList(true);
       await fetchActiveConversations();
     };
