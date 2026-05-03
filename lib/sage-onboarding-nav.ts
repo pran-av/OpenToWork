@@ -48,7 +48,7 @@ export const ONBOARDING_TARGET_HREF: Record<string, string> = {
   "campaigns.project_url.copy": "/dashboard/projects",
   "onboarding.congrats.campaign_launched": "/dashboard/projects",
   "nav.profile": "/dashboard/profile",
-  "profile.user_name.edit": "/dashboard/profile#first_name",
+  "profile.user_name.edit": "/dashboard/profile#profile-personal-information",
   "profile.resume.upload_cta": "/dashboard/profile#resumes",
   "profile.linkedin.connect_cta": "/dashboard/profile#linkedin-connect",
   "nav.campaigns_dashboard": "/dashboard/projects",

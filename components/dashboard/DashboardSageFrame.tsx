@@ -70,7 +70,7 @@ const SAGE_TARGET_SELECTOR: Record<string, string> = {
   "campaigns.project_url.copy": "#project-url-copy",
   "onboarding.congrats.campaign_launched": "#campaign-highlight",
   "nav.profile": "#profile-nav-cta, #profile-desktop-sage-target",
-  "profile.user_name.edit": "#first_name",
+  "profile.user_name.edit": "#profile-personal-information",
   "profile.resume.upload_cta": "#resumes",
   "profile.linkedin.connect_cta": "#linkedin-connect",
   "nav.sage_window": "#sage-window-root",
@@ -211,7 +211,8 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       if ("scrollIntoView" in node) {
         (node as HTMLElement).scrollIntoView({
           behavior: sagePrefersReducedMotion() ? "auto" : "smooth",
-          block: "center",
+          /* "nearest" preserves space above tall sections so the dialog can sit clear of the highlight */
+          block: "nearest",
         });
       }
       return true;
@@ -310,7 +311,16 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         height: rect.height,
       };
 
+      /* Prefer floating above/below centered on the target so wide sections (e.g. profile card) aren't covered */
       const candidates = [
+        {
+          left: rect.left + rect.width / 2 - cardWidth / 2,
+          top: rect.top - cardHeight - gap,
+        },
+        {
+          left: rect.left + rect.width / 2 - cardWidth / 2,
+          top: rect.bottom + gap,
+        },
         {
           left: rect.right + gap,
           top: rect.top + rect.height / 2 - cardHeight / 2,
@@ -318,14 +328,6 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         {
           left: rect.left - cardWidth - gap,
           top: rect.top + rect.height / 2 - cardHeight / 2,
-        },
-        {
-          left: rect.left + rect.width / 2 - cardWidth / 2,
-          top: rect.bottom + gap,
-        },
-        {
-          left: rect.left + rect.width / 2 - cardWidth / 2,
-          top: rect.top - cardHeight - gap,
         },
       ].map((c) => ({
         left: clamp(c.left, padding, viewportW - cardWidth - padding),
