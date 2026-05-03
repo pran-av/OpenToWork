@@ -21,6 +21,7 @@ import type {
   FlowEnvelopeResponse,
   FlowStep,
   FlowUiAction,
+  SageFlowMessage,
 } from "@/lib/agent-onboarding-types";
 import {
   getFlowV2,
@@ -154,14 +155,24 @@ function oneLinePendingFromAgentText(text: string, max = 88): string {
   return `${first.slice(0, max - 1).trim()}…`;
 }
 
-function sageMessageForServerStep(stepKey: string): string | null {
-  if (stepKey === "introduce_sage_objectives") {
-    return "Let’s align on your goals first so I can tailor every next step to your target role.";
-  }
-  if (stepKey === "introduce_app_brief") {
-    return "Quick app brief: I will guide you through experience setup, campaign launch, and profile polish end-to-end.";
-  }
-  return null;
+function sageMessageDedupeKey(m: SageFlowMessage): string {
+  return `${m.step_key}\0${m.created_at}`;
+}
+
+function sortedSageMessages(flow: FlowEnvelopeResponse): SageFlowMessage[] {
+  const raw = flow.flow_instance.sage_messages ?? [];
+  return [...raw].sort((a, b) => a.created_at.localeCompare(b.created_at));
+}
+
+function chatMessagesFromSageList(sorted: SageFlowMessage[]): ChatMessage[] {
+  return sorted
+    .filter(
+      (m) =>
+        m.role === "sage" &&
+        typeof m.content === "string" &&
+        m.content.trim().length > 0
+    )
+    .map((m) => ({ role: "agent" as const, text: m.content.trim() }));
 }
 
 const SAGE_SESSION_KEY = "opentowork-sage-onboarding-v1";
@@ -259,7 +270,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const [activeConversationsLoading, setActiveConversationsLoading] = useState(false);
   const [activeConversationsError, setActiveConversationsError] = useState<string | null>(null);
   const [selectingConversationId, setSelectingConversationId] = useState<string | null>(null);
-  const lastAnnouncedServerStepRef = useRef<string | null>(null);
+  /** Tracks `flow_instance.sage_messages` rows already reflected in the thread (see api v2.1 §7). */
+  const appliedSageMessageKeysRef = useRef<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
   const startOnboardingInFlight = useRef(false);
   const startOnboardingRef = useRef<() => Promise<void>>(async () => {});
@@ -296,27 +308,38 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     setCurrentStep(firstPending?.step_key ?? null);
     setNextStep(firstPending?.step_key ?? null);
 
-    const serverPendingStep =
-      firstPending && firstPending.actor_type === "SERVER" ? firstPending.step_key : null;
-    const serverPendingMessage = serverPendingStep ? sageMessageForServerStep(serverPendingStep) : null;
+    const sortedSage = sortedSageMessages(flow);
+    const sageChats = chatMessagesFromSageList(sortedSage);
 
     if (!keepMessages) {
-      const line = serverPendingMessage
-        ? serverPendingMessage
-        : firstPending
-        ? `Let’s continue onboarding. Next step: ${firstPending.step_key.replaceAll("_", " ")}.`
-        : "Onboarding is ready. Follow the highlighted tasks.";
-      setMessages([{ role: "agent", text: line }]);
-      lastAnnouncedServerStepRef.current = serverPendingStep;
-    } else if (
-      serverPendingStep &&
-      serverPendingMessage &&
-      lastAnnouncedServerStepRef.current !== serverPendingStep
-    ) {
-      setMessages((prev) => [...prev, { role: "agent", text: serverPendingMessage }]);
-      lastAnnouncedServerStepRef.current = serverPendingStep;
-    } else if (!serverPendingStep) {
-      lastAnnouncedServerStepRef.current = null;
+      appliedSageMessageKeysRef.current = new Set(sortedSage.map(sageMessageDedupeKey));
+      if (sageChats.length > 0) {
+        setMessages(sageChats);
+      } else {
+        const fallback = firstPending
+          ? `Let’s continue onboarding. Next step: ${firstPending.step_key.replaceAll("_", " ")}.`
+          : "Onboarding is ready. Follow the highlighted tasks.";
+        setMessages([{ role: "agent", text: fallback }]);
+      }
+    } else {
+      const primeOnly = appliedSageMessageKeysRef.current.size === 0;
+      const toAppend: ChatMessage[] = [];
+      for (const m of sortedSage) {
+        const key = sageMessageDedupeKey(m);
+        if (appliedSageMessageKeysRef.current.has(key)) continue;
+        appliedSageMessageKeysRef.current.add(key);
+        if (
+          !primeOnly &&
+          m.role === "sage" &&
+          typeof m.content === "string" &&
+          m.content.trim().length > 0
+        ) {
+          toAppend.push({ role: "agent", text: m.content.trim() });
+        }
+      }
+      if (toAppend.length > 0) {
+        setMessages((prev) => [...prev, ...toAppend]);
+      }
     }
   }, []);
 
