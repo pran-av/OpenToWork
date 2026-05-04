@@ -823,13 +823,19 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
           }
           style={{ top: headerOffsetPx }}
         >
-          <SageWindow
-            ref={sageRef}
-            onSageLayerChange={onSageLayerChange}
-            onRightRailChange={setSageRightRailOpen}
-            className="h-full"
-            headerOffsetPx={headerOffsetPx}
-          />
+          {/*
+            Mount Sage only for lg+ here. On smaller viewports the mobile overlay instance mounts below.
+            Two instances raced bootstrap (parallel POST start / show conversation list on the visible copy).
+          */}
+          {isDesktop ? (
+            <SageWindow
+              ref={sageRef}
+              onSageLayerChange={onSageLayerChange}
+              onRightRailChange={setSageRightRailOpen}
+              className="h-full"
+              headerOffsetPx={headerOffsetPx}
+            />
+          ) : null}
         </div>
       </div>
 
