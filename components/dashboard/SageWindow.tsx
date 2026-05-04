@@ -1107,7 +1107,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                                 message: item.message,
                               });
                             }}
-                            className="shrink-0 rounded-md border border-orange-300 bg-orange-100 px-2 py-1 text-[11px] font-semibold text-orange-900 transition-colors hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/40 dark:text-orange-100"
+                            className="shrink-0 rounded-md border border-orange-300 bg-orange-100 px-2 py-1 text-[11px] font-semibold text-orange-900 transition-colors hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/40 dark:text-orange-100 dark:hover:border-orange-600 dark:hover:bg-orange-800 dark:hover:text-orange-50"
                             aria-label={`Complete task: ${item.label}`}
                           >
                             Complete Task
@@ -1134,7 +1134,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                     });
                   }}
                   disabled={!nextPendingTodo}
-                  className="rounded-md border border-orange-300 bg-orange-100 px-3 py-1.5 text-xs font-semibold text-orange-900 transition-colors hover:bg-orange-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-orange-700 dark:bg-orange-900/40 dark:text-orange-100"
+                  className="rounded-md border border-orange-300 bg-orange-100 px-3 py-1.5 text-xs font-semibold text-orange-900 transition-colors hover:bg-orange-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-orange-700 dark:bg-orange-900/40 dark:text-orange-100 dark:hover:border-orange-600 dark:hover:bg-orange-800 dark:hover:text-orange-50"
                   aria-label={
                     nextPendingTodo
                       ? `${onboardingCtaLabel}: ${nextPendingTodo.label}`
