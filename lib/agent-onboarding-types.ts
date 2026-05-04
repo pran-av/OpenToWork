@@ -1,6 +1,6 @@
 /**
- * Flows v2 / onboarding shapes (Agent Service v2.1.0).
- * @see api_contracts/agent-serviceapi-v2.1.0.md
+ * Flows v2 / onboarding shapes (Agent Service API v2.1.1).
+ * @see api_contracts/agent-serviceapi-v2.1.1.md
  */
 
 export type FlowType = "ONBOARDING" | string;
@@ -30,6 +30,11 @@ export type FlowInstance = {
 
 export type FlowStep = {
   step_key: string;
+  /**
+   * From the envelope `steps[].title`: label from registered flow definition.
+   * `null` when flow type unknown or step missing from definition; omit only if upstream is older.
+   */
+  title?: string | null;
   actor_type: StepActorType;
   state: StepState;
   is_skippable: boolean;

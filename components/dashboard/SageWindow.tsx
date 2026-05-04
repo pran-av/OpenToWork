@@ -106,6 +106,24 @@ const ONBOARDING_TARGET_TO_COMPLETION_STEP: Record<string, string> = {
   "nav.campaigns_dashboard": "introduce_app_features",
 };
 
+/** Parent flow step that groups onboarding `ui_actions`; not a user task row. */
+const EXECUTE_ONBOARDING_TODOS_STEP_KEY = "execute_onboarding_todos";
+
+function formatStepKeyAsSectionTitle(stepKey: string): string {
+  return stepKey
+    .split("_")
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function displayTitleForFlowStep(steps: FlowStep[], stepKey: string): string {
+  const step = steps.find((s) => s.step_key === stepKey);
+  const raw = typeof step?.title === "string" ? step.title.trim() : "";
+  if (raw.length > 0) return raw;
+  return formatStepKeyAsSectionTitle(stepKey);
+}
+
 function onboardingStepForUiTarget(target: string): string | null {
   return ONBOARDING_TARGET_TO_COMPLETION_STEP[target] ?? null;
 }
@@ -375,7 +393,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         setMessages(sageChats);
       } else {
         const fallback = firstPending
-          ? `Let’s continue onboarding. Next step: ${firstPending.step_key.replaceAll("_", " ")}.`
+          ? `Let’s continue onboarding. Next step: ${displayTitleForFlowStep(flow.steps ?? [], firstPending.step_key)}.`
           : "Onboarding is ready. Follow the highlighted tasks.";
         setMessages([{ role: "agent", text: fallback }]);
       }
@@ -720,6 +738,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         if (completedSteps.includes(step)) allTargets.add(target);
       }
 
+      allTargets.delete(EXECUTE_ONBOARDING_TODOS_STEP_KEY);
+
       return Array.from(allTargets).map((target) => {
         const fromAgent = (uiActions ?? []).find((a) => a.target === target);
         const fromFlowUi = (flowUiActions ?? []).find((a) => a.target === target);
@@ -730,7 +750,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           : fromFlowUi
             ? uiActionDisplayLabel(fromFlowUi.tooltip || fromFlowUi.message || "")
           : fromFlowStep
-            ? fromFlowStep.step_key.replaceAll("_", " ")
+            ? displayTitleForFlowStep(flowSteps, fromFlowStep.step_key)
             : history?.label ?? defaultLabelForTarget(target);
         const order =
           history?.order ?? (fromAgent || fromFlowUi || fromFlowStep ? Number.MAX_SAFE_INTEGER : 0);
@@ -822,6 +842,19 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     if (!shouldCollapseTodo || todoExpanded) return orderedTodoItems;
     return orderedTodoItems.slice(0, TODO_COLLAPSE_ITEM_LIMIT);
   }, [shouldCollapseTodo, todoExpanded, orderedTodoItems]);
+
+  const todoSectionTitle = useMemo(
+    () =>
+      isOnboardingFlow
+        ? displayTitleForFlowStep(flowSteps, EXECUTE_ONBOARDING_TODOS_STEP_KEY)
+        : "Your To Do List",
+    [isOnboardingFlow, flowSteps]
+  );
+
+  const nextStepDisplay = useMemo(
+    () => (nextStep ? displayTitleForFlowStep(flowSteps, nextStep) : null),
+    [nextStep, flowSteps]
+  );
 
   useEffect(() => {
     // Prefetch likely destinations for smoother navigation from "Complete Task" CTAs.
@@ -1058,14 +1091,18 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
         <div className="border-t border-orange-200/80 px-4 py-2 text-xs text-orange-800 dark:border-orange-800 dark:text-orange-200">
           Progress: {progressPercent}%
-          {nextStep ? <span className="ml-2">Next: {nextStep}</span> : null}
+          {nextStepDisplay ? (
+            <span className="ml-2" title={nextStep ?? undefined}>
+              Next: {nextStepDisplay}
+            </span>
+          ) : null}
           {stepId ? <span className="ml-2 font-mono text-[0.7rem] opacity-80">Step: {stepId}</span> : null}
         </div>
 
         {expanded && !loading && !skipped && !showConversationList && orderedTodoItems.length > 0 && (
           <div className="flex min-h-0 max-h-[min(52dvh,26rem)] flex-col gap-2 overflow-hidden border-t border-orange-200/60 bg-orange-50/50 px-4 py-2.5 dark:border-orange-800/50 dark:bg-orange-950/20">
             <div className="flex shrink-0 items-center justify-between gap-2">
-              <p className="text-xs font-medium text-orange-900 dark:text-orange-200">Your To Do List</p>
+              <p className="text-xs font-medium text-orange-900 dark:text-orange-200">{todoSectionTitle}</p>
               {shouldCollapseTodo ? (
                 <button
                   type="button"
@@ -1081,7 +1118,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             <ul
               className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain pr-1 [scrollbar-gutter:stable]"
               role="list"
-              aria-label="Onboarding to do list"
+              aria-label={todoSectionTitle}
               id="sage-todo-list"
             >
               {visibleTodoItems.map((item) => {
