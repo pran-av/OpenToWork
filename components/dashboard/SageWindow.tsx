@@ -976,6 +976,11 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     [nextStep, flowSteps]
   );
 
+  const progressBarPercent = useMemo(
+    () => Math.max(0, Math.min(100, Math.round(Number(progressPercent) || 0))),
+    [progressPercent]
+  );
+
   useEffect(() => {
     // Prefetch likely destinations for smoother navigation from "Complete Task" CTAs.
     for (const item of orderedTodoItems) {
@@ -1246,14 +1251,41 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           </div>
         </div>
 
-        <div className="border-t border-orange-200/80 px-4 py-2 text-xs text-orange-800 dark:border-orange-800 dark:text-orange-200">
-          Progress: {progressPercent}%
-          {nextStepDisplay ? (
-            <span className="ml-2" title={nextStep ?? undefined}>
-              Next: {nextStepDisplay}
-            </span>
-          ) : null}
-          {stepId ? <span className="ml-2 font-mono text-[0.7rem] opacity-80">Step: {stepId}</span> : null}
+        <div className="border-t border-orange-200/80 px-4 py-2.5 text-xs text-orange-800 dark:border-orange-800 dark:text-orange-200">
+          <div className="flex flex-col gap-2">
+            <div className="flex min-h-[1.25rem] items-center gap-3">
+              <div
+                className="relative h-2 min-h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-orange-200/70 ring-1 ring-orange-900/10 dark:bg-orange-950/70 dark:ring-orange-100/15"
+                role="progressbar"
+                aria-valuenow={progressBarPercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuetext={`${progressBarPercent}% complete`}
+              >
+                <div
+                  aria-hidden
+                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 motion-safe:transition-[width] motion-safe:duration-300 motion-safe:ease-out dark:from-orange-500 dark:via-orange-400 dark:to-amber-400"
+                  style={{ width: `${progressBarPercent}%` }}
+                />
+              </div>
+              <span
+                className="w-9 shrink-0 text-right tabular-nums text-[11px] font-semibold leading-none text-orange-900 dark:text-orange-50"
+                aria-hidden
+              >
+                {progressBarPercent}%
+              </span>
+            </div>
+            <div className="min-w-0 leading-snug text-[11px]">
+              {nextStepDisplay ? (
+                <p className="text-pretty">
+                  <span className="font-semibold text-orange-900 dark:text-orange-100">Next: </span>
+                  <span className="text-orange-800 dark:text-orange-200">{nextStepDisplay}</span>
+                </p>
+              ) : (
+                <p className="text-orange-700/90 dark:text-orange-300/90">Next: —</p>
+              )}
+            </div>
+          </div>
         </div>
 
         {expanded && !loading && !skipped && !showConversationList && orderedTodoItems.length > 0 && (
