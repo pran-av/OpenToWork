@@ -11,7 +11,6 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Check, Circle, Loader2, MinusCircle, Sparkles } from "lucide-react";
 import ReactMarkdown, { type Components } from "react-markdown";
@@ -28,6 +27,7 @@ import {
   listActiveOnboardingFlowsV2,
   startOnboardingFlowV2,
 } from "@/lib/agent-flow-v2";
+import { SageMascotPicture } from "@/components/dashboard/SageMascotPicture";
 import { onboardingProfileRequiresDbVerification } from "@/lib/sage-onboarding-primary";
 import {
   buildOnboardingTaskHref,
@@ -1012,8 +1012,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                   aria-label="Open Sage to continue onboarding"
                   aria-describedby={showPausedHubCaption ? "sage-hub-pending-line" : undefined}
                 >
-                  <Image
-                    src="/sage_mascot.png"
+                  <SageMascotPicture
                     alt=""
                     width={56}
                     height={70}

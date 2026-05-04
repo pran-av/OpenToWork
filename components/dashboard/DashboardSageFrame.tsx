@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
-import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { SageMascotPicture } from "@/components/dashboard/SageMascotPicture";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { FlowEnvelopeResponse } from "@/lib/agent-onboarding-types";
 import { SageWindow, type SageWindowHandle, SAGE_RESUME_FROM_TOUR_EVENT } from "@/components/dashboard/SageWindow";
@@ -736,8 +736,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
             }}
           >
             <div className="flex w-full items-start gap-3">
-              <Image
-                src="/sage_mascot.png"
+              <SageMascotPicture
                 alt="Sage"
                 width={44}
                 height={56}
@@ -817,8 +816,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
             <div className="rounded-2xl border border-orange-200/90 bg-orange-50 px-3 py-2 text-center text-xs font-medium text-orange-900 shadow-sm dark:border-zinc-600 dark:bg-zinc-800/95 dark:text-zinc-100">
               Hi, I&apos;m Sage!
             </div>
-            <Image
-              src="/sage_mascot.png"
+            <SageMascotPicture
               alt="Sage, your guide"
               width={120}
               height={150}
