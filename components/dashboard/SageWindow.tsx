@@ -26,7 +26,6 @@ import type {
 import {
   getFlowV2,
   listActiveOnboardingFlowsV2,
-  listCompletedOnboardingFlowsV2,
   startOnboardingFlowV2,
 } from "@/lib/agent-flow-v2";
 import { onboardingProfileRequiresDbVerification } from "@/lib/sage-onboarding-primary";
@@ -510,8 +509,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   }, []);
 
   /**
-   * Bootstrap: restore session; else hydrate active ONBOARDING; else POST /flows/start **only**
-   * for users who have **never completed** onboarding (repeat users → manual trigger only).
+   * Bootstrap: restore session; else hydrate from an active ONBOARDING flow; else POST start automatically.
+   * Conversation picker only appears if starting fails (e.g. network).
    */
   useEffect(() => {
     let cancelled = false;
@@ -565,14 +564,13 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         }
       }
       if (cancelled) return;
-
+      setReady(true);
+      setExpanded(true);
+      setSkipped(false);
       try {
         const flows = await listActiveOnboardingFlowsV2();
         if (cancelled) return;
         if (flows.length > 0) {
-          setReady(true);
-          setExpanded(true);
-          setSkipped(false);
           const sorted = [...flows].sort(
             (a, b) =>
               (b.flow_instance.started_at ?? "").localeCompare(
@@ -592,47 +590,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           return;
         }
       } catch {
-        /* no active — continue to completion check */
+        // ignored, fallback to start
       }
-
-      let hasEverCompletedOnboarding = false;
-      let completedListingFailed = false;
-      try {
-        const completed = await listCompletedOnboardingFlowsV2();
-        hasEverCompletedOnboarding = completed.length > 0;
-      } catch {
-        completedListingFailed = true;
-      }
-      if (cancelled) return;
-
-      if (hasEverCompletedOnboarding || completedListingFailed) {
-        setConversationId(null);
-        setFlowInstanceId(null);
-        setMessages([]);
-        setStatus(null);
-        setNextStep(null);
-        setCurrentStep(null);
-        setProgressPercent(0);
-        setUiActions(null);
-        setFlowUiActions(null);
-        setFlowSteps([]);
-        setStepId(null);
-        setFlowType(null);
-        setCompletedSteps([]);
-        setTodoByTarget({});
-        setShowConversationList(false);
-        setError(null);
-        setInput("");
-        setLoading(false);
-        setReady(true);
-        setExpanded(false);
-        setSkipped(true);
-        return;
-      }
-
-      setReady(true);
-      setExpanded(true);
-      setSkipped(false);
       const started = await startOnboardingRef.current();
       if (cancelled) return;
       if (started) return;
@@ -789,14 +748,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const resumeSageFromPausedHub = useCallback(() => {
     setSkipped(false);
     setExpanded(true);
-    const id = flowInstanceId ?? conversationId;
-    if (!id) {
-      setShowConversationList(true);
-      void fetchActiveConversations();
-    } else {
-      setShowConversationList(false);
-    }
-  }, [conversationId, fetchActiveConversations, flowInstanceId]);
+    setShowConversationList(false);
+  }, []);
 
   const todoItems = useMemo(
     () => {
@@ -945,6 +898,17 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const pausedHubDesktop = skipped && isDesktop && !loading;
   const showPausedHubAttention = status === "active" || status === "FLOW_ACTIVE";
 
+  /** Hide the FAB caption bubble when onboarding is done (status or all UI rows settled); keep the FAB itself. */
+  const showPausedHubCaption = useMemo(() => {
+    if (!isOnboardingFlow) return true;
+    if (status === "completed" || status === "FLOW_COMPLETED") return false;
+    if (!ready) return true;
+    const actions = flowUiActions ?? [];
+    if (actions.length === 0) return true;
+    const allDone = actions.every((a) => a.state === "STEP_DONE" || a.state === "STEP_SKIPPED");
+    return !allDone;
+  }, [flowUiActions, isOnboardingFlow, ready, status]);
+
   useLayoutEffect(() => {
     onRightRailChange?.(!pausedHubDesktop);
   }, [onRightRailChange, pausedHubDesktop]);
@@ -1013,20 +977,22 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         createPortal(
           <div className="pointer-events-none max-lg:hidden">
             <div className="pointer-events-auto fixed bottom-5 right-5 z-[44] flex w-[13.5rem] flex-col items-center gap-2 max-lg:hidden">
-              <div
-                role="status"
-                className="w-full max-w-full rounded-lg border border-zinc-200/90 bg-white px-2.5 py-1.5 text-left shadow-md ring-1 ring-black/5 dark:border-zinc-600 dark:bg-zinc-900 dark:ring-white/10"
-              >
-                <p
-                  id="sage-hub-pending-line"
-                  className="text-center text-xs font-medium leading-snug text-zinc-700 dark:text-zinc-200"
-                  title={sageHubPendingLine}
+              {showPausedHubCaption ? (
+                <div
+                  role="status"
+                  className="w-full max-w-full rounded-lg border border-zinc-200/90 bg-white px-2.5 py-1.5 text-left shadow-md ring-1 ring-black/5 dark:border-zinc-600 dark:bg-zinc-900 dark:ring-white/10"
                 >
-                  {sageHubPendingLine}
-                </p>
-              </div>
+                  <p
+                    id="sage-hub-pending-line"
+                    className="text-center text-xs font-medium leading-snug text-zinc-700 dark:text-zinc-200"
+                    title={sageHubPendingLine}
+                  >
+                    {sageHubPendingLine}
+                  </p>
+                </div>
+              ) : null}
               <div className="relative h-[4.5rem] w-[4.5rem] overflow-visible">
-                {showPausedHubAttention ? (
+                {showPausedHubAttention && showPausedHubCaption ? (
                   <>
                     <span
                       className="absolute inset-0 -m-1 rounded-full bg-amber-400/40 blur-[3px] motion-safe:animate-pulse"
@@ -1044,7 +1010,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                   className="relative z-10 flex h-[4.5rem] w-[4.5rem] items-center justify-center overflow-hidden rounded-full border-2 border-amber-300 bg-orange-50 shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 dark:border-amber-600/60 dark:bg-zinc-800 dark:focus:ring-amber-500"
                   title="Open Sage to continue onboarding"
                   aria-label="Open Sage to continue onboarding"
-                  aria-describedby="sage-hub-pending-line"
+                  aria-describedby={showPausedHubCaption ? "sage-hub-pending-line" : undefined}
                 >
                   <Image
                     src="/sage_mascot.png"
