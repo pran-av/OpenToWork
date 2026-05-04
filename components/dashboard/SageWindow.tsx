@@ -1033,8 +1033,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         </div>
 
         {expanded && !loading && !skipped && !showConversationList && orderedTodoItems.length > 0 && (
-          <div className="space-y-2 border-t border-orange-200/60 bg-orange-50/50 px-4 py-2.5 dark:border-orange-800/50 dark:bg-orange-950/20">
-            <div className="flex items-center justify-between gap-2">
+          <div className="flex min-h-0 max-h-[min(52dvh,26rem)] flex-col gap-2 overflow-hidden border-t border-orange-200/60 bg-orange-50/50 px-4 py-2.5 dark:border-orange-800/50 dark:bg-orange-950/20">
+            <div className="flex shrink-0 items-center justify-between gap-2">
               <p className="text-xs font-medium text-orange-900 dark:text-orange-200">Your To Do List</p>
               {shouldCollapseTodo ? (
                 <button
@@ -1048,7 +1048,12 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                 </button>
               ) : null}
             </div>
-            <ul className="flex flex-col gap-2" role="list" aria-label="Onboarding to do list" id="sage-todo-list">
+            <ul
+              className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain pr-1 [scrollbar-gutter:stable]"
+              role="list"
+              aria-label="Onboarding to do list"
+              id="sage-todo-list"
+            >
               {visibleTodoItems.map((item) => {
                 return (
                   <li key={item.key} className="flex min-w-0 items-center gap-2">
@@ -1115,7 +1120,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               })}
             </ul>
             {isOnboardingFlow ? (
-              <div className="pt-1">
+              <div className="shrink-0 pt-1">
                 <button
                   type="button"
                   onClick={() => {
@@ -1141,7 +1146,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               </div>
             ) : null}
             {!todoExpanded && shouldCollapseTodo ? (
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              <p className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
                 {orderedTodoItems.length - visibleTodoItems.length} more item
                 {orderedTodoItems.length - visibleTodoItems.length === 1 ? "" : "s"} hidden
               </p>
