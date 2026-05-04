@@ -144,6 +144,24 @@ function formatFlowTypeLabel(raw: string | null | undefined): string {
   return `${lower.charAt(0).toUpperCase()}${lower.slice(1)}`;
 }
 
+function flowStateBadgeClasses(state: string): string {
+  const upper = state.toUpperCase();
+  if (upper === "COMPLETED" || upper === "FLOW_COMPLETED") {
+    return "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700/70 dark:bg-emerald-900/30 dark:text-emerald-300";
+  }
+  if (upper === "ACTIVE" || upper === "FLOW_ACTIVE") {
+    return "border-amber-400/80 bg-amber-50 text-amber-900 dark:border-amber-600/60 dark:bg-amber-950/50 dark:text-amber-100";
+  }
+  return "border-orange-300/90 bg-orange-100 text-orange-900 dark:border-orange-700 dark:bg-orange-900/40 dark:text-orange-100";
+}
+
+/** User-visible flow state — avoid raw agent enums (`FLOW_*`) in the header badge. */
+function formatFlowStatusForDisplay(state: string): string {
+  const u = state.trim().toUpperCase();
+  if (u.startsWith("FLOW_")) return u.slice(5);
+  return u;
+}
+
 function oneLinePendingFromAgentText(text: string, max = 88): string {
   const noMd = text
     .replace(/\*\*([^*]+)\*\*/g, "$1")
@@ -976,19 +994,32 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         aria-hidden={showDesktopLoadingBanner ? true : undefined}
       >
         <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             {loading ? (
               <Loader2 className="h-4 w-4 shrink-0 animate-spin text-orange-600 dark:text-orange-300" />
             ) : (
               <Sparkles className="h-4 w-4 shrink-0 text-orange-600 dark:text-orange-300" />
             )}
-            <p className="truncate text-sm font-medium text-orange-900 dark:text-orange-200">
-              {loading
-                ? "Sage is fetching your details to personalize onboarding..."
-                : skipped
-                  ? `${flowLabel} paused. Restart when you're ready.`
-                  : progressLabel}
-            </p>
+            <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+              <p className="min-w-0 shrink truncate text-sm font-medium leading-5 text-orange-900 dark:text-orange-200">
+                {loading
+                  ? "Sage is fetching your details to personalize onboarding..."
+                  : skipped
+                    ? `${flowLabel} paused. Restart when you're ready.`
+                    : progressLabel}
+              </p>
+              {status && !loading && !showConversationList ? (
+                <span
+                  className={cn(
+                    "inline-flex h-6 shrink-0 items-center rounded-md border px-2 py-0 text-[10px] font-semibold uppercase leading-none tracking-wide",
+                    flowStateBadgeClasses(status)
+                  )}
+                  title={`Flow status: ${status}`}
+                >
+                  {formatFlowStatusForDisplay(status)}
+                </span>
+              ) : null}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {!loading && !showConversationList && (
@@ -1027,7 +1058,6 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
         <div className="border-t border-orange-200/80 px-4 py-2 text-xs text-orange-800 dark:border-orange-800 dark:text-orange-200">
           Progress: {progressPercent}%
-          {status ? <span className="ml-2">Status: {status}</span> : null}
           {nextStep ? <span className="ml-2">Next: {nextStep}</span> : null}
           {stepId ? <span className="ml-2 font-mono text-[0.7rem] opacity-80">Step: {stepId}</span> : null}
         </div>
