@@ -9,6 +9,7 @@ import { BriefcaseBusiness, Megaphone, User } from "lucide-react";
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import LinkIdentityBanner from "./LinkIdentityBanner";
 import Link from "next/link";
+import { setSageMobileUserHoldOpen } from "@/components/dashboard/SageWindow";
 
 interface ProfileData {
   display_name: string | null;
@@ -82,6 +83,7 @@ export default function DashboardHeader() {
     try {
       sessionStorage.removeItem(SAGE_SESSION_KEY);
       sessionStorage.removeItem(SAGE_TASK_NAV_CONTEXT_KEY);
+      setSageMobileUserHoldOpen(false);
       const res = await fetch("/api/auth/logout", {
         method: "POST",
       });

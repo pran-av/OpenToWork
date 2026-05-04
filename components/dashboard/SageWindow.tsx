@@ -215,11 +215,36 @@ function chatMessagesFromSageList(sorted: SageFlowMessage[]): ChatMessage[] {
     .map((m) => ({ role: "agent" as const, text: m.content.trim() }));
 }
 
-const SAGE_SESSION_KEY = "opentowork-sage-onboarding-v1";
+export const SAGE_SESSION_KEY = "opentowork-sage-onboarding-v1";
 const SAGE_TASK_NAV_CONTEXT_KEY = "opentowork-sage-task-nav-v1";
 
+/** `DashboardSageFrame` listens so mobile/tablet can default Sage mode OFF after onboarding completes. */
+export const SAGE_MOBILE_MODE_PREFERENCE_EVENT = "opentowork-sage-mobile-mode-preference" as const;
+
+const SAGE_MOBILE_USER_HOLD_OPEN_KEY = "opentowork-sage-mobile-user-hold-open-v1";
+
+/** Persisted hint: user turned mobile Sage overlay ON manually; suppress auto-dismiss until they turn it OFF. */
+export function setSageMobileUserHoldOpen(userChoseOverlayOn: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (userChoseOverlayOn) sessionStorage.setItem(SAGE_MOBILE_USER_HOLD_OPEN_KEY, "1");
+    else sessionStorage.removeItem(SAGE_MOBILE_USER_HOLD_OPEN_KEY);
+  } catch {
+    /* private mode / quota */
+  }
+}
+
+export function sageMobileUserHoldOpen(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem(SAGE_MOBILE_USER_HOLD_OPEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 /** Persists the Sage client state so theme toggles and remounts do not start a new conversation. */
-type SagePersistedSession = {
+export type SagePersistedSession = {
   v: 1;
   conversationId: string;
   messages: ChatMessage[];
@@ -240,6 +265,34 @@ type SagePersistedSession = {
   completedSteps?: string[];
   todoByTarget?: Record<string, { label: string; order: number }>;
 };
+
+export function persistedSessionOnboardingComplete(snap: SagePersistedSession): boolean {
+  if ((snap.flowType ?? "").trim().toUpperCase() !== "ONBOARDING") return false;
+  const st = (snap.status ?? "").trim().toUpperCase();
+  if (st === "COMPLETED" || st === "FLOW_COMPLETED") return true;
+  const actions = snap.flowUiActions ?? [];
+  if (actions.length === 0) return false;
+  return actions.every((a) => a.state === "STEP_DONE" || a.state === "STEP_SKIPPED");
+}
+
+function onboardingCompleteFromFlowEnvelope(flow: FlowEnvelopeResponse): boolean {
+  const ft = (flow.flow_instance.flow_type ?? "").trim().toUpperCase();
+  if (ft !== "ONBOARDING") return false;
+  const st = (flow.flow_instance.state ?? "").trim().toUpperCase();
+  if (st === "COMPLETED" || st === "FLOW_COMPLETED") return true;
+  const actions = flow.ui_actions ?? [];
+  if (actions.length === 0) return false;
+  return actions.every((a) => a.state === "STEP_DONE" || a.state === "STEP_SKIPPED");
+}
+
+function emitMobileSageModePreferenceIfMobile(enabled: boolean): void {
+  if (typeof window === "undefined") return;
+  if (window.matchMedia("(min-width: 1024px)").matches) return;
+  if (!enabled && sageMobileUserHoldOpen()) return;
+  window.dispatchEvent(
+    new CustomEvent(SAGE_MOBILE_MODE_PREFERENCE_EVENT, { detail: { enabled } })
+  );
+}
 
 type SageTaskNavContext = {
   target: string;
@@ -477,9 +530,16 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           : await startOnboardingFlowV2();
         setConversationId(flow.flow_instance.id);
         applyFlowState(flow, false);
+        const done = onboardingCompleteFromFlowEnvelope(flow);
         setReady(true);
-        setExpanded(true);
-        setSkipped(false);
+        if (done) {
+          setSkipped(true);
+          setExpanded(false);
+          emitMobileSageModePreferenceIfMobile(false);
+        } else {
+          setExpanded(true);
+          setSkipped(false);
+        }
         return true;
       } catch {
         setError("Network error starting onboarding");
@@ -538,20 +598,36 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             setStepId(snap.stepId);
             setFlowInstanceId(snap.flowInstanceId ?? snap.conversationId);
             setReady(snap.ready);
-            setExpanded(snap.expanded);
-            setSkipped(snap.skipped);
             setFlowType(snap.flowType ?? null);
             setCompletedSteps(snap.completedSteps ?? []);
             setTodoByTarget(snap.todoByTarget ?? {});
             setError(null);
             setInput("");
             setLoading(false);
+            if (persistedSessionOnboardingComplete(snap)) {
+              setSkipped(true);
+              setExpanded(false);
+              setShowConversationList(false);
+              emitMobileSageModePreferenceIfMobile(false);
+            } else {
+              setExpanded(snap.expanded);
+              setSkipped(snap.skipped);
+            }
             try {
               const serverFlow = await getFlowV2(snap.conversationId);
               if (cancelled) return;
               applyFlowState(serverFlow, true);
+              if (onboardingCompleteFromFlowEnvelope(serverFlow)) {
+                setSkipped(true);
+                setExpanded(false);
+                setShowConversationList(false);
+                emitMobileSageModePreferenceIfMobile(false);
+              } else {
+                setExpanded(snap.expanded);
+                setSkipped(snap.skipped);
+              }
             } catch {
-              /* keep snapshot-only state when offline */
+              /* offline — chrome already reflects snap above */
             }
             return;
           }
@@ -564,9 +640,6 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         }
       }
       if (cancelled) return;
-      setReady(true);
-      setExpanded(true);
-      setSkipped(false);
       try {
         const flows = await listActiveOnboardingFlowsV2();
         if (cancelled) return;
@@ -578,14 +651,28 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               )
           );
           const pick = sorted[0];
+          const applyPick = (envelope: FlowEnvelopeResponse) => {
+            setConversationId(envelope.flow_instance.id);
+            applyFlowState(envelope, false);
+            const done = onboardingCompleteFromFlowEnvelope(envelope);
+            setReady(true);
+            if (done) {
+              setSkipped(true);
+              setExpanded(false);
+              setShowConversationList(false);
+              emitMobileSageModePreferenceIfMobile(false);
+            } else {
+              setSkipped(false);
+              setExpanded(true);
+            }
+          };
           try {
             const full = await getFlowV2(pick.flow_instance.id);
             if (cancelled) return;
-            setConversationId(full.flow_instance.id);
-            applyFlowState(full, false);
+            applyPick(full);
           } catch {
-            setConversationId(pick.flow_instance.id);
-            applyFlowState(pick, false);
+            if (cancelled) return;
+            applyPick(pick);
           }
           return;
         }
@@ -595,6 +682,9 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       const started = await startOnboardingRef.current();
       if (cancelled) return;
       if (started) return;
+      setReady(true);
+      setSkipped(false);
+      setExpanded(true);
       setShowConversationList(true);
       await fetchActiveConversations();
     };
@@ -894,20 +984,45 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     }
   }, [orderedTodoItems, router]);
 
+  const onboardingFullyComplete = useMemo(() => {
+    if (!isOnboardingFlow) return false;
+    if (status === "completed" || status === "FLOW_COMPLETED") return true;
+    if (!ready) return false;
+    const actions = flowUiActions ?? [];
+    if (actions.length === 0) return false;
+    return actions.every((a) => a.state === "STEP_DONE" || a.state === "STEP_SKIPPED");
+  }, [flowUiActions, isOnboardingFlow, ready, status]);
+
+  /** When onboarding finishes, suppress duplicate status line on the FAB; button remains. */
+  const showPausedHubCaption = !isOnboardingFlow || !onboardingFullyComplete;
+
+  /**
+   * First sample after `(ready && !loading)` establishes baseline — avoids treating “already complete at mount” as a live transition,
+   * which was firing dismiss and snapping the mobile overlay OFF immediately after manual ON.
+   */
+  const onboardingCompleteBaselineRef = useRef<boolean | null>(null);
+
+  /** When onboarding crosses to complete mid-session, collapse chrome and default mobile/tablet Sage mode OFF (unless user hold). */
+  useEffect(() => {
+    if (!ready || loading) return;
+    const now = onboardingFullyComplete;
+    const prevBaseline = onboardingCompleteBaselineRef.current;
+    if (prevBaseline === null) {
+      onboardingCompleteBaselineRef.current = now;
+      return;
+    }
+    const prev = prevBaseline;
+    onboardingCompleteBaselineRef.current = now;
+    if (!now || prev) return;
+    setSkipped(true);
+    setExpanded(false);
+    setShowConversationList(false);
+    emitMobileSageModePreferenceIfMobile(false);
+  }, [loading, onboardingFullyComplete, ready]);
+
   const showDesktopLoadingBanner = loading && isDesktop;
   const pausedHubDesktop = skipped && isDesktop && !loading;
   const showPausedHubAttention = status === "active" || status === "FLOW_ACTIVE";
-
-  /** Hide the FAB caption bubble when onboarding is done (status or all UI rows settled); keep the FAB itself. */
-  const showPausedHubCaption = useMemo(() => {
-    if (!isOnboardingFlow) return true;
-    if (status === "completed" || status === "FLOW_COMPLETED") return false;
-    if (!ready) return true;
-    const actions = flowUiActions ?? [];
-    if (actions.length === 0) return true;
-    const allDone = actions.every((a) => a.state === "STEP_DONE" || a.state === "STEP_SKIPPED");
-    return !allDone;
-  }, [flowUiActions, isOnboardingFlow, ready, status]);
 
   useLayoutEffect(() => {
     onRightRailChange?.(!pausedHubDesktop);

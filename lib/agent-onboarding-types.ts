@@ -1,6 +1,6 @@
 /**
- * Flows v2 / onboarding shapes (Agent Service API v2.1.1).
- * @see api_contracts/agent-serviceapi-v2.1.1.md
+ * Flows v2 / onboarding shapes (Agent Service API v2.1.2).
+ * @see api_contracts/agent-serviceapi-v2.1.2.md
  */
 
 export type FlowType = "ONBOARDING" | string;
@@ -61,6 +61,11 @@ export type FlowEnvelopeResponse = {
   steps: FlowStep[];
   ui_actions: FlowUiAction[];
   progress: FlowProgress;
+  /**
+   * Only on `POST /api/v2/flows/start` with `flow_type: "ONBOARDING"`.
+   * Non-null when the latest onboarding is completed or abandoned (no new row created).
+   */
+  start_message?: string | null;
 };
 
 export type FlowListResponse = {

@@ -34,6 +34,7 @@ function isFlowListResponse(data: unknown): data is FlowListResponse {
   );
 }
 
+/** Returns envelope; `start_message` may be set when onboarding did not create a new row (see v2.1.2 §7). */
 export async function startOnboardingFlowV2(): Promise<FlowEnvelopeResponse> {
   const res = await fetch("/api/agent/v2/flows/start", {
     method: "POST",
@@ -64,7 +65,7 @@ export async function listActiveOnboardingFlowsV2(): Promise<FlowEnvelopeRespons
 
 /**
  * Completed onboarding instances — used so repeat users never get an automatic POST /flows/start on dashboard load.
- * @see api_contracts/agent-serviceapi-v2.1.1.md §7A list flows
+ * @see api_contracts/agent-serviceapi-v2.1.2.md §7A list flows
  */
 export async function listCompletedOnboardingFlowsV2(): Promise<FlowEnvelopeResponse[]> {
   return listOnboardingFlowsWithStatus("FLOW_COMPLETED");

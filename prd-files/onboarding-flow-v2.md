@@ -2,7 +2,7 @@
 
 The UI SageWindow functionality will remain unchanged. However, new v2 flow APIs will be integrated for the Onboarding Flow operations.
 
-Whenever a New User is detected, the onboarding flow v2 should be automatically started. On first authenticated app load, call POST /api/agent/v2/flows/start with { "flow_type": "ONBOARDING", "conversation_id": null }.
+Whenever a user who has not finished onboarding should enter the flow, call `POST /api/v2/flows/start` with `{ "flow_type": "ONBOARDING", "conversation_id": null }` on app load. The server is **idempotent**: it returns an **active** onboarding to resume even without a persisted `flow_instance.id`. If onboarding is already **completed** or **abandoned**, the response includes **`start_message`** (see API doc). Optionally persist **`flow_instance.id`** for direct `GET /api/v2/flows/{id}`.
 
 To Do List will only display CLIENT or USER type steps or UI Actions and not the SERVER Steps.
 
