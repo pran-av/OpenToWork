@@ -37,6 +37,9 @@ import {
 
 type ChatMessage = { role: "agent" | "user"; text: string };
 
+/** Fired by `DashboardSageFrame` when the user returns from a tour step (e.g. “Back to Sage”) so the panel re-opens and rehydrates. */
+export const SAGE_RESUME_FROM_TOUR_EVENT = "opentowork-sage-resume-from-tour";
+
 const SAGE_MARKDOWN_COMPONENTS: Components = {
   p: ({ children }) => <p className="mb-2.5 last:mb-0 first:mt-0 leading-relaxed">{children}</p>,
   strong: ({ children }) => <strong className="font-semibold text-zinc-900 dark:text-zinc-100">{children}</strong>,
@@ -351,6 +354,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   /** Dedupes overlapping `startOnboarding` calls (e.g. React Strict Mode double mount). */
   const startOnboardingPromiseRef = useRef<Promise<boolean> | null>(null);
   const startOnboardingRef = useRef<(resumeId?: string | null) => Promise<boolean>>(async () => false);
+  /** Latest `resume` implementation for imperative handle + window event (defined after flow helpers). */
+  const resumeFromTourOrDialogRef = useRef<() => Promise<void>>(async () => {});
   const [portalReady, setPortalReady] = useState(false);
 
   useEffect(() => {
@@ -428,11 +433,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     ref,
     () => ({
       skip: skipOnboarding,
-      resume: () => {
-        setSkipped(false);
-        setExpanded(true);
-        setShowConversationList(false);
-      },
+      resume: () => void resumeFromTourOrDialogRef.current(),
     }),
     [skipOnboarding]
   );
@@ -670,6 +671,35 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       // ignore background sync errors
     }
   }, [applyFlowState, conversationId, flowInstanceId]);
+
+  const resumeFromTourOrDialog = useCallback(async () => {
+    setSkipped(false);
+    setExpanded(true);
+    const id = flowInstanceId ?? conversationId;
+    if (!id) {
+      setShowConversationList(true);
+      await fetchActiveConversations();
+      return;
+    }
+    try {
+      const flow = await getFlowV2(id);
+      applyFlowState(flow, true);
+      setShowConversationList(false);
+    } catch {
+      setShowConversationList(true);
+      await fetchActiveConversations();
+    }
+  }, [applyFlowState, conversationId, fetchActiveConversations, flowInstanceId]);
+
+  useEffect(() => {
+    resumeFromTourOrDialogRef.current = resumeFromTourOrDialog;
+  }, [resumeFromTourOrDialog]);
+
+  useEffect(() => {
+    const onResumeFromTour = () => void resumeFromTourOrDialogRef.current();
+    window.addEventListener(SAGE_RESUME_FROM_TOUR_EVENT, onResumeFromTour);
+    return () => window.removeEventListener(SAGE_RESUME_FROM_TOUR_EVENT, onResumeFromTour);
+  }, []);
 
   useEffect(() => {
     if (!conversationId || !expanded || skipped || showConversationList) return;

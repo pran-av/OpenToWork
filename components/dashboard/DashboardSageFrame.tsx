@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { FlowEnvelopeResponse } from "@/lib/agent-onboarding-types";
-import { SageWindow, type SageWindowHandle } from "@/components/dashboard/SageWindow";
+import { SageWindow, type SageWindowHandle, SAGE_RESUME_FROM_TOUR_EVENT } from "@/components/dashboard/SageWindow";
 import { ackFlowUiActionV2, getFlowV2 } from "@/lib/agent-flow-v2";
 import {
   buildOnboardingTaskHref,
@@ -457,6 +458,21 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
     setSageTaskDialogPos(null);
   }, [clearSageHighlight]);
 
+  /** Re-open Sage after an onboarding dialog (e.g. “Back to Sage”): mount mobile overlay synchronously, then resume + hydrate. */
+  const openSageAfterTourReturn = useCallback(() => {
+    if (!isDesktop) {
+      flushSync(() => setSageModeEnabled(true));
+    }
+    setSageRightRailOpen(true);
+    queueMicrotask(() => {
+      if (sageRef.current) {
+        sageRef.current.resume();
+      } else {
+        window.dispatchEvent(new CustomEvent(SAGE_RESUME_FROM_TOUR_EVENT));
+      }
+    });
+  }, [isDesktop]);
+
   const finalizeAfterUiAckFlow = useCallback(
     async (flowEnvelope: FlowEnvelopeResponse, ctx: SageTaskNavContext | null, completedTarget: string) => {
       interStepOverlayHoldForNextDialogRef.current = false;
@@ -465,7 +481,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         return;
       }
       if (completedTarget === "nav.sage_window" && !isDesktop) {
-        setSageModeEnabled(true);
+        flushSync(() => setSageModeEnabled(true));
       }
       window.dispatchEvent(new CustomEvent("sage-ui-action-acknowledged"));
       const fid = ctx.flowInstanceId;
@@ -519,13 +535,10 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       }
       closeSageTaskDialog();
       if (completedTarget === "nav.sage_window") {
-        if (!isDesktop) setSageModeEnabled(true);
-        setSageRightRailOpen(true);
-        sageRef.current?.resume();
-        window.dispatchEvent(new CustomEvent("sage-ui-action-acknowledged"));
+        openSageAfterTourReturn();
       }
     },
-    [closeSageTaskDialog, isDesktop, router]
+    [closeSageTaskDialog, isDesktop, openSageAfterTourReturn, router]
   );
 
   const acknowledgeAction = useCallback(
@@ -545,13 +558,11 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
           uiAckState,
           { source: "client" }
         );
-        if (sageTaskContext.target === "nav.sage_window" && !isDesktop) {
-          setSageModeEnabled(true);
+        if (!backToSage && sageTaskContext.target === "nav.sage_window" && !isDesktop) {
+          flushSync(() => setSageModeEnabled(true));
         }
         if (backToSage) {
-          if (!isDesktop) setSageModeEnabled(true);
-          setSageRightRailOpen(true);
-          sageRef.current?.resume();
+          openSageAfterTourReturn();
           window.dispatchEvent(new CustomEvent("sage-ui-action-acknowledged"));
           closeSageTaskDialog();
           return;
@@ -567,7 +578,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         }
       }
     },
-    [closeSageTaskDialog, finalizeAfterUiAckFlow, isDesktop, sageTaskContext]
+    [closeSageTaskDialog, finalizeAfterUiAckFlow, isDesktop, openSageAfterTourReturn, sageTaskContext]
   );
 
   useEffect(() => {
