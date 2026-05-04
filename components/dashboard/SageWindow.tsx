@@ -26,6 +26,7 @@ import type {
 import {
   getFlowV2,
   listActiveOnboardingFlowsV2,
+  listCompletedOnboardingFlowsV2,
   startOnboardingFlowV2,
 } from "@/lib/agent-flow-v2";
 import { onboardingProfileRequiresDbVerification } from "@/lib/sage-onboarding-primary";
@@ -509,8 +510,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   }, []);
 
   /**
-   * Bootstrap: restore session; else hydrate from an active ONBOARDING flow; else POST start automatically.
-   * Conversation picker only appears if starting fails (e.g. network).
+   * Bootstrap: restore session; else hydrate active ONBOARDING; else POST /flows/start **only**
+   * for users who have **never completed** onboarding (repeat users → manual trigger only).
    */
   useEffect(() => {
     let cancelled = false;
@@ -564,13 +565,14 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         }
       }
       if (cancelled) return;
-      setReady(true);
-      setExpanded(true);
-      setSkipped(false);
+
       try {
         const flows = await listActiveOnboardingFlowsV2();
         if (cancelled) return;
         if (flows.length > 0) {
+          setReady(true);
+          setExpanded(true);
+          setSkipped(false);
           const sorted = [...flows].sort(
             (a, b) =>
               (b.flow_instance.started_at ?? "").localeCompare(
@@ -590,8 +592,47 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           return;
         }
       } catch {
-        // ignored, fallback to start
+        /* no active — continue to completion check */
       }
+
+      let hasEverCompletedOnboarding = false;
+      let completedListingFailed = false;
+      try {
+        const completed = await listCompletedOnboardingFlowsV2();
+        hasEverCompletedOnboarding = completed.length > 0;
+      } catch {
+        completedListingFailed = true;
+      }
+      if (cancelled) return;
+
+      if (hasEverCompletedOnboarding || completedListingFailed) {
+        setConversationId(null);
+        setFlowInstanceId(null);
+        setMessages([]);
+        setStatus(null);
+        setNextStep(null);
+        setCurrentStep(null);
+        setProgressPercent(0);
+        setUiActions(null);
+        setFlowUiActions(null);
+        setFlowSteps([]);
+        setStepId(null);
+        setFlowType(null);
+        setCompletedSteps([]);
+        setTodoByTarget({});
+        setShowConversationList(false);
+        setError(null);
+        setInput("");
+        setLoading(false);
+        setReady(true);
+        setExpanded(false);
+        setSkipped(true);
+        return;
+      }
+
+      setReady(true);
+      setExpanded(true);
+      setSkipped(false);
       const started = await startOnboardingRef.current();
       if (cancelled) return;
       if (started) return;
@@ -748,8 +789,14 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const resumeSageFromPausedHub = useCallback(() => {
     setSkipped(false);
     setExpanded(true);
-    setShowConversationList(false);
-  }, []);
+    const id = flowInstanceId ?? conversationId;
+    if (!id) {
+      setShowConversationList(true);
+      void fetchActiveConversations();
+    } else {
+      setShowConversationList(false);
+    }
+  }, [conversationId, fetchActiveConversations, flowInstanceId]);
 
   const todoItems = useMemo(
     () => {

@@ -53,12 +53,14 @@ function queryVisibleSageTarget(selector: string): Element | null {
 }
 
 /**
- * Create Project / Create Campaign: the highlight node is only the footer CTA; “above” still covers modal inputs.
- * Prefer below + extra gap on all viewports; nudge refines after pick.
+ * Footer / sheet CTAs where “above” blocks sibling actions (Cancel, Save Draft, etc.).
+ * Prefer below + extra tail gap on all viewports.
  */
 const SAGE_MODAL_STEP_TARGETS = new Set<string>([
   "campaigns_dashboard.project.campaign.create_cta",
   "campaigns_dashboard.project.create_cta",
+  /** Publish sits next to Save — keep dialog under the Publish button so Save stays visible (esp. desktop). */
+  "campaign.form.publish",
 ]);
 
 const SAGE_MODAL_BELOW_EXTRA_GAP_PX = 28;
@@ -75,8 +77,9 @@ function resolveSageDialogTopNudge(
 
 /** Extra `top` after pick; mobile uses a larger value so offset survives clamping on short viewports. */
 const SAGE_TASK_DIALOG_TOP_NUDGE: Partial<Record<string, SageDialogTopNudge>> = {
-  "campaigns_dashboard.project.campaign.create_cta": { desktop: 102, mobile: 140 },
-  "campaigns_dashboard.project.create_cta": { desktop: 102, mobile: 140 },
+  /* Desktop: extra push below modal footers (Cancel / Create) so the tour card doesn’t cover them. */
+  "campaigns_dashboard.project.campaign.create_cta": { desktop: 118, mobile: 140 },
+  "campaigns_dashboard.project.create_cta": { desktop: 118, mobile: 140 },
 };
 
 const SAGE_TARGET_SELECTOR: Record<string, string> = {

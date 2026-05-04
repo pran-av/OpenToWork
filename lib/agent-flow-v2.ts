@@ -48,12 +48,26 @@ export async function startOnboardingFlowV2(): Promise<FlowEnvelopeResponse> {
   return data as FlowEnvelopeResponse;
 }
 
-export async function listActiveOnboardingFlowsV2(): Promise<FlowEnvelopeResponse[]> {
-  const res = await fetch("/api/agent/v2/flows?status=FLOW_ACTIVE&type=ONBOARDING");
+async function listOnboardingFlowsWithStatus(status: string): Promise<FlowEnvelopeResponse[]> {
+  const q = new URLSearchParams({ status, type: "ONBOARDING" });
+  const res = await fetch(`/api/agent/v2/flows?${q.toString()}`);
   const data = (await readJson(res)) as FlowListResponse | { error?: string; detail?: string };
   if (!res.ok) throw new Error(getError(data));
   if (!isFlowListResponse(data)) return [];
   return data.flows ?? data.items ?? data.data ?? [];
+}
+
+/** Active onboarding instances (resume / hydrate). */
+export async function listActiveOnboardingFlowsV2(): Promise<FlowEnvelopeResponse[]> {
+  return listOnboardingFlowsWithStatus("FLOW_ACTIVE");
+}
+
+/**
+ * Completed onboarding instances — used so repeat users never get an automatic POST /flows/start on dashboard load.
+ * @see api_contracts/agent-serviceapi-v2.1.1.md §7A list flows
+ */
+export async function listCompletedOnboardingFlowsV2(): Promise<FlowEnvelopeResponse[]> {
+  return listOnboardingFlowsWithStatus("FLOW_COMPLETED");
 }
 
 export async function getFlowV2(flowInstanceId: string): Promise<FlowEnvelopeResponse> {

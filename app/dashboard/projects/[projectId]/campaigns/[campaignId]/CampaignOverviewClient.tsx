@@ -25,6 +25,43 @@ import {
   SAGE_ONBOARDING_PROJECT_EDITOR_PATH_KEY,
 } from "@/lib/sage-onboarding-nav";
 import { dispatchSagePrimaryActionDone } from "@/lib/sage-onboarding-primary";
+import { cn } from "@/lib/utils";
+
+/** True while Sage tour applies `sage-target-highlight` to `#campaign-link-experiences`. */
+function useCampaignLinkExperiencesSagePulse(pathname: string): boolean {
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    let mo: MutationObserver | null = null;
+    let rafId = 0;
+    let cancelled = false;
+    let attempts = 0;
+
+    const tryAttach = () => {
+      if (cancelled) return;
+      const el = document.getElementById("campaign-link-experiences");
+      if (!el) {
+        attempts += 1;
+        if (attempts < 180) rafId = window.requestAnimationFrame(tryAttach);
+        return;
+      }
+      const sync = () => setActive(el.classList.contains("sage-target-highlight"));
+      sync();
+      mo = new MutationObserver(sync);
+      mo.observe(el, { attributes: true, attributeFilter: ["class"] });
+    };
+
+    tryAttach();
+
+    return () => {
+      cancelled = true;
+      if (rafId) window.cancelAnimationFrame(rafId);
+      mo?.disconnect();
+    };
+  }, [pathname]);
+
+  return active;
+}
 
 interface ServiceWithCaseStudies extends ClientService {
   caseStudies: CaseStudy[];
@@ -59,6 +96,7 @@ function ExperienceSearchPickRow({
   alreadyAttached,
   onAttach,
   onDetach,
+  sageOnboardingPulse,
 }: {
   result: ExperienceSearchResult;
   isEditMode: boolean;
@@ -66,7 +104,11 @@ function ExperienceSearchPickRow({
   alreadyAttached: boolean;
   onAttach: (r: ExperienceSearchResult) => void;
   onDetach: (caseId: string) => void;
+  /** Pulse Add / full-card tap target while Sage highlights the link-experiences section */
+  sageOnboardingPulse?: boolean;
 }) {
+  const showPulse = Boolean(sageOnboardingPulse && isEditMode && !alreadyAttached && !isMutatingAttach);
+
   return (
     <div
       className={`relative rounded-md border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800 ${
@@ -90,7 +132,10 @@ function ExperienceSearchPickRow({
             type="button"
             disabled={alreadyAttached || isMutatingAttach}
             onClick={() => onAttach(result)}
-            className="hidden rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 lg:inline-flex dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            className={cn(
+              "hidden rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 lg:inline-flex dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-700",
+              showPulse && "sage-experience-pick-pulse"
+            )}
           >
             {alreadyAttached ? "Attached" : "Add"}
           </button>
@@ -105,7 +150,10 @@ function ExperienceSearchPickRow({
               ? `Remove ${result.case_name} from campaign`
               : `Add ${result.case_name} to campaign`
           }
-          className="absolute inset-0 z-10 cursor-pointer rounded-md border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 lg:hidden"
+          className={cn(
+            "absolute inset-0 z-10 cursor-pointer rounded-md border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 lg:hidden",
+            showPulse && "sage-experience-pick-pulse"
+          )}
           onClick={() => {
             if (isMutatingAttach) return;
             if (alreadyAttached) {
@@ -650,6 +698,8 @@ export default function CampaignOverviewClient({
   const searchParams = useSearchParams();
   const isDraft = initialCampaign.campaign_status === "DRAFT";
   const isEditMode = isDraft && !project.is_archived;
+
+  const sageLinkExperiencesPulse = useCampaignLinkExperiencesSagePulse(pathname);
 
   const [campaign, setCampaign] = useState(initialCampaign);
   const [isSaving, setIsSaving] = useState(false);
@@ -1920,6 +1970,7 @@ export default function CampaignOverviewClient({
                             isEditMode={isEditMode}
                             isMutatingAttach={isMutatingAttach}
                             alreadyAttached={alreadyAttached}
+                            sageOnboardingPulse={sageLinkExperiencesPulse}
                             onAttach={(r) => void handleAttachExperience(r)}
                             onDetach={(caseId) => void handleDetachExperience(caseId)}
                           />
@@ -1955,6 +2006,7 @@ export default function CampaignOverviewClient({
                         isEditMode={isEditMode}
                         isMutatingAttach={isMutatingAttach}
                         alreadyAttached={alreadyAttached}
+                        sageOnboardingPulse={sageLinkExperiencesPulse}
                         onAttach={(r) => void handleAttachExperience(r)}
                         onDetach={(caseId) => void handleDetachExperience(caseId)}
                       />
