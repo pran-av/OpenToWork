@@ -28,6 +28,7 @@ import {
   listActiveOnboardingFlowsV2,
   startOnboardingFlowV2,
 } from "@/lib/agent-flow-v2";
+import { onboardingProfileRequiresDbVerification } from "@/lib/sage-onboarding-primary";
 import {
   buildOnboardingTaskHref,
   getResolvedOnboardingTaskHref,
@@ -251,6 +252,21 @@ function deriveTodoResolution(
   fromFlowStep: FlowStep | undefined,
   fallbackComplete: boolean
 ): TodoItemResolution {
+  /**
+   * Part 3 UI actions send STEP_DONE only after profile routes verify success (@see Sage frame listener).
+   * Never infer completion from legacy `completedSteps` keys or heuristic fallbacks — stay pending until
+   * agent returns STEP_DONE/SKIPPED for the explicit `ui_actions` row.
+   */
+  if (onboardingProfileRequiresDbVerification(target)) {
+    if (fromFlowUi?.state === "STEP_DONE") return "done";
+    if (fromFlowUi?.state === "STEP_SKIPPED") return "skipped";
+    if (fromFlowUi) return "pending";
+    if (fromFlowStep?.state === "STEP_DONE") return "done";
+    if (fromFlowStep?.state === "STEP_SKIPPED") return "skipped";
+    if (fromFlowStep) return "pending";
+    return "pending";
+  }
+
   if (fromFlowUi?.state === "STEP_DONE") return "done";
   if (fromFlowUi?.state === "STEP_SKIPPED") return "skipped";
   if (fromFlowUi) return "pending";

@@ -15,7 +15,6 @@ import {
 import {
   SAGE_PRIMARY_ACTION_DONE_EVENT,
   SAGE_PROFILE_VERIFICATION_DONE_EVENT,
-  dispatchSageProfileVerificationDone,
   onboardingHidesNextForPrimary,
   onboardingProfileRequiresDbVerification,
   type SageProfileVerificationTarget,
@@ -52,11 +51,16 @@ function queryVisibleSageTarget(selector: string): Element | null {
   return null;
 }
 
-/** Create Project / Create Campaign modals: reorder + nudge (mobile needs “below” first or clamp eats the nudge). */
+/**
+ * Create Project / Create Campaign: the highlight node is only the footer CTA; “above” still covers modal inputs.
+ * Prefer below + extra gap on all viewports; nudge refines after pick.
+ */
 const SAGE_MODAL_STEP_TARGETS = new Set<string>([
   "campaigns_dashboard.project.campaign.create_cta",
   "campaigns_dashboard.project.create_cta",
 ]);
+
+const SAGE_MODAL_BELOW_EXTRA_GAP_PX = 28;
 
 type SageDialogTopNudge = { desktop: number; mobile: number };
 
@@ -353,13 +357,17 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         height: rect.height,
       };
 
+      const targetKey = sageTaskDialog.target ?? "";
+      const isModalStep = SAGE_MODAL_STEP_TARGETS.has(targetKey);
+      const belowTailGap = gap + (isModalStep ? SAGE_MODAL_BELOW_EXTRA_GAP_PX : 0);
+
       const above = {
         left: rect.left + rect.width / 2 - cardWidth / 2,
         top: rect.top - cardHeight - gap,
       };
       const below = {
         left: rect.left + rect.width / 2 - cardWidth / 2,
-        top: rect.bottom + gap,
+        top: rect.bottom + belowTailGap,
       };
       const right = {
         left: rect.right + gap,
@@ -370,10 +378,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
         top: rect.top + rect.height / 2 - cardHeight / 2,
       };
 
-      /* Desktop: above first. Narrow viewports on stacked modals: below first so the card isn’t clamped over inputs. */
-      const targetKey = sageTaskDialog.target ?? "";
-      const preferBelowFirst =
-        !isLgViewport && SAGE_MODAL_STEP_TARGETS.has(targetKey);
+      const preferBelowFirst = isModalStep;
       const rawOrder = preferBelowFirst ? [below, above, right, left] : [above, below, right, left];
 
       const candidates = rawOrder.map((c) => ({
@@ -648,50 +653,6 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
     window.addEventListener(SAGE_PROFILE_VERIFICATION_DONE_EVENT, onProfileVerificationDone);
     return () => window.removeEventListener(SAGE_PROFILE_VERIFICATION_DONE_EVENT, onProfileVerificationDone);
   }, [finalizeAfterUiAckFlow]);
-
-  /** Already satisfied in DB → auto STEP_DONE without requiring an in-modal Next click. */
-  useEffect(() => {
-    if (!sageTaskDialog.open || !sageTaskDialog.target) return;
-    if (!onboardingProfileRequiresDbVerification(sageTaskDialog.target)) return;
-    if (!sageTaskContext?.flowInstanceId || sageTaskContext.target !== sageTaskDialog.target) return;
-
-    const target = sageTaskDialog.target;
-    let cancelled = false;
-
-    const run = async () => {
-      try {
-        if (target === "profile.user_name.edit") {
-          const res = await fetch("/api/profile");
-          const data = (await res.json()) as { profile?: { user_first_name?: unknown; user_last_name?: unknown } };
-          if (cancelled || !res.ok) return;
-          const fn =
-            typeof data.profile?.user_first_name === "string" ? data.profile.user_first_name.trim() : "";
-          const ln =
-            typeof data.profile?.user_last_name === "string" ? data.profile.user_last_name.trim() : "";
-          if (!fn || !ln) return;
-        } else if (target === "profile.resume.upload_cta") {
-          const res = await fetch("/api/agent/resumes");
-          const data = (await res.json()) as { resumes?: unknown };
-          if (cancelled || !res.ok) return;
-          if (!Array.isArray(data.resumes) || data.resumes.length === 0) return;
-        } else if (target === "profile.linkedin.connect_cta") {
-          const res = await fetch("/api/auth/link-identity/status");
-          const data = (await res.json()) as { hasLinkedIn?: boolean };
-          if (cancelled || !res.ok) return;
-          if (!data.hasLinkedIn) return;
-        }
-        if (cancelled) return;
-        dispatchSageProfileVerificationDone(target);
-      } catch {
-        /* wait for user action or explicit dispatch from profile page */
-      }
-    };
-
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [sageTaskDialog.open, sageTaskDialog.target, sageTaskContext]);
 
   return (
     <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col">

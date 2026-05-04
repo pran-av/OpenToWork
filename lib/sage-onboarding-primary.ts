@@ -69,6 +69,7 @@ export function onboardingProfileRequiresDbVerification(
   );
 }
 
+/** Call from profile routes after a successful persist/link; tour frame ACKs STEP_DONE only when this session’s spotlight matches `target`. */
 export function dispatchSageProfileVerificationDone(target: SageProfileVerificationTarget): void {
   if (typeof window === "undefined") return;
   window.dispatchEvent(
