@@ -610,8 +610,16 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               setShowConversationList(false);
               emitMobileSageModePreferenceIfMobile(false);
             } else {
-              setExpanded(snap.expanded);
-              setSkipped(snap.skipped);
+              const mobileViewport =
+                typeof window !== "undefined" && !window.matchMedia("(min-width: 1024px)").matches;
+              /** Mobile/tablet: keep users in the active flow; do not re-apply paused snapshot (e.g. after tour). */
+              if (mobileViewport) {
+                setSkipped(false);
+                setExpanded(true);
+              } else {
+                setExpanded(snap.expanded);
+                setSkipped(snap.skipped);
+              }
             }
             try {
               const serverFlow = await getFlowV2(snap.conversationId);
@@ -623,8 +631,15 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                 setShowConversationList(false);
                 emitMobileSageModePreferenceIfMobile(false);
               } else {
-                setExpanded(snap.expanded);
-                setSkipped(snap.skipped);
+                const mobileViewport =
+                  typeof window !== "undefined" && !window.matchMedia("(min-width: 1024px)").matches;
+                if (mobileViewport) {
+                  setSkipped(false);
+                  setExpanded(true);
+                } else {
+                  setExpanded(snap.expanded);
+                  setSkipped(snap.skipped);
+                }
               }
             } catch {
               /* offline — chrome already reflects snap above */
@@ -1228,15 +1243,6 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                 className="text-xs font-medium text-orange-800 underline-offset-2 hover:underline dark:text-orange-200"
               >
                 Back to conversations
-              </button>
-            )}
-            {!loading && skipped && !isDesktop && (
-              <button
-                type="button"
-                onClick={() => void startOnboarding()}
-                className="rounded-md bg-orange-500 px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-orange-600"
-              >
-                Restart onboarding
               </button>
             )}
             {!loading && ready && !skipped && (
