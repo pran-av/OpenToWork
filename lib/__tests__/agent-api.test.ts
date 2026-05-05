@@ -6,32 +6,43 @@ const originalEnv = { ...process.env };
 describe("agent-api", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env.PLT_SERVER_BASE_URL;
+    vi.unstubAllEnvs();
   });
 
   afterEach(() => {
     process.env = { ...originalEnv };
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
   describe("getAgentApiBaseUrl", () => {
     it("returns base URL + /api/v1 when PLT_SERVER_BASE_URL is set", () => {
-      process.env.PLT_SERVER_BASE_URL = "https://agent.example.com";
+      vi.stubEnv("PLT_SERVER_BASE_URL", "https://agent.example.com");
       expect(getAgentApiBaseUrl()).toBe("https://agent.example.com/api/v1");
     });
 
     it("strips trailing slash from PLT_SERVER_BASE_URL", () => {
-      process.env.PLT_SERVER_BASE_URL = "https://agent.example.com/";
+      vi.stubEnv("PLT_SERVER_BASE_URL", "https://agent.example.com/");
       expect(getAgentApiBaseUrl()).toBe("https://agent.example.com/api/v1");
     });
 
-    it("falls back to http://localhost:8000 when PLT_SERVER_BASE_URL is unset", () => {
+    it("falls back to http://localhost:8000 when PLT_SERVER_BASE_URL is unset in non-production", () => {
       expect(getAgentApiBaseUrl()).toBe("http://localhost:8000/api/v1");
     });
 
     it("falls back when PLT_SERVER_BASE_URL is empty string", () => {
-      process.env.PLT_SERVER_BASE_URL = "";
+      vi.stubEnv("PLT_SERVER_BASE_URL", "");
       expect(getAgentApiBaseUrl()).toBe("http://localhost:8000/api/v1");
+    });
+
+    it("uses production default base URL when ENVIRONMENT=production and env var is unset", () => {
+      vi.stubEnv("ENVIRONMENT", "production");
+      expect(getAgentApiBaseUrl()).toBe("https://agentservice.pitchlikethis.com/api/v1");
+    });
+
+    it("uses production default base URL when NODE_ENV=production and env var is unset", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      expect(getAgentApiBaseUrl()).toBe("https://agentservice.pitchlikethis.com/api/v1");
     });
   });
 
@@ -59,7 +70,7 @@ describe("agent-api", () => {
     });
 
     it("constructs URL from base + /api/v1 + path (path without leading slash)", async () => {
-      process.env.PLT_SERVER_BASE_URL = "https://agent.example.com";
+      vi.stubEnv("PLT_SERVER_BASE_URL", "https://agent.example.com");
       const mockRes = new Response(JSON.stringify({ resumes: [] }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -79,7 +90,7 @@ describe("agent-api", () => {
     });
 
     it("constructs URL correctly when path has leading slash", async () => {
-      process.env.PLT_SERVER_BASE_URL = "https://agent.example.com";
+      vi.stubEnv("PLT_SERVER_BASE_URL", "https://agent.example.com");
       const mockRes = new Response(JSON.stringify({}), {
         status: 200,
         headers: { "Content-Type": "application/json" },
