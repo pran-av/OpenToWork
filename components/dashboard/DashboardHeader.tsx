@@ -8,11 +8,16 @@ import { useTheme } from "next-themes";
 import { BriefcaseBusiness, Megaphone, User } from "lucide-react";
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import LinkIdentityBanner from "./LinkIdentityBanner";
+import Link from "next/link";
+import { setSageMobileUserHoldOpen } from "@/components/dashboard/SageWindow";
 
 interface ProfileData {
   display_name: string | null;
   avatar_url: string | null;
 }
+
+const SAGE_SESSION_KEY = "opentowork-sage-onboarding-v1";
+const SAGE_TASK_NAV_CONTEXT_KEY = "opentowork-sage-task-nav-v1";
 
 export default function DashboardHeader() {
   const router = useRouter();
@@ -76,6 +81,9 @@ export default function DashboardHeader() {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
+      sessionStorage.removeItem(SAGE_SESSION_KEY);
+      sessionStorage.removeItem(SAGE_TASK_NAV_CONTEXT_KEY);
+      setSageMobileUserHoldOpen(false);
       const res = await fetch("/api/auth/logout", {
         method: "POST",
       });
@@ -125,6 +133,14 @@ export default function DashboardHeader() {
           >
             {switchLabel}
           </button>
+
+          <Link
+            href="/dashboard/profile"
+            id="profile-desktop-sage-target"
+            className="rounded-md border border-orange-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+          >
+            Profile
+          </Link>
 
           {/* Theme Toggle */}
           {mounted && (
@@ -256,52 +272,63 @@ export default function DashboardHeader() {
           </DropdownMenu>
         </div>
 
-        {mounted && (
+        <div className="flex items-center gap-2 lg:hidden">
+          {mounted && (
+            <button
+              onClick={handleThemeToggle}
+              className="flex items-center justify-center rounded-md p-2 text-gray-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2" />
+                  <path d="M12 20v2" />
+                  <path d="m4.93 4.93 1.41 1.41" />
+                  <path d="m17.66 17.66 1.41 1.41" />
+                  <path d="M2 12h2" />
+                  <path d="M20 12h2" />
+                  <path d="m6.34 17.66-1.41 1.41" />
+                  <path d="m19.07 4.93-1.41 1.41" />
+                </svg>
+              ) : (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                </svg>
+              )}
+            </button>
+          )}
           <button
-            onClick={handleThemeToggle}
-            className="flex items-center justify-center rounded-md p-2 text-gray-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:text-zinc-300 dark:hover:bg-zinc-800 lg:hidden"
-            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            type="button"
+            onClick={() => void handleLogout()}
+            disabled={isLoggingOut}
+            aria-label={isLoggingOut ? "Logging out" : "Log out"}
+            className="rounded-md border border-orange-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-orange-900 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-orange-800 dark:bg-zinc-800 dark:text-orange-100 dark:hover:bg-zinc-700"
           >
-            {theme === "dark" ? (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 2v2" />
-                <path d="M12 20v2" />
-                <path d="m4.93 4.93 1.41 1.41" />
-                <path d="m17.66 17.66 1.41 1.41" />
-                <path d="M2 12h2" />
-                <path d="M20 12h2" />
-                <path d="m6.34 17.66-1.41 1.41" />
-                <path d="m19.07 4.93-1.41 1.41" />
-              </svg>
-            ) : (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-              </svg>
-            )}
+            {isLoggingOut ? "Logging out…" : "Logout"}
           </button>
-        )}
+        </div>
         </div>
       </header>
 
@@ -324,6 +351,8 @@ export default function DashboardHeader() {
             </span>
           </button>
           <button
+            id="profile-nav-cta"
+            type="button"
             onClick={() => router.push("/dashboard/profile")}
             className={`rounded-xl px-2 py-2 text-[11px] font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 ${
               isProfileArea

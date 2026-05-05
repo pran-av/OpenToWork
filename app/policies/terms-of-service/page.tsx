@@ -10,7 +10,7 @@ async function getTermsOfServiceContent() {
       process.cwd(),
       "policies",
       "terms-of-service",
-      "v0.3.0-2026-04-18.md"
+      "v1.0.0-2026-05-05.md"
     );
     const fileContents = await readFile(filePath, "utf8");
     return fileContents;

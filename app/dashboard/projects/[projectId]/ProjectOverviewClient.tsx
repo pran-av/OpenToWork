@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { ProjectData } from "@/lib/db/projects";
 import type { CampaignData, LeadData } from "@/lib/db/campaigns";
@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { DashboardMobileFab } from "@/components/dashboard/DashboardMobileFab";
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Copy, Settings } from "lucide-react";
+import { SAGE_ONBOARDING_PROJECT_EDITOR_PATH_KEY } from "@/lib/sage-onboarding-nav";
+import { dispatchSagePrimaryActionDone } from "@/lib/sage-onboarding-primary";
 
 interface ProjectOverviewClientProps {
   project: ProjectData;
@@ -22,7 +24,27 @@ export default function ProjectOverviewClient({
   initialActiveCampaign,
 }: ProjectOverviewClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   
+  useEffect(() => {
+    if (pathname && /^\/dashboard\/projects\/[^/]+$/.test(pathname)) {
+      try {
+        sessionStorage.setItem(SAGE_ONBOARDING_PROJECT_EDITOR_PATH_KEY, pathname);
+      } catch {
+        // ignore
+      }
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    const hl = searchParams.get("sage_highlight");
+    if (hl !== "campaigns_dashboard.project.campaign.create_cta") return;
+    setIsDialogOpen(true);
+    setCampaignName((prev) => (prev.trim() ? prev : "Onboarding Campaign"));
+    setError(null);
+  }, [searchParams]);
+
   // Restore optimistic campaigns from sessionStorage
   const getOptimisticCampaigns = (excludeCampaignIds: string[] = []): CampaignData[] => {
     if (typeof window === "undefined") return [];
@@ -286,14 +308,22 @@ export default function ProjectOverviewClient({
       // Fetch fresh data in background to sync with server
       fetchCampaigns().catch(console.error);
 
+      const projectPath = `/dashboard/projects/${project.project_id}`;
+      const campaignPath = `${projectPath}/campaigns/${data.campaign.campaign_id}`;
+
       setIsDialogOpen(false);
       setCampaignName("");
       setError(null);
-      
-      // Show loading state and navigate to the new campaign
       setIsCreating(false);
-      setIsNavigating(true);
-      router.push(`/dashboard/projects/${project.project_id}/campaigns/${data.campaign.campaign_id}`);
+
+      dispatchSagePrimaryActionDone("campaigns_dashboard.project.campaign.create_cta", {
+        sageSessionProjectPath: projectPath,
+        sageSessionCampaignPath: campaignPath,
+        onUnconsumed: () => {
+          setIsNavigating(true);
+          router.push(campaignPath);
+        },
+      });
     } catch (error) {
       // Revert optimistic update on error
       setCampaigns(previousCampaigns);
@@ -427,7 +457,7 @@ export default function ProjectOverviewClient({
               Created {new Date(project.created_at).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })}
             </p>
             {hasActiveCampaign && project.project_url && (
-              <div className="mt-4 flex items-center gap-2">
+              <div id="project-url-copy" className="mt-4 flex scroll-mt-4 items-center gap-2">
                 <span className="text-sm text-gray-600 dark:text-zinc-400">
                   {project.project_url}
                 </span>
@@ -473,6 +503,8 @@ export default function ProjectOverviewClient({
       {campaigns.length > 0 && (
         <div className="hidden justify-end lg:flex">
           <button
+            type="button"
+            data-sage-target="create-campaign-cta"
             onClick={() => setIsDialogOpen(true)}
             disabled={isArchived}
             className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -484,6 +516,7 @@ export default function ProjectOverviewClient({
 
       {/* Active Campaign Section */}
       {hasActiveCampaign ? (
+        <div id="campaign-highlight" className="scroll-mt-4">
         <Link
           href={`/dashboard/projects/${project.project_id}/campaigns/${activeCampaign.campaign_id}`}
           className="block rounded-lg border border-orange-100 bg-white p-6 transition-colors hover:border-orange-200 hover:bg-orange-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
@@ -524,6 +557,7 @@ export default function ProjectOverviewClient({
             </div>
           </div>
         </Link>
+        </div>
       ) : (
         <div className="rounded-lg border border-orange-100 bg-orange-50 p-6 dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-sm text-gray-600 dark:text-zinc-400">
@@ -577,6 +611,8 @@ export default function ProjectOverviewClient({
             You don't have any campaigns yet.
           </p>
           <button
+            type="button"
+            data-sage-target="create-campaign-cta"
             onClick={() => setIsDialogOpen(true)}
             disabled={isArchived}
             className="hidden rounded-md bg-orange-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200 lg:inline-flex"
@@ -653,6 +689,8 @@ export default function ProjectOverviewClient({
               Cancel
             </button>
             <button
+              type="button"
+              id="sage-onboarding-campaign-dialog-submit"
               onClick={handleCreateCampaign}
               disabled={isCreating || !campaignName.trim()}
               className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
@@ -967,6 +1005,7 @@ export default function ProjectOverviewClient({
 
       {!isArchived && (
         <DashboardMobileFab
+          dataSageTarget="create-campaign-cta"
           onClick={() => setIsDialogOpen(true)}
           ariaLabel="Create new campaign"
         />

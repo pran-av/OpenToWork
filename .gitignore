@@ -47,3 +47,6 @@ OpenToWork.code-workspace
 .branches
 .temp
 dump.sql
+
+#markdown files
+DATABASE_SETUP.md

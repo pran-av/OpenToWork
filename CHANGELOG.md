@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## v2.0.0 (Current)
+(Apr 18, 2026 - May 05, 2026)
+
+- Agent Integration: Added PLT Agent Service integration with server routes for resumes, job descriptions, resume scoring tasks/reports, notifications, and profile APIs.
+- Onboarding v2: Rolled out server-led onboarding flows with improved step sequencing, status handling, and recovery behavior across desktop/mobile Sage experiences.
+- Infrastructure: Introduced/expanded `agents` schema migrations for tasks, conversations/messages partitioning, flow/step/UI-action state models, and related hardening.
+- Deployment Config: Added production base URL fallback for agent API (`https://agentservice.pitchlikethis.com`) with env override support.
+- Policies: Published and wired **Privacy Policy v1.0.0** and **Terms of Service v1.0.0** pages.
+
+### Fixes:
+- Onboarding UX: Fixed Back-to-Sage handling, completed-flow reopening behavior, mobile/tablet restart flow entry, and To-Do list/status rendering issues.
+- Stability: Reduced onboarding race conditions between UI actions and server acknowledgements; improved skip/done handling compatibility.
+- UI: Improved progress bar behavior, Sage FAB dialog behavior, and mascot assets for high-resolution rendering.
+
 ## v1.7.0 (Current)
 (Jan 16, 2026 - Feb 06, 2026)
 

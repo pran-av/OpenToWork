@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, useLayoutEffect } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { CampaignData, ClientService, CaseStudy } from "@/lib/db/campaigns";
 import type { ProjectData } from "@/lib/db/projects";
 import type { AttachedExperienceCaseStudy } from "@/lib/db/experience";
@@ -20,6 +20,48 @@ import {
   sanitizePlainTextMultiline,
   sanitizeSearchQuery,
 } from "@/lib/utils/client-input-security";
+import {
+  SAGE_ONBOARDING_CAMPAIGN_EDITOR_PATH_KEY,
+  SAGE_ONBOARDING_PROJECT_EDITOR_PATH_KEY,
+} from "@/lib/sage-onboarding-nav";
+import { dispatchSagePrimaryActionDone } from "@/lib/sage-onboarding-primary";
+import { cn } from "@/lib/utils";
+
+/** True while Sage tour applies `sage-target-highlight` to `#campaign-link-experiences`. */
+function useCampaignLinkExperiencesSagePulse(pathname: string): boolean {
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    let mo: MutationObserver | null = null;
+    let rafId = 0;
+    let cancelled = false;
+    let attempts = 0;
+
+    const tryAttach = () => {
+      if (cancelled) return;
+      const el = document.getElementById("campaign-link-experiences");
+      if (!el) {
+        attempts += 1;
+        if (attempts < 180) rafId = window.requestAnimationFrame(tryAttach);
+        return;
+      }
+      const sync = () => setActive(el.classList.contains("sage-target-highlight"));
+      sync();
+      mo = new MutationObserver(sync);
+      mo.observe(el, { attributes: true, attributeFilter: ["class"] });
+    };
+
+    tryAttach();
+
+    return () => {
+      cancelled = true;
+      if (rafId) window.cancelAnimationFrame(rafId);
+      mo?.disconnect();
+    };
+  }, [pathname]);
+
+  return active;
+}
 
 interface ServiceWithCaseStudies extends ClientService {
   caseStudies: CaseStudy[];
@@ -54,6 +96,7 @@ function ExperienceSearchPickRow({
   alreadyAttached,
   onAttach,
   onDetach,
+  sageOnboardingPulse,
 }: {
   result: ExperienceSearchResult;
   isEditMode: boolean;
@@ -61,7 +104,11 @@ function ExperienceSearchPickRow({
   alreadyAttached: boolean;
   onAttach: (r: ExperienceSearchResult) => void;
   onDetach: (caseId: string) => void;
+  /** Pulse Add / full-card tap target while Sage highlights the link-experiences section */
+  sageOnboardingPulse?: boolean;
 }) {
+  const showPulse = Boolean(sageOnboardingPulse && isEditMode && !alreadyAttached && !isMutatingAttach);
+
   return (
     <div
       className={`relative rounded-md border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800 ${
@@ -85,7 +132,10 @@ function ExperienceSearchPickRow({
             type="button"
             disabled={alreadyAttached || isMutatingAttach}
             onClick={() => onAttach(result)}
-            className="hidden rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 lg:inline-flex dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            className={cn(
+              "hidden rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 lg:inline-flex dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-700",
+              showPulse && "sage-experience-pick-pulse"
+            )}
           >
             {alreadyAttached ? "Attached" : "Add"}
           </button>
@@ -100,7 +150,10 @@ function ExperienceSearchPickRow({
               ? `Remove ${result.case_name} from campaign`
               : `Add ${result.case_name} to campaign`
           }
-          className="absolute inset-0 z-10 cursor-pointer rounded-md border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 lg:hidden"
+          className={cn(
+            "absolute inset-0 z-10 cursor-pointer rounded-md border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 lg:hidden",
+            showPulse && "sage-experience-pick-pulse"
+          )}
           onClick={() => {
             if (isMutatingAttach) return;
             if (alreadyAttached) {
@@ -641,8 +694,12 @@ export default function CampaignOverviewClient({
   isPublishable: initialIsPublishable,
 }: CampaignOverviewClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const isDraft = initialCampaign.campaign_status === "DRAFT";
   const isEditMode = isDraft && !project.is_archived;
+
+  const sageLinkExperiencesPulse = useCampaignLinkExperiencesSagePulse(pathname);
 
   const [campaign, setCampaign] = useState(initialCampaign);
   const [isSaving, setIsSaving] = useState(false);
@@ -726,6 +783,42 @@ export default function CampaignOverviewClient({
     emitStudioCampaignWriteMode(isEditMode);
     return () => emitStudioCampaignWriteMode(false);
   }, [isEditMode]);
+
+  useEffect(() => {
+    if (!pathname) return;
+    if (/^\/dashboard\/projects\/[^/]+\/campaigns\/[^/]+$/.test(pathname)) {
+      try {
+        sessionStorage.setItem(SAGE_ONBOARDING_CAMPAIGN_EDITOR_PATH_KEY, pathname);
+        const segment = pathname.match(/^\/dashboard\/projects\/([^/]+)/);
+        if (segment?.[1]) {
+          sessionStorage.setItem(
+            SAGE_ONBOARDING_PROJECT_EDITOR_PATH_KEY,
+            `/dashboard/projects/${segment[1]}`
+          );
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [pathname]);
+
+  useLayoutEffect(() => {
+    const hl = searchParams.get("sage_highlight");
+    if (!hl?.startsWith("campaign.form.") || !isEditMode) return;
+    switch (hl) {
+      case "campaign.form.title":
+        setClientName((v) => (v.trim() ? v : "Hire Me for XYZ Role"));
+        break;
+      case "campaign.form.summary":
+        setClientSummary((v) => (v.trim() ? v : "Summary about me"));
+        break;
+      case "campaign.form.call_to_action":
+        setCtaMailto((v) => (v.trim() ? v : "youremail@example.com"));
+        break;
+      default:
+        break;
+    }
+  }, [searchParams, isEditMode]);
 
   // Track unsaved changes
   useEffect(() => {
@@ -1305,14 +1398,21 @@ export default function CampaignOverviewClient({
       }
 
       setSuccess(data.message || "Campaign published successfully!");
-      
-      // Revalidate server data before navigation
-      router.refresh();
-      
-      // Redirect to project overview after a short delay
-      setTimeout(() => {
-        router.push(`/dashboard/projects/${project.project_id}`);
-      }, 1500);
+      setIsPublishing(false);
+
+      const projectPath = `/dashboard/projects/${project.project_id}`;
+      const campaignPath = `${projectPath}/campaigns/${campaign.campaign_id}`;
+
+      dispatchSagePrimaryActionDone("campaign.form.publish", {
+        sageSessionProjectPath: projectPath,
+        sageSessionCampaignPath: campaignPath,
+        onUnconsumed: () => {
+          void router.refresh();
+          window.setTimeout(() => {
+            router.push(projectPath);
+          }, 1500);
+        },
+      });
     } catch (error: any) {
       setError(error.message || "An unexpected error occurred");
       setIsPublishing(false);
@@ -1594,6 +1694,7 @@ export default function CampaignOverviewClient({
           {shouldShowPrimaryCTA() && (
             <button
               type="button"
+              data-sage-target="campaign-publish"
               onClick={runPrimaryCTA}
               disabled={primaryCTADisabled}
               className={`rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200 ${
@@ -1613,6 +1714,7 @@ export default function CampaignOverviewClient({
               </label>
               {isEditMode ? (
                 <input
+                  id="campaign-title"
                   type="text"
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
@@ -1636,6 +1738,7 @@ export default function CampaignOverviewClient({
               {isEditMode ? (
                 <div className="relative mt-1">
                   <textarea
+                    id="campaign-summary"
                     value={clientSummary}
                     onChange={(e) => setClientSummary(e.target.value)}
                     maxLength={400}
@@ -1723,6 +1826,7 @@ export default function CampaignOverviewClient({
                       <Mail className="h-4 w-4 text-zinc-400" aria-hidden />
                     </span>
                     <input
+                      id="campaign-cta"
                       type="email"
                       value={ctaMailto}
                       onChange={(e) => setCtaMailto(e.target.value)}
@@ -1798,7 +1902,10 @@ export default function CampaignOverviewClient({
         </div>
 
         {/* Experience Search and Attach */}
-        <div className="mt-8 border-t border-orange-100 pt-8 dark:border-zinc-800">
+        <div
+          id="campaign-link-experiences"
+          className="scroll-mt-4 mt-8 border-t border-orange-100 pt-8 dark:border-zinc-800"
+        >
           <div className="mb-4">
             <h3 className="text-lg font-semibold text-black dark:text-zinc-50">
               Select and Add Experiences <span className="text-red-600 dark:text-red-400">*</span>
@@ -1863,6 +1970,7 @@ export default function CampaignOverviewClient({
                             isEditMode={isEditMode}
                             isMutatingAttach={isMutatingAttach}
                             alreadyAttached={alreadyAttached}
+                            sageOnboardingPulse={sageLinkExperiencesPulse}
                             onAttach={(r) => void handleAttachExperience(r)}
                             onDetach={(caseId) => void handleDetachExperience(caseId)}
                           />
@@ -1898,6 +2006,7 @@ export default function CampaignOverviewClient({
                         isEditMode={isEditMode}
                         isMutatingAttach={isMutatingAttach}
                         alreadyAttached={alreadyAttached}
+                        sageOnboardingPulse={sageLinkExperiencesPulse}
                         onAttach={(r) => void handleAttachExperience(r)}
                         onDetach={(caseId) => void handleDetachExperience(caseId)}
                       />
@@ -1978,6 +2087,7 @@ export default function CampaignOverviewClient({
           <div className="mx-auto flex max-w-5xl gap-3">
             <button
               type="button"
+              data-sage-target="campaign-publish"
               onClick={runPrimaryCTA}
               disabled={primaryCTADisabled}
               className="min-w-0 flex-[1.35] rounded-md bg-orange-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"

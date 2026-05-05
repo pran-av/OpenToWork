@@ -163,6 +163,32 @@ h6 {
   animation-play-state: paused;
 }
 
+/* Onboarding: draw attention to “Add experience” affordances while Sage highlights #campaign-link-experiences */
+@keyframes sage-experience-pick-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5);
+  }
+  65% {
+    box-shadow: 0 0 0 14px rgba(245, 158, 11, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+}
+
+.sage-experience-pick-pulse {
+  animation: sage-experience-pick-pulse 1.65s ease-out infinite;
+  border-radius: 0.375rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sage-experience-pick-pulse {
+    animation: none;
+    outline: 2px solid rgb(251 146 60 / 0.72);
+    outline-offset: 2px;
+  }
+}
+
 @keyframes hero-audience-label-in {
   from {
     opacity: 0;

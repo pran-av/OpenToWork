@@ -1,11 +1,10 @@
--- Manual seed script for validating legacy -> experience migration.
--- This file is intentionally outside migrations so it is not auto-applied in production.
+-- Legacy seed (retired). No longer required for normal dev; kept for reference only.
+-- Previously: manual seed for validating legacy -> experience migration — see migration
+-- 20260417120000_migrate_legacy_campaign_case_studies_to_experience.sql
 --
--- Usage:
--- 1) Run this manually in your local/dev database.
--- 2) Then apply migration: 20260417120000_migrate_legacy_campaign_case_studies_to_experience.sql
--- 3) Verify seeded legacy rows are migrated into internal.* experience tables.
+-- Uncomment the block below only if you deliberately need to recreate that validation data.
 
+/*
 DO $seed_legacy_public_case_data$
 DECLARE
   v_uid UUID := '6b295bc9-9fd5-43b6-bc41-ea465bd0d6db'::UUID;
@@ -68,3 +67,4 @@ BEGIN
     v_project_id, v_campaign_id, v_client_service_id, v_case_id;
 END;
 $seed_legacy_public_case_data$;
+*/

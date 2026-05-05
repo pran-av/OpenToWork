@@ -13,6 +13,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { DashboardMobileFab } from "@/components/dashboard/DashboardMobileFab";
+import { dispatchSagePrimaryActionDone } from "@/lib/sage-onboarding-primary";
 
 export default function DashboardProjectsPage() {
   const [projects, setProjects] = useState<ProjectData[]>([]);
@@ -51,6 +52,14 @@ export default function DashboardProjectsPage() {
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
+
+  useEffect(() => {
+    const hl = searchParams.get("sage_highlight");
+    if (hl !== "campaigns_dashboard.project.create_cta") return;
+    setIsDialogOpen(true);
+    setProjectName((prev) => (prev.trim() ? prev : "Onboarding Sample Project"));
+    setError(null);
+  }, [searchParams]);
 
   const getErrorMessage = (errorCode: string): string => {
     const errorMessages: Record<string, string> = {
@@ -163,7 +172,18 @@ export default function DashboardProjectsPage() {
         return;
       }
 
-      router.push(`/dashboard/projects/${data.project.project_id}`);
+      const projectPath = `/dashboard/projects/${data.project.project_id}`;
+      setIsCreating(false);
+      setIsDialogOpen(false);
+      setProjectName("");
+      setError(null);
+
+      dispatchSagePrimaryActionDone("campaigns_dashboard.project.create_cta", {
+        sageSessionProjectPath: projectPath,
+        onUnconsumed: () => {
+          router.push(projectPath);
+        },
+      });
     } catch {
       setError("An unexpected error occurred");
       setIsCreating(false);
@@ -185,7 +205,7 @@ export default function DashboardProjectsPage() {
   }
 
   return (
-    <div className="space-y-6 pb-24 lg:pb-0">
+    <div id="projects-root" className="space-y-6 pb-24 lg:pb-0 scroll-mt-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Projects</h2>
@@ -195,6 +215,8 @@ export default function DashboardProjectsPage() {
         </div>
         {projects.length > 0 && (
           <button
+            type="button"
+            data-sage-target="create-project-cta"
             onClick={() => setIsDialogOpen(true)}
             className="hidden rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 lg:inline-flex"
           >
@@ -209,6 +231,8 @@ export default function DashboardProjectsPage() {
             You don&apos;t have any projects yet.
           </p>
           <button
+            type="button"
+            data-sage-target="create-project-cta"
             onClick={() => setIsDialogOpen(true)}
             className="hidden rounded-md bg-orange-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 lg:inline-flex"
           >
@@ -259,7 +283,11 @@ export default function DashboardProjectsPage() {
       )}
 
       {!isLoading && (
-        <DashboardMobileFab onClick={() => setIsDialogOpen(true)} ariaLabel="Create new project" />
+        <DashboardMobileFab
+          dataSageTarget="create-project-cta"
+          onClick={() => setIsDialogOpen(true)}
+          ariaLabel="Create new project"
+        />
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
@@ -316,6 +344,8 @@ export default function DashboardProjectsPage() {
               Cancel
             </button>
             <button
+              type="button"
+              id="sage-onboarding-project-dialog-submit"
               onClick={handleCreateProject}
               disabled={isCreating || !projectName.trim()}
               className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"

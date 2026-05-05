@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getProjectById } from "@/lib/db/projects";
 import { getCampaignsByProjectId, getActiveCampaignByProjectId } from "@/lib/db/campaigns";
@@ -19,10 +20,18 @@ export default async function ProjectOverviewPage({ params }: PageProps) {
   const activeCampaign = await getActiveCampaignByProjectId(projectId);
 
   return (
-    <ProjectOverviewClient
-      project={project}
-      initialCampaigns={campaigns}
-      initialActiveCampaign={activeCampaign}
-    />
+    <Suspense
+      fallback={
+        <div className="flex min-h-[240px] items-center justify-center text-sm text-zinc-500 dark:text-zinc-400">
+          Loading project…
+        </div>
+      }
+    >
+      <ProjectOverviewClient
+        project={project}
+        initialCampaigns={campaigns}
+        initialActiveCampaign={activeCampaign}
+      />
+    </Suspense>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useState } from "react";
 import { Check, ChevronDown, Plus, X } from "lucide-react";
 import {
   isUuid,
@@ -11,6 +11,7 @@ import {
   sanitizePlainTextMultiline,
 } from "@/lib/utils/client-input-security";
 import StudioBackButton from "@/components/dashboard/StudioBackButton";
+import { dispatchSagePrimaryActionDone } from "@/lib/sage-onboarding-primary";
 
 interface ServiceClassData {
   service_class_id: string;
@@ -30,6 +31,9 @@ const HIGHLIGHT_MAX_LEN = 200;
 const MAX_HIGHLIGHTS = 25;
 const normalizeForStorage = (value: string) => value.trim().toUpperCase();
 const normalizeHighlightForStorage = (value: string) => value.toUpperCase();
+
+/** Pre-filled custom service class label for Sage onboarding `experience.form.service_class` only. */
+const ONBOARDING_SAMPLE_CUSTOM_SERVICE_CLASS = "Sample Custom";
 
 /** Allow only in-app dashboard paths (e.g. return from campaign draft). */
 function getSafeReturnToPath(raw: string | null): string | null {
@@ -65,6 +69,35 @@ function NewExperienceCaseStudyForm() {
   const [caseStudyUrl, setCaseStudyUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  useLayoutEffect(() => {
+    const hl = searchParams.get("sage_highlight");
+    if (!hl?.startsWith("experience.form.") && hl !== "experience.form.save") return;
+    switch (hl) {
+      case "experience.form.service_class":
+        setSelectedServiceClassId("");
+        setNewServiceClassName((prev) => (prev.trim() ? prev : ONBOARDING_SAMPLE_CUSTOM_SERVICE_CLASS));
+        setCustomServiceClassDraft((prev) => (prev.trim() ? prev : ONBOARDING_SAMPLE_CUSTOM_SERVICE_CLASS));
+        break;
+      case "experience.form.display_year":
+        setDisplayYear((y) => (y.trim() ? y : "2026"));
+        break;
+      case "experience.form.case_title":
+        setCaseName((n) => (n.trim() ? n : "Sample Onboarding Experience"));
+        break;
+      case "experience.form.case_summary":
+        setCaseSummary((s) => (s.trim() ? s : "Sample Case Summary for Onboarding Flow"));
+        break;
+      case "experience.form.highlights":
+      case "experience.form.save":
+        setCaseHighlights((prev) =>
+          prev.length === 1 && !prev[0].trim() ? ["Add a Quantitative Impact here"] : prev
+        );
+        break;
+      default:
+        break;
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -232,8 +265,13 @@ function NewExperienceCaseStudyForm() {
         throw new Error(caseStudyPayload.error || "Failed to create case study");
       }
 
-      router.push(returnToPath ?? "/dashboard");
-      router.refresh();
+      const destination = returnToPath ?? "/dashboard";
+      dispatchSagePrimaryActionDone("experience.form.save", {
+        onUnconsumed: () => {
+          router.push(destination);
+          router.refresh();
+        },
+      });
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Failed to create experience");
     } finally {
@@ -265,6 +303,7 @@ function NewExperienceCaseStudyForm() {
           <div className="col-span-2 md:col-span-4">
             <label className={fieldLabelClass}>Service Class*</label>
             <button
+              id="service_class"
               type="button"
               disabled={isLoadingClasses}
               onClick={() => {
@@ -284,6 +323,7 @@ function NewExperienceCaseStudyForm() {
           <div className="col-span-1 md:col-span-2">
             <label className={fieldLabelClass}>Display Year*</label>
             <input
+              id="display_year"
               value={displayYear}
               onChange={(e) => handleDisplayYearChange(e.target.value)}
               maxLength={4}
@@ -309,6 +349,7 @@ function NewExperienceCaseStudyForm() {
         <div>
           <label className={fieldLabelClass}>Case Title*</label>
           <input
+            id="case_title"
             value={caseName}
             onChange={(e) => setCaseName(e.target.value)}
             maxLength={75}
@@ -322,6 +363,7 @@ function NewExperienceCaseStudyForm() {
             <label className={fieldLabelClass}>Case Summary*</label>
             <div className="rounded-md border border-zinc-300 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-800">
               <textarea
+                id="case_summary"
                 rows={16}
                 maxLength={700}
                 value={caseSummary}
@@ -339,6 +381,7 @@ function NewExperienceCaseStudyForm() {
             <div>
               <label className={fieldLabelClass}>Add a Proof URL - prototype or live product</label>
               <input
+                id="prototype_link"
                 value={caseStudyUrl}
                 onChange={(e) => setCaseStudyUrl(e.target.value)}
                 maxLength={500}
@@ -355,6 +398,7 @@ function NewExperienceCaseStudyForm() {
                 {caseHighlights.map((highlight, index) => (
                   <div key={index} className="flex gap-2">
                     <input
+                      id={index === 0 ? "highlights" : undefined}
                       type="text"
                       value={highlight}
                       onChange={(e) => handleHighlightChange(index, e.target.value)}
@@ -496,6 +540,7 @@ function NewExperienceCaseStudyForm() {
           Cancel
         </button>
         <button
+          id="save-experience"
           type="button"
           onClick={handleSubmit}
           disabled={isSaving}

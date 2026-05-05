@@ -1,9 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
-import DashboardHeader from "@/components/dashboard/DashboardHeader";
-import DashboardFooter from "@/components/dashboard/DashboardFooter";
 import { ThemeProvider } from "@/components/ui/theme-provider";
-import { DashboardMainCanvas } from "@/components/dashboard/DashboardMainCanvas";
+import { DashboardClientShell } from "./DashboardClientShell";
 
 export default async function DashboardLayout({
   children,
@@ -21,11 +19,7 @@ export default async function DashboardLayout({
 
   return (
     <ThemeProvider>
-      <div className="flex min-h-screen flex-col bg-orange-50 dark:bg-zinc-950">
-        <DashboardHeader />
-        <DashboardMainCanvas>{children}</DashboardMainCanvas>
-        <DashboardFooter />
-      </div>
+      <DashboardClientShell>{children}</DashboardClientShell>
     </ThemeProvider>
   );
 }
