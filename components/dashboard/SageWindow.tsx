@@ -35,7 +35,42 @@ import {
   onboardingUiActionOrder,
 } from "@/lib/sage-onboarding-nav";
 
-type ChatMessage = { role: "agent" | "user"; text: string };
+type OnboardingLinearPhase = "intro" | "tasks" | "outro" | "replay";
+
+type OnboardingReplayStep =
+  | { type: "message"; agentMessageIndex: number }
+  | { type: "tasksHub" };
+
+type ChatMessage = { role: "agent" | "user"; text: string; sageStepKey?: string };
+
+/** Post-completion linear tour: intro messages → tasks hub → outro + any agent rows missing from intro/outro buckets. */
+function buildOnboardingReplaySteps(
+  messages: ChatMessage[],
+  introSlideIndices: number[],
+  outroSlideIndices: number[]
+): OnboardingReplayStep[] {
+  const introSorted = [...introSlideIndices].sort((a, b) => a - b);
+  const outSorted = [...outroSlideIndices].sort((a, b) => a - b);
+  const partitioned = new Set([...introSlideIndices, ...outroSlideIndices]);
+  const orphaned: number[] = [];
+  messages.forEach((m, i) => {
+    if (m.role !== "agent" || partitioned.has(i)) return;
+    orphaned.push(i);
+  });
+  orphaned.sort((a, b) => a - b);
+  const used = new Set<number>();
+  const steps: OnboardingReplayStep[] = [];
+  const pushMsg = (idx: number) => {
+    if (used.has(idx)) return;
+    used.add(idx);
+    steps.push({ type: "message", agentMessageIndex: idx });
+  };
+  introSorted.forEach(pushMsg);
+  steps.push({ type: "tasksHub" });
+  outSorted.forEach(pushMsg);
+  orphaned.forEach(pushMsg);
+  return steps;
+}
 
 /** Fired by `DashboardSageFrame` when the user returns from a tour step (e.g. “Back to Sage”) so the panel re-opens and rehydrates. */
 export const SAGE_RESUME_FROM_TOUR_EVENT = "opentowork-sage-resume-from-tour";
@@ -212,7 +247,11 @@ function chatMessagesFromSageList(sorted: SageFlowMessage[]): ChatMessage[] {
         typeof m.content === "string" &&
         m.content.trim().length > 0
     )
-    .map((m) => ({ role: "agent" as const, text: m.content.trim() }));
+    .map((m) => ({
+      role: "agent" as const,
+      text: m.content.trim(),
+      sageStepKey: m.step_key,
+    }));
 }
 
 export const SAGE_SESSION_KEY = "opentowork-sage-onboarding-v1";
@@ -264,7 +303,51 @@ export type SagePersistedSession = {
   flowType?: string | null;
   completedSteps?: string[];
   todoByTarget?: Record<string, { label: string; order: number }>;
+  onboardingLinearPhase?: OnboardingLinearPhase;
+  onboardingLinearSlideIndex?: number;
 };
+
+function normalizeOnboardingLinearPersisted(
+  snap:
+    | Pick<SagePersistedSession, "onboardingLinearPhase" | "onboardingLinearSlideIndex">
+    | Record<string, unknown>
+    | undefined,
+  onboardingComplete: boolean
+): { phase: OnboardingLinearPhase; slideIndex: number } {
+  const rawPhase = snap && typeof snap === "object" ? (snap as SagePersistedSession).onboardingLinearPhase : undefined;
+  const rawSlide = snap && typeof snap === "object" ? (snap as SagePersistedSession).onboardingLinearSlideIndex : undefined;
+  const phaseResolved: OnboardingLinearPhase =
+    rawPhase === "tasks" || rawPhase === "outro" || rawPhase === "intro" || rawPhase === "replay"
+      ? rawPhase
+      : "intro";
+  const slideResolved =
+    typeof rawSlide === "number" && Number.isFinite(rawSlide) && rawSlide >= 0 ? Math.floor(rawSlide) : 0;
+  if (onboardingComplete) {
+    return { phase: "replay", slideIndex: slideResolved };
+  }
+  if (!onboardingComplete && phaseResolved === "replay") {
+    return { phase: "tasks", slideIndex: 0 };
+  }
+  if (!onboardingComplete && phaseResolved === "outro") {
+    return { phase: "tasks", slideIndex: 0 };
+  }
+  return { phase: phaseResolved, slideIndex: slideResolved };
+}
+
+function readSagePersistedSnapForConversation(
+  cid: string | null | undefined
+): SagePersistedSession | undefined {
+  if (!cid || typeof window === "undefined") return undefined;
+  try {
+    const raw = sessionStorage.getItem(SAGE_SESSION_KEY);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as SagePersistedSession;
+    if (parsed.v === 1 && parsed.conversationId === cid) return parsed;
+  } catch {
+    // ignore
+  }
+  return undefined;
+}
 
 export function persistedSessionOnboardingComplete(snap: SagePersistedSession): boolean {
   if ((snap.flowType ?? "").trim().toUpperCase() !== "ONBOARDING") return false;
@@ -430,6 +513,9 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const [todoExpanded, setTodoExpanded] = useState(false);
   const [todoByTarget, setTodoByTarget] = useState<Record<string, { label: string; order: number }>>({});
   const [showConversationList, setShowConversationList] = useState(false);
+  const [onboardingLinearPhase, setOnboardingLinearPhase] =
+    useState<OnboardingLinearPhase>("intro");
+  const [onboardingLinearSlideIndex, setOnboardingLinearSlideIndex] = useState(0);
   const [activeConversations, setActiveConversations] = useState<FlowEnvelopeResponse[]>([]);
   const [activeConversationsLoading, setActiveConversationsLoading] = useState(false);
   const [activeConversationsError, setActiveConversationsError] = useState<string | null>(null);
@@ -442,6 +528,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const startOnboardingRef = useRef<(resumeId?: string | null) => Promise<boolean>>(async () => false);
   /** Latest `resume` implementation for imperative handle + window event (defined after flow helpers). */
   const resumeFromTourOrDialogRef = useRef<() => Promise<void>>(async () => {});
+  /** After flow hits complete, landing on replay should open the last Sage line (needs replay steps memo). */
+  const pendingReplayEndRef = useRef(false);
   const [portalReady, setPortalReady] = useState(false);
 
   useEffect(() => {
@@ -501,7 +589,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           typeof m.content === "string" &&
           m.content.trim().length > 0
         ) {
-          toAppend.push({ role: "agent", text: m.content.trim() });
+          toAppend.push({ role: "agent", text: m.content.trim(), sageStepKey: m.step_key });
         }
       }
       if (toAppend.length > 0) {
@@ -548,6 +636,10 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       } catch {
         // ignore
       }
+      if (!resumeFlowInstanceId) {
+        setOnboardingLinearPhase("intro");
+        setOnboardingLinearSlideIndex(0);
+      }
       setLoading(true);
       setReady(false);
       setExpanded(false);
@@ -567,10 +659,26 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         setReady(true);
         if (done) {
           setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
+          pendingReplayEndRef.current = true;
+          setOnboardingLinearPhase("replay");
           emitMobileSageModePreferenceIfMobile(false);
         } else {
           setExpanded(true);
           setSkipped(false);
+          if (resumeFlowInstanceId) {
+            const persisted = readSagePersistedSnapForConversation(flow.flow_instance.id);
+            if (persisted?.onboardingLinearPhase) {
+              const ln = normalizeOnboardingLinearPersisted(persisted, false);
+              setOnboardingLinearPhase(ln.phase);
+              setOnboardingLinearSlideIndex(ln.slideIndex);
+            } else {
+              setOnboardingLinearPhase("tasks");
+              setOnboardingLinearSlideIndex(0);
+            }
+          } else {
+            setOnboardingLinearPhase("intro");
+            setOnboardingLinearSlideIndex(0);
+          }
         }
         return true;
       } catch {
@@ -636,6 +744,10 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             setError(null);
             setInput("");
             setLoading(false);
+            const snapComplete0 = persistedSessionOnboardingComplete(snap);
+            const lin0 = normalizeOnboardingLinearPersisted(snap, snapComplete0);
+            setOnboardingLinearPhase(lin0.phase);
+            setOnboardingLinearSlideIndex(lin0.slideIndex);
             if (persistedSessionOnboardingComplete(snap)) {
               setShowConversationList(false);
               setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
@@ -656,7 +768,11 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               const serverFlow = await getFlowV2(snap.conversationId);
               if (cancelled) return;
               applyFlowState(serverFlow, true);
-              if (onboardingCompleteFromFlowEnvelope(serverFlow)) {
+              const srvComplete = onboardingCompleteFromFlowEnvelope(serverFlow);
+              const linSrv = normalizeOnboardingLinearPersisted(snap, srvComplete);
+              setOnboardingLinearPhase(linSrv.phase);
+              setOnboardingLinearSlideIndex(linSrv.slideIndex);
+              if (srvComplete) {
                 setShowConversationList(false);
                 setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
                 emitMobileSageModePreferenceIfMobile(false);
@@ -699,9 +815,29 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           const applyPick = (envelope: FlowEnvelopeResponse) => {
             setConversationId(envelope.flow_instance.id);
             applyFlowState(envelope, false);
-            const done = onboardingCompleteFromFlowEnvelope(envelope);
+            const donePick = onboardingCompleteFromFlowEnvelope(envelope);
             setReady(true);
-            if (done) {
+            const persistedLin = readSagePersistedSnapForConversation(envelope.flow_instance.id);
+            let phasePick: OnboardingLinearPhase = "tasks";
+            let slidePick = 0;
+            if (donePick) {
+              const n = normalizeOnboardingLinearPersisted(persistedLin, true);
+              phasePick = n.phase;
+              slidePick = n.slideIndex;
+            } else if (persistedLin?.onboardingLinearPhase) {
+              const n = normalizeOnboardingLinearPersisted(persistedLin, false);
+              phasePick = n.phase;
+              slidePick = n.slideIndex;
+            }
+            setOnboardingLinearPhase(phasePick);
+            setOnboardingLinearSlideIndex(slidePick);
+            if (donePick) {
+              const sameConv = persistedLin?.conversationId === envelope.flow_instance.id;
+              const hasReplayPersisted =
+                sameConv && persistedLin?.onboardingLinearPhase === "replay";
+              if (!hasReplayPersisted) {
+                pendingReplayEndRef.current = true;
+              }
               setShowConversationList(false);
               setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
               emitMobileSageModePreferenceIfMobile(false);
@@ -760,6 +896,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       flowType,
       completedSteps,
       todoByTarget,
+      onboardingLinearPhase,
+      onboardingLinearSlideIndex,
     };
     try {
       sessionStorage.setItem(SAGE_SESSION_KEY, JSON.stringify(snap));
@@ -784,6 +922,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     flowType,
     completedSteps,
     todoByTarget,
+    onboardingLinearPhase,
+    onboardingLinearSlideIndex,
   ]);
 
   useEffect(() => {
@@ -819,6 +959,22 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       const flow = await getFlowV2(id);
       applyFlowState(flow, true);
       setShowConversationList(false);
+      if ((flow.flow_instance.flow_type ?? "").trim().toUpperCase() === "ONBOARDING") {
+        const completeTour = onboardingCompleteFromFlowEnvelope(flow);
+        const persistedTour = readSagePersistedSnapForConversation(flow.flow_instance.id);
+        if (completeTour) {
+          const n = normalizeOnboardingLinearPersisted(persistedTour, true);
+          setOnboardingLinearPhase(n.phase);
+          setOnboardingLinearSlideIndex(n.slideIndex);
+        } else if (persistedTour?.onboardingLinearPhase) {
+          const n = normalizeOnboardingLinearPersisted(persistedTour, false);
+          setOnboardingLinearPhase(n.phase);
+          setOnboardingLinearSlideIndex(n.slideIndex);
+        } else {
+          setOnboardingLinearPhase("tasks");
+          setOnboardingLinearSlideIndex(0);
+        }
+      }
     } catch {
       setShowConversationList(true);
       await fetchActiveConversations();
@@ -1042,6 +1198,282 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     return actions.every((a) => a.state === "STEP_DONE" || a.state === "STEP_SKIPPED");
   }, [flowUiActions, isOnboardingFlow, ready, status]);
 
+  const { introSlideIndices, outroSlideIndices } = useMemo(() => {
+    if (!isOnboardingFlow) return { introSlideIndices: [] as number[], outroSlideIndices: [] as number[] };
+    const execIdx = flowSteps.findIndex((s) => s.step_key === EXECUTE_ONBOARDING_TODOS_STEP_KEY);
+    const intro: number[] = [];
+    const outro: number[] = [];
+    messages.forEach((m, i) => {
+      if (m.role !== "agent") return;
+      const sk = m.sageStepKey;
+      if (!sk) {
+        intro.push(i);
+        return;
+      }
+      const si = flowSteps.findIndex((s) => s.step_key === sk);
+      if (execIdx === -1) {
+        intro.push(i);
+        return;
+      }
+      if (si === -1) {
+        intro.push(i);
+        return;
+      }
+      if (si < execIdx) intro.push(i);
+      else if (si > execIdx) outro.push(i);
+      else if (onboardingFullyComplete) outro.push(i);
+    });
+    return { introSlideIndices: intro, outroSlideIndices: outro };
+  }, [flowSteps, isOnboardingFlow, messages, onboardingFullyComplete]);
+
+  const onboardingReplaySteps = useMemo(() => {
+    if (!isOnboardingFlow || !onboardingFullyComplete) return null;
+    return buildOnboardingReplaySteps(messages, introSlideIndices, outroSlideIndices);
+  }, [isOnboardingFlow, onboardingFullyComplete, messages, introSlideIndices, outroSlideIndices]);
+
+  useLayoutEffect(() => {
+    if (!pendingReplayEndRef.current) return;
+    if (!onboardingReplaySteps || onboardingReplaySteps.length === 0) {
+      pendingReplayEndRef.current = false;
+      return;
+    }
+    pendingReplayEndRef.current = false;
+    setOnboardingLinearSlideIndex(onboardingReplaySteps.length - 1);
+  }, [onboardingReplaySteps]);
+
+  const onboardingShowTasksHub =
+    isOnboardingFlow && onboardingLinearPhase === "tasks" && !showConversationList;
+  const onboardingShowLinearReader =
+    isOnboardingFlow &&
+    (onboardingLinearPhase === "intro" ||
+      onboardingLinearPhase === "outro" ||
+      onboardingLinearPhase === "replay") &&
+    !showConversationList;
+
+  useEffect(() => {
+    if (!isOnboardingFlow || !ready || loading || showConversationList) return;
+    if (onboardingLinearPhase !== "intro") return;
+    if (introSlideIndices.length === 0) setOnboardingLinearPhase("tasks");
+  }, [
+    introSlideIndices.length,
+    isOnboardingFlow,
+    loading,
+    onboardingLinearPhase,
+    ready,
+    showConversationList,
+  ]);
+
+  useEffect(() => {
+    if (!isOnboardingFlow || !ready || loading) return;
+    if (onboardingLinearPhase === "replay" && onboardingReplaySteps && onboardingReplaySteps.length > 0) {
+      if (onboardingLinearSlideIndex > onboardingReplaySteps.length - 1) {
+        setOnboardingLinearSlideIndex(onboardingReplaySteps.length - 1);
+      }
+      return;
+    }
+    const indices =
+      onboardingLinearPhase === "intro"
+        ? introSlideIndices
+        : onboardingLinearPhase === "outro"
+          ? outroSlideIndices
+          : null;
+    if (!indices || indices.length === 0) return;
+    if (onboardingLinearSlideIndex > indices.length - 1) {
+      setOnboardingLinearSlideIndex(indices.length - 1);
+    }
+  }, [
+    introSlideIndices,
+    isOnboardingFlow,
+    loading,
+    onboardingLinearPhase,
+    onboardingLinearSlideIndex,
+    onboardingReplaySteps,
+    outroSlideIndices,
+    ready,
+  ]);
+
+  const onboardingLinearAdvance = useCallback(() => {
+    if (onboardingLinearPhase === "replay" && onboardingReplaySteps?.length) {
+      const L = onboardingReplaySteps.length;
+      setOnboardingLinearSlideIndex((i) => Math.min(i + 1, L - 1));
+      return;
+    }
+    if (onboardingLinearPhase === "intro") {
+      if (introSlideIndices.length === 0) {
+        setOnboardingLinearPhase("tasks");
+        return;
+      }
+      if (onboardingLinearSlideIndex < introSlideIndices.length - 1) {
+        setOnboardingLinearSlideIndex((idx) => idx + 1);
+      } else {
+        setOnboardingLinearPhase("tasks");
+        setOnboardingLinearSlideIndex(0);
+      }
+      return;
+    }
+    if (onboardingLinearPhase === "outro" && onboardingLinearSlideIndex < outroSlideIndices.length - 1) {
+      setOnboardingLinearSlideIndex((idx) => idx + 1);
+    }
+  }, [
+    introSlideIndices.length,
+    onboardingLinearPhase,
+    onboardingLinearSlideIndex,
+    onboardingReplaySteps,
+    outroSlideIndices.length,
+  ]);
+
+  const onboardingLinearRetreat = useCallback(() => {
+    if (onboardingLinearPhase === "replay" && onboardingReplaySteps?.length) {
+      setOnboardingLinearSlideIndex((i) => Math.max(0, i - 1));
+      return;
+    }
+    setOnboardingLinearSlideIndex((idx) => Math.max(0, idx - 1));
+  }, [onboardingLinearPhase, onboardingReplaySteps]);
+
+  const onboardingLinearSlideContent = useMemo(() => {
+    if (!onboardingShowLinearReader) return null;
+    if (onboardingLinearPhase === "replay" && onboardingReplaySteps?.length) {
+      const step = onboardingReplaySteps[onboardingLinearSlideIndex];
+      if (!step) return { key: "empty", text: "" };
+      if (step.type === "tasksHub") {
+        return {
+          key: "tasks-hub-replay",
+          text: `**${todoSectionTitle}**\n\nYou completed everything below. Use **Back** and **Next** to revisit other tour steps.`,
+        };
+      }
+      const m = messages[step.agentMessageIndex];
+      if (!m || m.role !== "agent") return { key: "empty", text: "" };
+      return {
+        key: `replay-${step.agentMessageIndex}`,
+        text: m.text,
+      };
+    }
+    const indices =
+      onboardingLinearPhase === "intro" ? introSlideIndices : outroSlideIndices;
+    if (indices.length === 0 && onboardingLinearPhase === "outro") {
+      return {
+        key: "synthetic-complete",
+        text: `${flowLabel} is complete. You're all set!`,
+      };
+    }
+    const safeSlide = Math.min(
+      onboardingLinearSlideIndex,
+      Math.max(0, indices.length - 1)
+    );
+    const msgIndex = indices[safeSlide];
+    const m = typeof msgIndex === "number" ? messages[msgIndex] : undefined;
+    if (!m || m.role !== "agent") return { key: "empty", text: "" };
+    return { key: `${msgIndex}-${safeSlide}`, text: m.text };
+  }, [
+    flowLabel,
+    introSlideIndices,
+    messages,
+    onboardingLinearPhase,
+    onboardingLinearSlideIndex,
+    onboardingReplaySteps,
+    onboardingShowLinearReader,
+    outroSlideIndices,
+    todoSectionTitle,
+  ]);
+
+  const replayStepCount = onboardingReplaySteps?.length ?? 0;
+  const replayActiveIndex =
+    replayStepCount > 0 ? Math.min(onboardingLinearSlideIndex, replayStepCount - 1) : 0;
+
+  const isReplayTasksHubStep = useMemo(
+    () =>
+      onboardingLinearPhase === "replay" &&
+      replayStepCount > 0 &&
+      onboardingReplaySteps![replayActiveIndex]?.type === "tasksHub",
+    [onboardingLinearPhase, onboardingReplaySteps, replayActiveIndex, replayStepCount]
+  );
+
+  const onboardingLinearShowBack = useMemo(() => {
+    if (!onboardingShowLinearReader) return false;
+    if (onboardingLinearPhase === "replay" && replayStepCount > 0) return replayActiveIndex > 0;
+    if (onboardingLinearPhase === "intro") return onboardingLinearSlideIndex > 0;
+    if (onboardingLinearPhase === "outro") return onboardingLinearSlideIndex > 0;
+    return false;
+  }, [
+    onboardingLinearPhase,
+    onboardingLinearSlideIndex,
+    onboardingShowLinearReader,
+    replayActiveIndex,
+    replayStepCount,
+  ]);
+
+  const onboardingLinearShowNext = useMemo(() => {
+    if (!onboardingShowLinearReader) return false;
+    if (onboardingLinearPhase === "replay" && replayStepCount > 0) {
+      return replayActiveIndex < replayStepCount - 1;
+    }
+    if (onboardingLinearPhase === "intro") return true;
+    if (onboardingLinearPhase === "outro") {
+      return !(
+        outroSlideIndices.length === 0 ||
+        onboardingLinearSlideIndex >= outroSlideIndices.length - 1
+      );
+    }
+    return false;
+  }, [
+    onboardingLinearPhase,
+    onboardingLinearSlideIndex,
+    onboardingShowLinearReader,
+    outroSlideIndices.length,
+    replayActiveIndex,
+    replayStepCount,
+  ]);
+
+  /** Linear wizard fill: each intro slide, tasks hub (+1), then outro slides (advances with Next / phase). */
+  const onboardingUnifiedProgressPercent = useMemo(() => {
+    if (!isOnboardingFlow || !ready || skipped || showConversationList) {
+      return progressBarPercent;
+    }
+    if (onboardingLinearPhase === "replay" && onboardingReplaySteps && onboardingReplaySteps.length > 0) {
+      const L = onboardingReplaySteps.length;
+      const clamped = Math.min(onboardingLinearSlideIndex, L - 1);
+      const pct = Math.round(((clamped + 1) / L) * 100);
+      return Math.max(0, Math.min(100, pct));
+    }
+    const iLen = introSlideIndices.length;
+    const oLen = outroSlideIndices.length;
+    const syntheticOut =
+      onboardingLinearPhase === "outro" && onboardingFullyComplete && oLen === 0;
+    const outroCommitted = Math.max(oLen, 1);
+    const T = Math.max(1, iLen + 1 + outroCommitted);
+
+    let idx: number;
+    if (onboardingLinearPhase === "intro") {
+      idx = iLen === 0 ? 0 : Math.min(onboardingLinearSlideIndex, iLen - 1);
+    } else if (onboardingLinearPhase === "tasks") {
+      idx = iLen;
+    } else {
+      const jCap = Math.max(0, outroCommitted - 1);
+      const j =
+        oLen === 0 && syntheticOut
+          ? 0
+          : Math.min(onboardingLinearSlideIndex, jCap);
+      idx = iLen + 1 + j;
+    }
+
+    const pct = Math.round(((idx + 1) / T) * 100);
+    return Math.max(0, Math.min(100, pct));
+  }, [
+    introSlideIndices.length,
+    isOnboardingFlow,
+    onboardingFullyComplete,
+    onboardingLinearPhase,
+    onboardingLinearSlideIndex,
+    onboardingReplaySteps,
+    outroSlideIndices.length,
+    progressBarPercent,
+    ready,
+    showConversationList,
+    skipped,
+  ]);
+
+  const sageProgressPercent = isOnboardingFlow ? onboardingUnifiedProgressPercent : progressBarPercent;
+
   /** When onboarding finishes, suppress duplicate status line on the FAB; button remains. */
   const showPausedHubCaption = !isOnboardingFlow || !onboardingFullyComplete;
 
@@ -1065,6 +1497,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     if (!now || prev) return;
     setShowConversationList(false);
     setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
+    pendingReplayEndRef.current = true;
+    setOnboardingLinearPhase("replay");
     emitMobileSageModePreferenceIfMobile(false);
   }, [loading, onboardingFullyComplete, ready]);
 
@@ -1286,45 +1720,61 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           </div>
         </div>
 
-        <div className="border-t border-orange-200/80 px-4 py-2.5 text-xs text-orange-800 dark:border-orange-800 dark:text-orange-200">
-          <div className="flex flex-col gap-2">
-            <div className="flex min-h-[1.25rem] items-center gap-3">
-              <div
-                className="relative h-2 min-h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-orange-200/70 ring-1 ring-orange-900/10 dark:bg-orange-950/70 dark:ring-orange-100/15"
-                role="progressbar"
-                aria-valuenow={progressBarPercent}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuetext={`${progressBarPercent}% complete`}
-              >
+        {!isOnboardingFlow || !showConversationList ? (
+          <div className="border-t border-orange-200/80 px-4 py-2.5 text-xs text-orange-800 dark:border-orange-800 dark:text-orange-200">
+            <div className="flex flex-col gap-2">
+              <div className="flex min-h-[1.25rem] items-center gap-3">
                 <div
+                  className="relative h-2 min-h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-orange-200/70 ring-1 ring-orange-900/10 dark:bg-orange-950/70 dark:ring-orange-100/15"
+                  role="progressbar"
+                  aria-valuenow={sageProgressPercent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuetext={`${sageProgressPercent}% complete`}
+                >
+                  <div
+                    aria-hidden
+                    className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 motion-safe:transition-[width] motion-safe:duration-300 motion-safe:ease-out dark:from-orange-500 dark:via-orange-400 dark:to-amber-400"
+                    style={{ width: `${sageProgressPercent}%` }}
+                  />
+                </div>
+                <span
+                  className="w-9 shrink-0 text-right tabular-nums text-[11px] font-semibold leading-none text-orange-900 dark:text-orange-50"
                   aria-hidden
-                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 motion-safe:transition-[width] motion-safe:duration-300 motion-safe:ease-out dark:from-orange-500 dark:via-orange-400 dark:to-amber-400"
-                  style={{ width: `${progressBarPercent}%` }}
-                />
+                >
+                  {sageProgressPercent}%
+                </span>
               </div>
-              <span
-                className="w-9 shrink-0 text-right tabular-nums text-[11px] font-semibold leading-none text-orange-900 dark:text-orange-50"
-                aria-hidden
-              >
-                {progressBarPercent}%
-              </span>
-            </div>
-            <div className="min-w-0 leading-snug text-[11px]">
-              {nextStepDisplay ? (
-                <p className="text-pretty">
-                  <span className="font-semibold text-orange-900 dark:text-orange-100">Next: </span>
-                  <span className="text-orange-800 dark:text-orange-200">{nextStepDisplay}</span>
-                </p>
-              ) : (
-                <p className="text-orange-700/90 dark:text-orange-300/90">Next: —</p>
-              )}
+              {!isOnboardingFlow || onboardingShowTasksHub ? (
+                <div className="min-w-0 leading-snug text-[11px]">
+                  {nextStepDisplay ? (
+                    <p className="text-pretty">
+                      <span className="font-semibold text-orange-900 dark:text-orange-100">Next: </span>
+                      <span className="text-orange-800 dark:text-orange-200">{nextStepDisplay}</span>
+                    </p>
+                  ) : (
+                    <p className="text-orange-700/90 dark:text-orange-300/90">Next: —</p>
+                  )}
+                </div>
+              ) : null}
             </div>
           </div>
-        </div>
+        ) : null}
 
-        {expanded && !loading && !skipped && !showConversationList && orderedTodoItems.length > 0 && (
-          <div className="flex min-h-0 max-h-[min(52dvh,26rem)] flex-col gap-2 overflow-hidden border-t border-orange-200/60 bg-orange-50/50 px-4 py-2.5 dark:border-orange-800/50 dark:bg-orange-950/20">
+        {expanded &&
+        !loading &&
+        !skipped &&
+        !showConversationList &&
+        orderedTodoItems.length > 0 &&
+        (!isOnboardingFlow || onboardingShowTasksHub) ? (
+          <div
+            className={cn(
+              "flex min-h-0 flex-col gap-2 overflow-hidden border-t border-orange-200/60 bg-orange-50/50 px-4 py-2.5 dark:border-orange-800/50 dark:bg-orange-950/20",
+              onboardingShowTasksHub
+                ? "max-h-none min-h-0 flex-1 flex-col justify-start"
+                : "max-h-[min(52dvh,26rem)]"
+            )}
+          >
             <div className="flex shrink-0 items-center justify-between gap-2">
               <p className="text-xs font-medium text-orange-900 dark:text-orange-200">{todoSectionTitle}</p>
               {shouldCollapseTodo ? (
@@ -1340,7 +1790,12 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               ) : null}
             </div>
             <ul
-              className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain pr-1 [scrollbar-gutter:stable]"
+              className={cn(
+                "flex flex-col gap-2 overflow-y-auto overscroll-y-contain pr-1 [scrollbar-gutter:stable]",
+                onboardingShowTasksHub
+                  ? "min-h-0 max-h-[min(36dvh,16rem)] shrink-0"
+                  : "min-h-0 flex-1"
+              )}
               role="list"
               aria-label={todoSectionTitle}
               id="sage-todo-list"
@@ -1443,7 +1898,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               </p>
             ) : null}
           </div>
-        )}
+        ) : null}
 
         {expanded && !loading && !skipped && showConversationList && (
           <div className="min-h-0 flex-1 border-t border-orange-200 bg-orange-50/95 p-4 dark:border-orange-900/50 dark:bg-zinc-950/95">
@@ -1513,41 +1968,181 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           </div>
         )}
 
-        {expanded && !loading && !skipped && !showConversationList && (
+        {expanded &&
+        !loading &&
+        !skipped &&
+        !showConversationList &&
+        (!isOnboardingFlow || !onboardingShowTasksHub || onboardingShowLinearReader) ? (
           <div className="flex min-h-0 flex-1 flex-col border-t border-orange-200 bg-orange-50/95 dark:border-orange-900/50 dark:bg-zinc-950/95">
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-              {messages.map((m, i) => (
-                <div
-                  key={`${m.role}-${i}`}
-                  className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-                >
+            <div
+              className={cn(
+                "min-h-0 flex-1 overflow-y-auto p-4",
+                onboardingShowLinearReader
+                  ? "flex flex-col items-stretch justify-start"
+                  : "space-y-3"
+              )}
+            >
+              {onboardingShowLinearReader ? (
+                <div className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col gap-4">
                   <div
-                    className={
-                      m.role === "agent"
-                        ? "sage-reply-md max-w-[80%] rounded-xl bg-orange-100 px-3 py-2 text-sm text-zinc-900 dark:bg-orange-900/40 dark:text-zinc-100 [&_ul]:mt-1.5"
-                        : "max-w-[80%] rounded-xl bg-zinc-200 px-3 py-2 text-sm text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100"
-                    }
-                  >
-                    {m.role === "agent" ? (
-                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={SAGE_MARKDOWN_COMPONENTS}>
-                        {m.text}
-                      </ReactMarkdown>
-                    ) : (
-                      <span className="whitespace-pre-wrap break-words">{m.text}</span>
+                    className={cn(
+                      "min-h-0 max-h-[min(70dvh,36rem)] overflow-y-auto overscroll-y-contain rounded-xl bg-orange-100 px-4 py-4 dark:bg-orange-900/40"
                     )}
+                  >
+                    <div className="sage-reply-md text-sm leading-relaxed text-zinc-900 dark:text-zinc-100 [&_ul]:mt-1.5">
+                      {onboardingLinearSlideContent && onboardingLinearSlideContent.text.trim().length > 0 ? (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={SAGE_MARKDOWN_COMPONENTS}
+                        >
+                          {onboardingLinearSlideContent.text}
+                        </ReactMarkdown>
+                      ) : (
+                        <p className="text-zinc-500 dark:text-zinc-400">No message for this step.</p>
+                      )}
+                    </div>
+                    {isReplayTasksHubStep && orderedTodoItems.length > 0 ? (
+                      <div className="mt-4 border-t border-orange-200/80 pt-4 dark:border-orange-800/50">
+                        <ul
+                          className="flex flex-col gap-2 [scrollbar-gutter:stable]"
+                          role="list"
+                          aria-label={todoSectionTitle}
+                        >
+                          {orderedTodoItems.map((item) => (
+                            <li key={item.key} className="flex min-w-0 items-center gap-2">
+                              <span className="shrink-0 self-center" aria-hidden>
+                                {item.resolution === "done" ? (
+                                  <Check
+                                    className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500"
+                                    strokeWidth={2.5}
+                                  />
+                                ) : item.resolution === "skipped" ? (
+                                  <MinusCircle
+                                    className="h-3.5 w-3.5 text-amber-600 dark:text-amber-500"
+                                    strokeWidth={2.25}
+                                  />
+                                ) : (
+                                  <Circle
+                                    className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500"
+                                    strokeWidth={2}
+                                  />
+                                )}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <span
+                                  className={cn(
+                                    "text-xs leading-snug",
+                                    item.resolution === "done" &&
+                                      "text-emerald-700 line-through dark:text-emerald-400",
+                                    item.resolution === "skipped" &&
+                                      "text-amber-800/90 dark:text-amber-200/90",
+                                    item.resolution === "pending" && "text-orange-800 dark:text-orange-200/90"
+                                  )}
+                                >
+                                  {item.label}
+                                </span>
+                              </div>
+                              {item.resolution === "done" ? (
+                                <span className="shrink-0 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 dark:border-emerald-700/70 dark:bg-emerald-900/30 dark:text-emerald-300">
+                                  Completed
+                                </span>
+                              ) : item.resolution === "skipped" ? (
+                                <span className="shrink-0 rounded-md border border-amber-300/90 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-900 dark:border-amber-700/70 dark:bg-amber-950/40 dark:text-amber-100">
+                                  Skipped
+                                </span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
                   </div>
-                </div>
-              ))}
-              {sending ? (
-                <div className="flex justify-start" aria-live="polite" aria-label="Sage is replying">
-                  <div className="sage-reply-md max-w-[80%] rounded-xl bg-orange-100 px-3 py-2 text-sm text-zinc-900 dark:bg-orange-900/40 dark:text-zinc-100">
-                    <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                      <span>Sage is replying...</span>
+                  <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-orange-200/70 pt-4 dark:border-orange-800/50">
+                    <div className="flex min-w-[5.25rem] shrink-0 justify-start">
+                      {onboardingLinearShowBack ? (
+                        <button
+                          type="button"
+                          onClick={onboardingLinearRetreat}
+                          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                        >
+                          Back
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="text-center text-[11px] font-medium tabular-nums text-zinc-500 dark:text-zinc-400">
+                      {onboardingLinearPhase === "replay" && onboardingReplaySteps?.length ? (
+                        <>
+                          {Math.min(onboardingLinearSlideIndex, onboardingReplaySteps.length - 1) + 1}{" "}
+                          / {onboardingReplaySteps.length}
+                        </>
+                      ) : onboardingLinearPhase === "intro" ? (
+                        <>
+                          {introSlideIndices.length > 0
+                            ? Math.min(onboardingLinearSlideIndex + 1, introSlideIndices.length)
+                            : 0}{" "}
+                          / {Math.max(introSlideIndices.length, 1)}
+                        </>
+                      ) : (
+                        <>
+                          {outroSlideIndices.length > 0
+                            ? Math.min(onboardingLinearSlideIndex + 1, outroSlideIndices.length)
+                            : 1}{" "}
+                          / {Math.max(outroSlideIndices.length, 1)}
+                        </>
+                      )}
+                    </div>
+                    <div className="flex min-w-[5.25rem] shrink-0 justify-end">
+                      {onboardingLinearShowNext ? (
+                        <button
+                          type="button"
+                          onClick={onboardingLinearAdvance}
+                          className="rounded-md bg-orange-500 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-orange-600"
+                        >
+                          Next
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 </div>
-              ) : null}
+              ) : (
+                <>
+                  {messages.map((m, i) => (
+                    <div
+                      key={`${m.role}-${i}`}
+                      className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={
+                          m.role === "agent"
+                            ? "sage-reply-md max-w-[80%] rounded-xl bg-orange-100 px-3 py-2 text-sm text-zinc-900 dark:bg-orange-900/40 dark:text-zinc-100 [&_ul]:mt-1.5"
+                            : "max-w-[80%] rounded-xl bg-zinc-200 px-3 py-2 text-sm text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100"
+                        }
+                      >
+                        {m.role === "agent" ? (
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={SAGE_MARKDOWN_COMPONENTS}
+                          >
+                            {m.text}
+                          </ReactMarkdown>
+                        ) : (
+                          <span className="whitespace-pre-wrap break-words">{m.text}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {sending ? (
+                    <div className="flex justify-start" aria-live="polite" aria-label="Sage is replying">
+                      <div className="sage-reply-md max-w-[80%] rounded-xl bg-orange-100 px-3 py-2 text-sm text-zinc-900 dark:bg-orange-900/40 dark:text-zinc-100">
+                        <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                          <span>Sage is replying...</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              )}
               <div ref={bottomRef} />
             </div>
 
@@ -1590,7 +2185,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               </div>
             ) : null}
           </div>
-        )}
+        ) : null}
       </div>
       )}
     </section>
