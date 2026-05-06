@@ -309,6 +309,24 @@ export function dismissMobileSageOverlayBeforeOnboardingNav(): void {
   });
 }
 
+function matchesMinLgSageViewport(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
+}
+
+/** Desktop: paused hub + corner FAB. Mobile/tablet overlay has no FAB — show the full completed flow (same as desktop after opening the FAB). */
+function setPanelStateForCompletedOnboarding(
+  setSkipped: (skipped: boolean) => void,
+  setExpanded: (expanded: boolean) => void
+): void {
+  if (matchesMinLgSageViewport()) {
+    setSkipped(true);
+    setExpanded(false);
+  } else {
+    setSkipped(false);
+    setExpanded(true);
+  }
+}
+
 type SageTaskNavContext = {
   target: string;
   tooltip: string;
@@ -548,8 +566,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         const done = onboardingCompleteFromFlowEnvelope(flow);
         setReady(true);
         if (done) {
-          setSkipped(true);
-          setExpanded(false);
+          setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
           emitMobileSageModePreferenceIfMobile(false);
         } else {
           setExpanded(true);
@@ -620,9 +637,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             setInput("");
             setLoading(false);
             if (persistedSessionOnboardingComplete(snap)) {
-              setSkipped(true);
-              setExpanded(false);
               setShowConversationList(false);
+              setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
               emitMobileSageModePreferenceIfMobile(false);
             } else {
               const mobileViewport =
@@ -641,9 +657,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               if (cancelled) return;
               applyFlowState(serverFlow, true);
               if (onboardingCompleteFromFlowEnvelope(serverFlow)) {
-                setSkipped(true);
-                setExpanded(false);
                 setShowConversationList(false);
+                setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
                 emitMobileSageModePreferenceIfMobile(false);
               } else {
                 const mobileViewport =
@@ -687,9 +702,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             const done = onboardingCompleteFromFlowEnvelope(envelope);
             setReady(true);
             if (done) {
-              setSkipped(true);
-              setExpanded(false);
               setShowConversationList(false);
+              setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
               emitMobileSageModePreferenceIfMobile(false);
             } else {
               setSkipped(false);
@@ -1049,9 +1063,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     const prev = prevBaseline;
     onboardingCompleteBaselineRef.current = now;
     if (!now || prev) return;
-    setSkipped(true);
-    setExpanded(false);
     setShowConversationList(false);
+    setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
     emitMobileSageModePreferenceIfMobile(false);
   }, [loading, onboardingFullyComplete, ready]);
 
