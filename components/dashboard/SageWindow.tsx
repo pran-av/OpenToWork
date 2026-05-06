@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Check, Circle, Loader2, MinusCircle, Sparkles } from "lucide-react";
 import ReactMarkdown, { type Components } from "react-markdown";
@@ -294,6 +294,39 @@ function emitMobileSageModePreferenceIfMobile(enabled: boolean): void {
   );
 }
 
+/**
+ * Mobile/tablet: hide the fullscreen Sage overlay synchronously before task navigation.
+ * Without this, slow RSC/route transitions defer the `sage_highlight` listener so Sage can remain visible until the onboarding dialog opens (`z-[55]` under `z-[56]` reads as overlapping).
+ */
+export function dismissMobileSageOverlayBeforeOnboardingNav(): void {
+  if (typeof window === "undefined") return;
+  if (window.matchMedia("(min-width: 1024px)").matches) return;
+  setSageMobileUserHoldOpen(false);
+  flushSync(() => {
+    window.dispatchEvent(
+      new CustomEvent(SAGE_MOBILE_MODE_PREFERENCE_EVENT, { detail: { enabled: false } })
+    );
+  });
+}
+
+function matchesMinLgSageViewport(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
+}
+
+/** Desktop: paused hub + corner FAB. Mobile/tablet overlay has no FAB — show the full completed flow (same as desktop after opening the FAB). */
+function setPanelStateForCompletedOnboarding(
+  setSkipped: (skipped: boolean) => void,
+  setExpanded: (expanded: boolean) => void
+): void {
+  if (matchesMinLgSageViewport()) {
+    setSkipped(true);
+    setExpanded(false);
+  } else {
+    setSkipped(false);
+    setExpanded(true);
+  }
+}
+
 type SageTaskNavContext = {
   target: string;
   tooltip: string;
@@ -533,8 +566,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         const done = onboardingCompleteFromFlowEnvelope(flow);
         setReady(true);
         if (done) {
-          setSkipped(true);
-          setExpanded(false);
+          setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
           emitMobileSageModePreferenceIfMobile(false);
         } else {
           setExpanded(true);
@@ -605,9 +637,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             setInput("");
             setLoading(false);
             if (persistedSessionOnboardingComplete(snap)) {
-              setSkipped(true);
-              setExpanded(false);
               setShowConversationList(false);
+              setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
               emitMobileSageModePreferenceIfMobile(false);
             } else {
               const mobileViewport =
@@ -626,9 +657,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               if (cancelled) return;
               applyFlowState(serverFlow, true);
               if (onboardingCompleteFromFlowEnvelope(serverFlow)) {
-                setSkipped(true);
-                setExpanded(false);
                 setShowConversationList(false);
+                setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
                 emitMobileSageModePreferenceIfMobile(false);
               } else {
                 const mobileViewport =
@@ -672,9 +702,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             const done = onboardingCompleteFromFlowEnvelope(envelope);
             setReady(true);
             if (done) {
-              setSkipped(true);
-              setExpanded(false);
               setShowConversationList(false);
+              setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
               emitMobileSageModePreferenceIfMobile(false);
             } else {
               setSkipped(false);
@@ -1034,9 +1063,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     const prev = prevBaseline;
     onboardingCompleteBaselineRef.current = now;
     if (!now || prev) return;
-    setSkipped(true);
-    setExpanded(false);
     setShowConversationList(false);
+    setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
     emitMobileSageModePreferenceIfMobile(false);
   }, [loading, onboardingFullyComplete, ready]);
 
@@ -1070,6 +1098,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
   const handleTodoCtaClick = useCallback(
     (item: { href: string; target: string; label: string; tooltip?: string; message?: string | null }) => {
+      dismissMobileSageOverlayBeforeOnboardingNav();
       try {
         const navContext: SageTaskNavContext = {
           target: item.target,
@@ -1528,43 +1557,38 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               </div>
             )}
 
-            <div className="border-t border-zinc-200 p-4 dark:border-zinc-800">
-              <div
-                className={cn(
-                  "flex items-center gap-2 rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1.5 dark:border-zinc-600 dark:bg-zinc-800",
-                  isOnboardingFlow && "cursor-not-allowed"
-                )}
-                aria-disabled={isOnboardingFlow ? true : undefined}
-              >
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (isOnboardingFlow) return;
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      void handleSend();
-                    }
-                  }}
-                  placeholder="Reply to Sage..."
-                  disabled={isOnboardingFlow || loading || !conversationId || sending}
-                  className="min-w-0 flex-1 bg-transparent text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:disabled:opacity-60"
-                  aria-label={isOnboardingFlow ? "Message (not used during onboarding)" : "Message"}
-                />
-                <button
-                  type="button"
-                  onClick={() => void handleSend()}
-                  disabled={isOnboardingFlow || loading || !conversationId || sending || !input.trim()}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-zinc-200 disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                  aria-label="Send"
-                >
-                  <span aria-hidden className="text-lg leading-none">
-                    →
-                  </span>
-                </button>
+            {!isOnboardingFlow ? (
+              <div className="border-t border-zinc-200 p-4 dark:border-zinc-800">
+                <div className="flex items-center gap-2 rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1.5 dark:border-zinc-600 dark:bg-zinc-800">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        void handleSend();
+                      }
+                    }}
+                    placeholder="Reply to Sage..."
+                    disabled={loading || !conversationId || sending}
+                    className="min-w-0 flex-1 bg-transparent text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:disabled:opacity-60"
+                    aria-label="Message"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleSend()}
+                    disabled={loading || !conversationId || sending || !input.trim()}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-zinc-200 disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    aria-label="Send"
+                  >
+                    <span aria-hidden className="text-lg leading-none">
+                      →
+                    </span>
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : null}
           </div>
         )}
       </div>
