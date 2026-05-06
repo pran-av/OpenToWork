@@ -443,7 +443,6 @@ export type SageWindowHandle = {
 const BANNER_GAP_BELOW_HEADER_PX = 8;
 /** Reserves the typical band used by `fixed top-4` toasts (see dashboard pages) so the Sage banner does not sit under them. */
 const TOAST_STACK_RESERVE_PX = 72;
-const TODO_COLLAPSE_ITEM_LIMIT = 3;
 
 /** UI row state for onboarding todos (`STEP_SKIPPED` ≠ completed). */
 type TodoItemResolution = "pending" | "done" | "skipped";
@@ -510,7 +509,6 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const [flowInstanceId, setFlowInstanceId] = useState<string | null>(null);
   const [flowType, setFlowType] = useState<string | null>(null);
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
-  const [todoExpanded, setTodoExpanded] = useState(false);
   const [todoByTarget, setTodoByTarget] = useState<Record<string, { label: string; order: number }>>({});
   const [showConversationList, setShowConversationList] = useState(false);
   const [onboardingLinearPhase, setOnboardingLinearPhase] =
@@ -1151,18 +1149,6 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     });
   }, [uiActions]);
 
-  const shouldCollapseTodo = useMemo(
-    () =>
-      orderedTodoItems.length > TODO_COLLAPSE_ITEM_LIMIT ||
-      orderedTodoItems.some((item) => item.label.length > 110),
-    [orderedTodoItems]
-  );
-
-  const visibleTodoItems = useMemo(() => {
-    if (!shouldCollapseTodo || todoExpanded) return orderedTodoItems;
-    return orderedTodoItems.slice(0, TODO_COLLAPSE_ITEM_LIMIT);
-  }, [shouldCollapseTodo, todoExpanded, orderedTodoItems]);
-
   const todoSectionTitle = useMemo(
     () =>
       isOnboardingFlow
@@ -1775,19 +1761,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                 : "max-h-[min(52dvh,26rem)]"
             )}
           >
-            <div className="flex shrink-0 items-center justify-between gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <p className="text-xs font-medium text-orange-900 dark:text-orange-200">{todoSectionTitle}</p>
-              {shouldCollapseTodo ? (
-                <button
-                  type="button"
-                  onClick={() => setTodoExpanded((prev) => !prev)}
-                  className="text-[11px] font-medium text-orange-800 underline decoration-orange-300 underline-offset-2 hover:text-orange-950 dark:text-orange-200 dark:decoration-orange-700"
-                  aria-expanded={todoExpanded}
-                  aria-controls="sage-todo-list"
-                >
-                  {todoExpanded ? "Collapse" : `Expand (${orderedTodoItems.length})`}
-                </button>
-              ) : null}
             </div>
             <ul
               className={cn(
@@ -1800,7 +1775,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               aria-label={todoSectionTitle}
               id="sage-todo-list"
             >
-              {visibleTodoItems.map((item) => {
+              {orderedTodoItems.map((item) => {
                 return (
                   <li key={item.key} className="flex min-w-0 items-center gap-2">
                     <span
@@ -1890,12 +1865,6 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                   {onboardingCtaLabel}
                 </button>
               </div>
-            ) : null}
-            {!todoExpanded && shouldCollapseTodo ? (
-              <p className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
-                {orderedTodoItems.length - visibleTodoItems.length} more item
-                {orderedTodoItems.length - visibleTodoItems.length === 1 ? "" : "s"} hidden
-              </p>
             ) : null}
           </div>
         ) : null}
