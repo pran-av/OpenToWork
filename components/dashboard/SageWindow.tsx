@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Check, Circle, Loader2, MinusCircle, Sparkles } from "lucide-react";
 import ReactMarkdown, { type Components } from "react-markdown";
@@ -292,6 +292,21 @@ function emitMobileSageModePreferenceIfMobile(enabled: boolean): void {
   window.dispatchEvent(
     new CustomEvent(SAGE_MOBILE_MODE_PREFERENCE_EVENT, { detail: { enabled } })
   );
+}
+
+/**
+ * Mobile/tablet: hide the fullscreen Sage overlay synchronously before task navigation.
+ * Without this, slow RSC/route transitions defer the `sage_highlight` listener so Sage can remain visible until the onboarding dialog opens (`z-[55]` under `z-[56]` reads as overlapping).
+ */
+export function dismissMobileSageOverlayBeforeOnboardingNav(): void {
+  if (typeof window === "undefined") return;
+  if (window.matchMedia("(min-width: 1024px)").matches) return;
+  setSageMobileUserHoldOpen(false);
+  flushSync(() => {
+    window.dispatchEvent(
+      new CustomEvent(SAGE_MOBILE_MODE_PREFERENCE_EVENT, { detail: { enabled: false } })
+    );
+  });
 }
 
 type SageTaskNavContext = {
@@ -1070,6 +1085,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
   const handleTodoCtaClick = useCallback(
     (item: { href: string; target: string; label: string; tooltip?: string; message?: string | null }) => {
+      dismissMobileSageOverlayBeforeOnboardingNav();
       try {
         const navContext: SageTaskNavContext = {
           target: item.target,

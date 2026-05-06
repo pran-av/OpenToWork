@@ -16,6 +16,7 @@ import {
   persistedSessionOnboardingComplete,
   setSageMobileUserHoldOpen,
   sageMobileUserHoldOpen,
+  dismissMobileSageOverlayBeforeOnboardingNav,
 } from "@/components/dashboard/SageWindow";
 import { ackFlowUiActionV2, getFlowV2 } from "@/lib/agent-flow-v2";
 import {
@@ -577,6 +578,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
           interStepOverlayHoldForNextDialogRef.current = true;
           closeSageTaskDialog();
           await sageOnboardingStepYield();
+          dismissMobileSageOverlayBeforeOnboardingNav();
           router.push(buildOnboardingTaskHref(base, nextIssued.target), { scroll: false });
           if (
             completedTarget === "experience.form.save" ||
