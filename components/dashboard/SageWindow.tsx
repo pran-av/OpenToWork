@@ -830,12 +830,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             setOnboardingLinearPhase(phasePick);
             setOnboardingLinearSlideIndex(slidePick);
             if (donePick) {
-              const sameConv = persistedLin?.conversationId === envelope.flow_instance.id;
-              const hasReplayPersisted =
-                sameConv && persistedLin?.onboardingLinearPhase === "replay";
-              if (!hasReplayPersisted) {
-                pendingReplayEndRef.current = true;
-              }
+              pendingReplayEndRef.current = true;
               setShowConversationList(false);
               setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
               emitMobileSageModePreferenceIfMobile(false);
@@ -961,6 +956,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         const completeTour = onboardingCompleteFromFlowEnvelope(flow);
         const persistedTour = readSagePersistedSnapForConversation(flow.flow_instance.id);
         if (completeTour) {
+          /** Always re-seed last replay slide (same as fresh open). Persisted index is often the tasks hub / mid-tour from before “Back to Sage”; skipping this left users stuck off the closing message. */
+          pendingReplayEndRef.current = true;
           const n = normalizeOnboardingLinearPersisted(persistedTour, true);
           setOnboardingLinearPhase(n.phase);
           setOnboardingLinearSlideIndex(n.slideIndex);
@@ -1184,16 +1181,44 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     return actions.every((a) => a.state === "STEP_DONE" || a.state === "STEP_SKIPPED");
   }, [flowUiActions, isOnboardingFlow, ready, status]);
 
+  /** Avoid replay/tour regressions while `GET /flow` briefly omits ISSUED ui_actions rows or status lags COMPLETED — keep partitioning + replay steady once we are already in replay. */
+  const replayPartitionComplete =
+    onboardingFullyComplete || onboardingLinearPhase === "replay";
+
   const { introSlideIndices, outroSlideIndices } = useMemo(() => {
     if (!isOnboardingFlow) return { introSlideIndices: [] as number[], outroSlideIndices: [] as number[] };
     const execIdx = flowSteps.findIndex((s) => s.step_key === EXECUTE_ONBOARDING_TODOS_STEP_KEY);
+    let firstKeyedAtOrAfterExecI: number | null = null;
+    let lastKeyedBeforeExecI = -1;
+    if (execIdx !== -1) {
+      for (let mi = 0; mi < messages.length; mi++) {
+        const msg = messages[mi];
+        if (msg.role !== "agent" || !msg.sageStepKey) continue;
+        const si = flowSteps.findIndex((s) => s.step_key === msg.sageStepKey);
+        if (si === -1) continue;
+        if (si < execIdx) lastKeyedBeforeExecI = mi;
+        if (si >= execIdx && firstKeyedAtOrAfterExecI === null) firstKeyedAtOrAfterExecI = mi;
+      }
+    }
+    /** Unkeyed lines after this index are post–to-do wrap-up (avoid sticking them before the replay tasks hub). */
+    const unkeyedOutroSplit =
+      firstKeyedAtOrAfterExecI !== null
+        ? firstKeyedAtOrAfterExecI
+        : lastKeyedBeforeExecI >= 0
+          ? lastKeyedBeforeExecI + 1
+          : messages.length;
     const intro: number[] = [];
     const outro: number[] = [];
     messages.forEach((m, i) => {
       if (m.role !== "agent") return;
       const sk = m.sageStepKey;
       if (!sk) {
-        intro.push(i);
+        if (execIdx === -1) {
+          intro.push(i);
+          return;
+        }
+        if (i < unkeyedOutroSplit) intro.push(i);
+        else outro.push(i);
         return;
       }
       const si = flowSteps.findIndex((s) => s.step_key === sk);
@@ -1207,15 +1232,15 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       }
       if (si < execIdx) intro.push(i);
       else if (si > execIdx) outro.push(i);
-      else if (onboardingFullyComplete) outro.push(i);
+      else if (replayPartitionComplete) outro.push(i);
     });
     return { introSlideIndices: intro, outroSlideIndices: outro };
-  }, [flowSteps, isOnboardingFlow, messages, onboardingFullyComplete]);
+  }, [flowSteps, isOnboardingFlow, messages, replayPartitionComplete]);
 
   const onboardingReplaySteps = useMemo(() => {
-    if (!isOnboardingFlow || !onboardingFullyComplete) return null;
+    if (!isOnboardingFlow || !replayPartitionComplete) return null;
     return buildOnboardingReplaySteps(messages, introSlideIndices, outroSlideIndices);
-  }, [isOnboardingFlow, onboardingFullyComplete, messages, introSlideIndices, outroSlideIndices]);
+  }, [isOnboardingFlow, replayPartitionComplete, messages, introSlideIndices, outroSlideIndices]);
 
   useLayoutEffect(() => {
     if (!pendingReplayEndRef.current) return;
@@ -1319,7 +1344,9 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const onboardingLinearSlideContent = useMemo(() => {
     if (!onboardingShowLinearReader) return null;
     if (onboardingLinearPhase === "replay" && onboardingReplaySteps?.length) {
-      const step = onboardingReplaySteps[onboardingLinearSlideIndex];
+      const L = onboardingReplaySteps.length;
+      const ri = Math.min(Math.max(0, onboardingLinearSlideIndex), L - 1);
+      const step = onboardingReplaySteps[ri];
       if (!step) return { key: "empty", text: "" };
       if (step.type === "tasksHub") {
         return {
