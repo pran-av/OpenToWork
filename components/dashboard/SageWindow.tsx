@@ -1544,43 +1544,38 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               </div>
             )}
 
-            <div className="border-t border-zinc-200 p-4 dark:border-zinc-800">
-              <div
-                className={cn(
-                  "flex items-center gap-2 rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1.5 dark:border-zinc-600 dark:bg-zinc-800",
-                  isOnboardingFlow && "cursor-not-allowed"
-                )}
-                aria-disabled={isOnboardingFlow ? true : undefined}
-              >
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (isOnboardingFlow) return;
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      void handleSend();
-                    }
-                  }}
-                  placeholder="Reply to Sage..."
-                  disabled={isOnboardingFlow || loading || !conversationId || sending}
-                  className="min-w-0 flex-1 bg-transparent text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:disabled:opacity-60"
-                  aria-label={isOnboardingFlow ? "Message (not used during onboarding)" : "Message"}
-                />
-                <button
-                  type="button"
-                  onClick={() => void handleSend()}
-                  disabled={isOnboardingFlow || loading || !conversationId || sending || !input.trim()}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-zinc-200 disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                  aria-label="Send"
-                >
-                  <span aria-hidden className="text-lg leading-none">
-                    →
-                  </span>
-                </button>
+            {!isOnboardingFlow ? (
+              <div className="border-t border-zinc-200 p-4 dark:border-zinc-800">
+                <div className="flex items-center gap-2 rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1.5 dark:border-zinc-600 dark:bg-zinc-800">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        void handleSend();
+                      }
+                    }}
+                    placeholder="Reply to Sage..."
+                    disabled={loading || !conversationId || sending}
+                    className="min-w-0 flex-1 bg-transparent text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:disabled:opacity-60"
+                    aria-label="Message"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleSend()}
+                    disabled={loading || !conversationId || sending || !input.trim()}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-zinc-200 disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    aria-label="Send"
+                  >
+                    <span aria-hidden className="text-lg leading-none">
+                      →
+                    </span>
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : null}
           </div>
         )}
       </div>
