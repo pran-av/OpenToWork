@@ -19,12 +19,6 @@ interface ResumeItem {
   created_at: string;
 }
 
-interface AgentProfileData {
-  experience_summary: string | null;
-  goals_summary: string | null;
-}
-
-
 export default function ProfilePage() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,8 +37,6 @@ export default function ProfilePage() {
   const [uploadName, setUploadName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [agentProfile, setAgentProfile] = useState<AgentProfileData | null>(null);
-  const [agentProfileLoading, setAgentProfileLoading] = useState(true);
 
   const fetchResumes = useCallback(async () => {
     try {
@@ -79,7 +71,6 @@ export default function ProfilePage() {
     fetchProfile();
     void checkLinkedInStatus();
     fetchResumes();
-    fetchAgentProfile();
   }, [fetchResumes, checkLinkedInStatus]);
 
   // Refresh profile when returning from LinkedIn OAuth (check URL params)
@@ -116,25 +107,6 @@ export default function ProfilePage() {
       setTimeout(() => setToast(null), 5000);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fetchAgentProfile = async () => {
-    try {
-      const res = await fetch("/api/agent/profiles/me");
-      const data = (await res.json()) as Partial<AgentProfileData> & { error?: string };
-      if (res.ok) {
-        setAgentProfile({
-          experience_summary: typeof data.experience_summary === "string" ? data.experience_summary : null,
-          goals_summary: typeof data.goals_summary === "string" ? data.goals_summary : null,
-        });
-      } else {
-        setAgentProfile(null);
-      }
-    } catch {
-      setAgentProfile(null);
-    } finally {
-      setAgentProfileLoading(false);
     }
   };
 
@@ -318,24 +290,6 @@ export default function ProfilePage() {
           </button>
         </div>
       )}
-
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-zinc-100 mb-2">Experience Summary</h3>
-        <p className="text-sm text-gray-600 dark:text-zinc-400">
-          {agentProfileLoading
-            ? "Loading your experience summary..."
-            : agentProfile?.experience_summary?.trim() || "No experience summary available yet."}
-        </p>
-      </div>
-
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-zinc-100 mb-2">Goals</h3>
-        <p className="text-sm text-gray-600 dark:text-zinc-400">
-          {agentProfileLoading
-            ? "Loading your goals..."
-            : agentProfile?.goals_summary?.trim() || "No goals summary available yet."}
-        </p>
-      </div>
 
       {/* Profile Form Section */}
       <div
