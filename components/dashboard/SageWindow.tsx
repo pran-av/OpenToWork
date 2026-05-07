@@ -27,7 +27,6 @@ import {
   listActiveOnboardingFlowsV2,
   startOnboardingFlowV2,
 } from "@/lib/agent-flow-v2";
-import { SageMascotPicture } from "@/components/dashboard/SageMascotPicture";
 import { onboardingProfileRequiresDbVerification } from "@/lib/sage-onboarding-primary";
 import {
   buildOnboardingTaskHref,
@@ -1182,6 +1181,10 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     () => (nextStep ? displayTitleForFlowStep(flowSteps, nextStep) : null),
     [nextStep, flowSteps]
   );
+  const currentStepDisplay = useMemo(
+    () => (currentStep ? displayTitleForFlowStep(flowSteps, currentStep) : null),
+    [currentStep, flowSteps]
+  );
 
   const progressBarPercent = useMemo(
     () => Math.max(0, Math.min(100, Math.round(Number(progressPercent) || 0))),
@@ -1656,17 +1659,12 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                 <button
                   type="button"
                   onClick={resumeSageFromPausedHub}
-                  className="relative z-10 flex h-[4.5rem] w-[4.5rem] items-center justify-center overflow-hidden rounded-full border-2 border-amber-300 bg-orange-50 shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 dark:border-amber-600/60 dark:bg-zinc-800 dark:focus:ring-amber-500"
+                  className="relative z-10 flex h-[4.5rem] w-[4.5rem] items-center justify-center overflow-hidden rounded-full border-2 border-amber-300 bg-orange-50 text-lg font-bold text-orange-900 shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 dark:border-amber-600/60 dark:bg-zinc-800 dark:text-orange-100 dark:focus:ring-amber-500"
                   title="Open Sage to continue onboarding"
                   aria-label="Open Sage to continue onboarding"
                   aria-describedby={showPausedHubCaption ? "sage-hub-pending-line" : undefined}
                 >
-                  <SageMascotPicture
-                    alt=""
-                    width={56}
-                    height={70}
-                    className="h-[3.5rem] w-auto object-contain object-bottom"
-                  />
+                  S
                   <span
                     className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-orange-50 bg-amber-500 dark:border-zinc-900 dark:bg-amber-400"
                     aria-hidden
@@ -1709,7 +1707,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       {!pausedHubDesktop && (
       <div
         className={cn(
-          "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-orange-50/80 transition-all duration-500 dark:bg-orange-950/30 lg:bg-orange-50 dark:lg:bg-zinc-950",
+          "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden transition-all duration-500",
           /* Desktop collapsed rail stays short; mobile/tablet full-screen needs full height while loading (expanded is false). */
           expanded ? "max-h-full" : isDesktop ? "max-h-16" : "max-h-full",
           showDesktopLoadingBanner &&
@@ -1717,19 +1715,46 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         )}
         aria-hidden={showDesktopLoadingBanner ? true : undefined}
       >
-        <div className="flex items-center justify-between border-b border-orange-200/80 bg-orange-100/80 px-4 py-2.5 dark:border-orange-800/60 dark:bg-orange-950/35">
-          <p className="text-xs font-semibold uppercase tracking-wide text-orange-900 dark:text-orange-100">
-            Progress Saved
-          </p>
-          <button
-            type="button"
-            onClick={closeFlow}
-            className="text-xs font-semibold text-orange-900 underline-offset-2 hover:underline dark:text-orange-200"
-          >
-            Close Flow
-          </button>
-        </div>
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <div className={cn("mx-auto flex h-full w-full flex-col", isDesktop ? "max-w-4xl" : "max-w-3xl")}>
+        {isDesktop ? (
+          <div className="flex items-center justify-between px-6 py-6">
+            <div className="flex items-center gap-3">
+              <p className="text-3xl font-medium text-zinc-900 dark:text-zinc-100">{flowLabel}</p>
+              {status && !loading && !showConversationList ? (
+                <span
+                  className={cn(
+                    "inline-flex h-6 shrink-0 items-center rounded-md border px-2 py-0 text-[10px] font-semibold uppercase leading-none tracking-wide",
+                    flowStateBadgeClasses(status)
+                  )}
+                  title={`Flow status: ${status}`}
+                >
+                  {formatFlowStatusForDisplay(status)}
+                </span>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={closeFlow}
+              className="text-sm font-medium text-zinc-800 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-200 dark:hover:text-zinc-50"
+            >
+              Close Flow
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between border-b border-orange-200 px-4 py-2.5 dark:border-orange-800 dark:bg-orange-950">
+            <p className="text-xs font-semibold uppercase tracking-wide text-orange-900 dark:text-orange-100">
+              Progress Saved
+            </p>
+            <button
+              type="button"
+              onClick={closeFlow}
+              className="text-xs font-semibold text-orange-900 underline-offset-2 hover:underline dark:text-orange-200"
+            >
+              Close Flow
+            </button>
+          </div>
+        )}
+        <div className={cn("flex items-center justify-between gap-3 px-4 py-3", isDesktop && "hidden")}>
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {loading ? (
               <Loader2 className="h-4 w-4 shrink-0 animate-spin text-orange-600 dark:text-orange-300" />
@@ -1775,11 +1800,23 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         </div>
 
         {!isOnboardingFlow || !showConversationList ? (
-          <div className="border-t border-orange-200/80 px-4 py-2.5 text-xs text-orange-800 dark:border-orange-800 dark:text-orange-200">
-            <div className="flex flex-col gap-2">
+          <div
+            className={cn(
+              "px-4 py-2.5 text-xs",
+              isDesktop
+                ? "border-0 pt-0 text-zinc-700 dark:text-zinc-200"
+                : "border-t border-orange-200/80 text-orange-800 dark:border-orange-800 dark:text-orange-200"
+            )}
+          >
+            <div className={cn("flex flex-col gap-2", isDesktop && "mx-auto w-full max-w-xl")}>
               <div className="flex min-h-[1.25rem] items-center gap-3">
                 <div
-                  className="relative h-2 min-h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-orange-200/70 ring-1 ring-orange-900/10 dark:bg-orange-950/70 dark:ring-orange-100/15"
+                  className={cn(
+                    "relative h-2 min-h-2 min-w-0 flex-1 overflow-hidden rounded-full ring-1",
+                    isDesktop
+                      ? "bg-zinc-200 ring-zinc-400/30 dark:bg-zinc-800 dark:ring-zinc-200/20"
+                      : "bg-orange-200/70 ring-orange-900/10 dark:bg-orange-950/70 dark:ring-orange-100/15"
+                  )}
                   role="progressbar"
                   aria-valuenow={sageProgressPercent}
                   aria-valuemin={0}
@@ -1788,18 +1825,46 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                 >
                   <div
                     aria-hidden
-                    className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 motion-safe:transition-[width] motion-safe:duration-300 motion-safe:ease-out dark:from-orange-500 dark:via-orange-400 dark:to-amber-400"
+                    className={cn(
+                      "absolute inset-y-0 left-0 rounded-full motion-safe:transition-[width] motion-safe:duration-300 motion-safe:ease-out",
+                      isDesktop
+                        ? "bg-gradient-to-r from-orange-500 via-orange-500 to-amber-400"
+                        : "bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 dark:from-orange-500 dark:via-orange-400 dark:to-amber-400"
+                    )}
                     style={{ width: `${sageProgressPercent}%` }}
                   />
                 </div>
-                <span
-                  className="w-9 shrink-0 text-right tabular-nums text-[11px] font-semibold leading-none text-orange-900 dark:text-orange-50"
-                  aria-hidden
-                >
-                  {sageProgressPercent}%
-                </span>
+                {!isDesktop ? (
+                  <span
+                    className="w-9 shrink-0 text-right tabular-nums text-[11px] font-semibold leading-none text-orange-900 dark:text-orange-50"
+                    aria-hidden
+                  >
+                    {sageProgressPercent}%
+                  </span>
+                ) : null}
               </div>
-              {!isOnboardingFlow || onboardingShowTasksHub ? (
+              {isDesktop ? (
+                <div className="flex items-start justify-between gap-4 text-[11px] leading-snug">
+                  <div className="min-w-0">
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">Current: </span>
+                    <span className="text-zinc-700 dark:text-zinc-300">
+                      {currentStepDisplay ?? "—"}
+                    </span>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div>
+                      <span className="font-semibold text-zinc-900 dark:text-zinc-100">Next: </span>
+                      <span className="text-zinc-700 dark:text-zinc-300">
+                        {nextStepDisplay ?? "—"}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                      {sageProgressPercent}% complete
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+              {!isDesktop && (!isOnboardingFlow || onboardingShowTasksHub) ? (
                 <div className="min-w-0 leading-snug text-[11px]">
                   {nextStepDisplay ? (
                     <p className="text-pretty">
@@ -1823,7 +1888,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         (!isOnboardingFlow || onboardingShowTasksHub) ? (
           <div
             className={cn(
-              "flex min-h-0 flex-col gap-2 overflow-hidden border-t border-orange-200/60 bg-orange-50/50 px-4 py-2.5 dark:border-orange-800/50 dark:bg-orange-950/20",
+              "flex min-h-0 flex-col gap-2 overflow-hidden px-4 py-2.5",
+              isDesktop ? "border-t border-zinc-200 bg-transparent dark:border-zinc-700" : "border-t border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950",
               onboardingShowTasksHub
                 ? "max-h-none min-h-0 flex-1 flex-col justify-start"
                 : "max-h-[min(52dvh,26rem)]"
@@ -2010,7 +2076,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         !skipped &&
         !showConversationList &&
         (!isOnboardingFlow || !onboardingShowTasksHub || onboardingShowLinearReader) ? (
-          <div className="flex min-h-0 flex-1 flex-col border-t border-orange-200 bg-orange-50/95 dark:border-orange-900/50 dark:bg-zinc-950/95">
+          <div className={cn("flex min-h-0 flex-1 flex-col", isDesktop ? "border-t border-zinc-200 bg-transparent dark:border-zinc-700" : "border-t border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-zinc-950")}>
             <div
               className={cn(
                 "min-h-0 flex-1 overflow-y-auto p-4",
@@ -2023,7 +2089,10 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                 <div className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col gap-4">
                   <div
                     className={cn(
-                      "min-h-0 max-h-[min(70dvh,36rem)] overflow-y-auto overscroll-y-contain rounded-xl bg-orange-100 px-4 py-4 dark:bg-orange-900/40"
+                      "min-h-0 max-h-[min(70dvh,36rem)] overflow-y-auto overscroll-y-contain px-4 py-4",
+                      isDesktop
+                        ? "rounded-2xl border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900"
+                        : "rounded-xl bg-orange-100 dark:bg-orange-900/40"
                     )}
                   >
                     <div className="sage-reply-md text-sm leading-relaxed text-zinc-900 dark:text-zinc-100 [&_ul]:mt-1.5">
@@ -2223,6 +2292,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             ) : null}
           </div>
         ) : null}
+        </div>
       </div>
       )}
     </section>

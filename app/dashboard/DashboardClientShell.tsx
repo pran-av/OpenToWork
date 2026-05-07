@@ -14,6 +14,7 @@ type DashboardClientShellProps = {
 export function DashboardClientShell({ children }: DashboardClientShellProps) {
   const headerShellRef = useRef<HTMLDivElement>(null);
   const [headerHeightPx, setHeaderHeightPx] = useState(72);
+  const [desktopFlowOverlayActive, setDesktopFlowOverlayActive] = useState(false);
 
   useLayoutEffect(() => {
     const el = headerShellRef.current;
@@ -29,13 +30,18 @@ export function DashboardClientShell({ children }: DashboardClientShellProps) {
 
   return (
     <div className="flex min-h-screen flex-col bg-orange-50 dark:bg-zinc-950">
-      <div ref={headerShellRef} className="relative z-50">
-        <DashboardHeader />
-      </div>
+      {!desktopFlowOverlayActive ? (
+        <div ref={headerShellRef} className="relative z-50">
+          <DashboardHeader />
+        </div>
+      ) : null}
       <div className="flex min-h-0 flex-1">
-        <DashboardDesktopSidebar />
+        {!desktopFlowOverlayActive ? <DashboardDesktopSidebar /> : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <DashboardSageFrame headerOffsetPx={headerHeightPx}>
+          <DashboardSageFrame
+            headerOffsetPx={desktopFlowOverlayActive ? 0 : headerHeightPx}
+            onDesktopFlowOverlayChange={setDesktopFlowOverlayActive}
+          >
             <DashboardMainCanvas>{children}</DashboardMainCanvas>
             <DashboardFooter />
           </DashboardSageFrame>
