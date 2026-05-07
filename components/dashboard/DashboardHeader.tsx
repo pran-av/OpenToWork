@@ -225,7 +225,7 @@ export default function DashboardHeader() {
                   </svg>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 cursor-pointer">
+                <div className="flex items-center gap-2 rounded-md border border-orange-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer">
                   <span>Update Profile</span>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -237,7 +237,7 @@ export default function DashboardHeader() {
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="text-white"
+                    className="text-zinc-700 dark:text-zinc-200"
                   >
                     <path d="m6 9 6 6 6-6" />
                   </svg>
