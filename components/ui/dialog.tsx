@@ -6,9 +6,11 @@ interface DialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
+  panelId?: string;
+  hideBackdrop?: boolean;
 }
 
-export function Dialog({ open, onOpenChange, children }: DialogProps) {
+export function Dialog({ open, onOpenChange, children, panelId, hideBackdrop = false }: DialogProps) {
   React.useEffect(() => {
     if (open) {
       document.body.style.overflow = "hidden";
@@ -27,11 +29,14 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
       className="fixed inset-0 z-50 flex items-end justify-center lg:items-center"
       onClick={() => onOpenChange(false)}
     >
+      {!hideBackdrop ? (
+        <div
+          className="fixed inset-0 bg-black/50"
+          aria-hidden="true"
+        />
+      ) : null}
       <div
-        className="fixed inset-0 bg-black/50"
-        aria-hidden="true"
-      />
-      <div
+        id={panelId}
         className="relative z-50 mx-auto flex w-full max-w-md flex-col overflow-y-auto rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900 max-lg:h-[80dvh] max-lg:rounded-b-none max-lg:rounded-t-2xl max-lg:pb-[max(1.5rem,env(safe-area-inset-bottom,0px))]"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
@@ -46,10 +51,15 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
 interface DialogContentProps {
   children: React.ReactNode;
   className?: string;
+  id?: string;
 }
 
-export function DialogContent({ children, className = "" }: DialogContentProps) {
-  return <div className={className}>{children}</div>;
+export function DialogContent({ children, className = "", id }: DialogContentProps) {
+  return (
+    <div id={id} className={className}>
+      {children}
+    </div>
+  );
 }
 
 interface DialogHeaderProps {

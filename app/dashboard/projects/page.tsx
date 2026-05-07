@@ -25,6 +25,7 @@ export default function DashboardProjectsPage() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isOnboardingProjectCreateStep = searchParams.get("sage_highlight") === "campaigns_dashboard.project.create_cta";
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -290,7 +291,12 @@ export default function DashboardProjectsPage() {
         />
       )}
 
-      <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={handleDialogClose}
+        panelId="sage-onboarding-project-dialog"
+        hideBackdrop={isOnboardingProjectCreateStep}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Project</DialogTitle>

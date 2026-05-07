@@ -105,7 +105,7 @@ const SAGE_TARGET_SELECTOR: Record<string, string> = {
   "experience.form.save": "#save-experience",
   "onboarding.congrats.experience_recorded": "#experience-created-highlight",
   "nav.campaigns_dashboard": "#projects-root",
-  "campaigns_dashboard.project.create_cta": `#sage-onboarding-project-dialog-submit, [data-sage-target="create-project-cta"]`,
+  "campaigns_dashboard.project.create_cta": `#sage-onboarding-project-dialog, #sage-onboarding-project-dialog-submit, [data-sage-target="create-project-cta"]`,
   "campaigns_dashboard.project.campaign.create_cta": `#sage-onboarding-campaign-dialog-submit, [data-sage-target="create-campaign-cta"]`,
   "campaign.form.title": "#campaign-title",
   "campaign.form.summary": "#campaign-summary",
@@ -120,6 +120,14 @@ const SAGE_TARGET_SELECTOR: Record<string, string> = {
   "profile.linkedin.connect_cta": "#linkedin-connect",
   "nav.sage_window": "#sage-window-root",
 };
+
+function getPreferredSageTargetNode(target: string, selector: string): Element | null {
+  if (target === "campaigns_dashboard.project.create_cta") {
+    const dialogNode = queryVisibleSageTarget("#sage-onboarding-project-dialog");
+    if (dialogNode) return dialogNode;
+  }
+  return queryVisibleSageTarget(selector);
+}
 
 const PROFILE_VERIFICATION_HINTS: Record<SageProfileVerificationTarget, string> = {
   "profile.user_name.edit":
@@ -189,6 +197,13 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
   const sageTaskDialogRef = useRef<HTMLDivElement>(null);
   const highlightedTargetRef = useRef<Element | null>(null);
   const [activeHighlightTarget, setActiveHighlightTarget] = useState<string | null>(null);
+  const [sageHighlightRect, setSageHighlightRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+    radius: number;
+  } | null>(null);
   /** Mobile Sage switch renders in `document.body` so it stacks above the `z-50` header shell (Radix / banners / nav). */
   const [mobileSageSwitchPortalReady, setMobileSageSwitchPortalReady] = useState(false);
   /** When true, keep `sageInterStepBlocking` until the next `sageTaskDialog` opens (after chained navigation). */
@@ -273,6 +288,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
   }, []);
 
   const clearSageHighlight = useCallback(() => {
+    setSageHighlightRect(null);
     if (!highlightedTargetRef.current) return;
     highlightedTargetRef.current.classList.remove("sage-target-highlight");
     highlightedTargetRef.current = null;
@@ -293,7 +309,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
     (target: string) => {
       const selector = SAGE_TARGET_SELECTOR[target];
       if (!selector) return false;
-      const node = queryVisibleSageTarget(selector);
+      const node = getPreferredSageTargetNode(target, selector);
       if (!node) return false;
       clearSageHighlight();
       node.classList.add("sage-target-highlight");
@@ -386,8 +402,19 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
 
     const updatePosition = () => {
       const node = queryVisibleSageTarget(selector);
-      if (!node) return;
+      if (!node) {
+        setSageHighlightRect(null);
+        return;
+      }
       const rect = (node as HTMLElement).getBoundingClientRect();
+      const highlightPadding = 8;
+      setSageHighlightRect({
+        top: Math.max(8, rect.top - highlightPadding),
+        left: Math.max(8, rect.left - highlightPadding),
+        width: Math.max(8, rect.width + highlightPadding * 2),
+        height: Math.max(8, rect.height + highlightPadding * 2),
+        radius: 12,
+      });
       const cardNode = sageTaskDialogRef.current;
       const viewportW = window.innerWidth;
       const viewportH = window.innerHeight;
@@ -752,6 +779,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       ) : null}
       <style jsx global>{`
         .sage-target-highlight {
+          position: relative;
           outline: 3px solid rgba(245, 158, 11, 0.9);
           outline-offset: 4px;
           box-shadow: 0 0 0 6px rgba(251, 191, 36, 0.28);
@@ -761,6 +789,10 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
             outline-offset 0.22s ease,
             box-shadow 0.22s ease;
           animation: sage-highlight-pulse 1.2s ease-in-out 2;
+        }
+        :root:not(.dark) .sage-target-highlight {
+          /* Keep focus ring visible while spotlight hole handles dimming. */
+          z-index: 53 !important;
         }
         @media (prefers-reduced-motion: reduce) {
           .sage-target-highlight {
@@ -779,10 +811,25 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
 
       {sageTaskDialog.open ? (
         <>
-          <div
-            className="pointer-events-none fixed inset-0 z-[54] bg-black/18 motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out"
-            aria-hidden
-          />
+          {sageHighlightRect ? (
+            <div
+              className="pointer-events-none fixed z-[54] motion-safe:transition-[top,left,width,height] motion-safe:duration-150 motion-safe:ease-out"
+              style={{
+                top: sageHighlightRect.top,
+                left: sageHighlightRect.left,
+                width: sageHighlightRect.width,
+                height: sageHighlightRect.height,
+                borderRadius: sageHighlightRect.radius,
+                boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.18)",
+              }}
+              aria-hidden
+            />
+          ) : (
+            <div
+              className="pointer-events-none fixed inset-0 z-[54] bg-black/18 motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out"
+              aria-hidden
+            />
+          )}
           <div
             ref={sageTaskDialogRef}
             className="pointer-events-auto fixed z-[56] w-[min(22.5rem,calc(100vw-1.5rem))] rounded-xl border border-zinc-200 bg-white p-4 shadow-xl motion-safe:origin-top motion-safe:transition-[opacity,transform] motion-safe:duration-200 motion-safe:ease-out dark:border-zinc-700 dark:bg-zinc-900"
