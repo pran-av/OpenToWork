@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -9,15 +9,16 @@ import {
 } from "@/lib/agent-flow-v2";
 import {
   SAGE_MOBILE_MODE_PREFERENCE_EVENT,
+  SAGE_ONBOARDING_COMPLETED_KEY,
   SAGE_OPEN_ONBOARDING_FLOW_EVENT,
   setSageMobileUserHoldOpen,
 } from "@/components/dashboard/SageWindow";
 
-type FlowDrawerStatus = "available" | "pending" | "completed";
+type FlowDrawerStatus = "idle" | "available" | "pending" | "completed";
 
 export default function DashboardFlowPullDrawer() {
   const [open, setOpen] = useState(false);
-  const [status, setStatus] = useState<FlowDrawerStatus>("available");
+  const [status, setStatus] = useState<FlowDrawerStatus>("idle");
   const [pendingFlowId, setPendingFlowId] = useState<string | null>(null);
   const [completedFlowId, setCompletedFlowId] = useState<string | null>(null);
 
@@ -58,7 +59,24 @@ export default function DashboardFlowPullDrawer() {
     setStatus("available");
   }, []);
 
+  /** Server truth for strip + drawer; run on mount so we don’t show “available” until we know. */
+  useEffect(() => {
+    void refreshFlowState();
+  }, [refreshFlowState]);
+
+  /** Fast path after UX finish: avoids a frame of wrong chrome before `listCompleted` returns. */
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return;
+      if (window.localStorage.getItem(SAGE_ONBOARDING_COMPLETED_KEY) !== "1") return;
+      setStatus((prev) => (prev === "pending" ? prev : "completed"));
+    } catch {
+      // ignore storage restrictions
+    }
+  }, []);
+
   const pullLabel = useMemo(() => {
+    if (status === "pending") return "Continue Onboarding";
     if (status === "available") return "Onboarding Flow Available";
     return "Open Flow Panel";
   }, [status]);
@@ -137,7 +155,7 @@ export default function DashboardFlowPullDrawer() {
                       <Sparkles className="h-5 w-5 text-orange-700 dark:text-orange-200" />
                     </span>
                     <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                      {status === "pending" ? "Resume Onboarding" : "Start Onboarding"}
+                      {status === "pending" ? "Continue Onboarding" : "Start Onboarding"}
                     </span>
                   </button>
                 </div>
