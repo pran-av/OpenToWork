@@ -75,6 +75,8 @@ function buildOnboardingReplaySteps(
 export const SAGE_RESUME_FROM_TOUR_EVENT = "opentowork-sage-resume-from-tour";
 /** Fired by global pull drawer to open onboarding only from explicit user input. */
 export const SAGE_OPEN_ONBOARDING_FLOW_EVENT = "opentowork-sage-open-onboarding-flow";
+/** After flow bootstrap finishes when the drawer asked for in-button prepare UI (`prepareUiOnFlowCta`). */
+export const SAGE_FLOW_PREPARE_UI_DONE_EVENT = "opentowork-sage-flow-prepare-ui-done";
 
 const SAGE_MARKDOWN_COMPONENTS: Components = {
   p: ({ children }) => <p className="mb-2.5 last:mb-0 first:mt-0 leading-relaxed">{children}</p>,
@@ -521,12 +523,16 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const [flowBootstrapRequested, setFlowBootstrapRequested] = useState(false);
   const [requestedResumeFlowId, setRequestedResumeFlowId] = useState<string | null>(null);
   const [requestedForceStart, setRequestedForceStart] = useState(false);
+  /** Suppresses desktop “Preparing…” banner while the flow panel CTA shows its own loading state. */
+  const [flowPrepareUiOnCta, setFlowPrepareUiOnCta] = useState(false);
   /**
    * When the user explicitly opens Sage (pull-drawer completed resume, “Back to Sage”, etc.), we must not
    * re-apply post-completion chrome (`setPanelStateForCompletedOnboarding` / mobile dismiss) — that path
    * is for the moment they first finish replay, not every time `onboardingCompletedForUi` is true after a refetch.
    */
   const suppressPostCompletionChromeRef = useRef(false);
+  /** When set from `SAGE_OPEN_ONBOARDING_FLOW_EVENT`, desktop “Preparing…” banner is suppressed; drawer CTA owns loading. */
+  const prepareUiOnFlowCtaRef = useRef(false);
 
   const applyFlowState = useCallback((flow: FlowEnvelopeResponse, keepMessages: boolean) => {
     setFlowInstanceId(flow.flow_instance.id);
@@ -734,82 +740,59 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     setRequestedResumeFlowId(null);
     setRequestedForceStart(false);
     let cancelled = false;
+    const notifyFlowPrepareUiDone = prepareUiOnFlowCtaRef.current;
     const run = async () => {
-      if (forceStart) {
-        const started = await startOnboardingRef.current(null);
-        if (cancelled) return;
-        if (started) return;
-        setReady(true);
-        setSkipped(false);
-        setExpanded(true);
-        setShowConversationList(true);
-        await fetchActiveConversations();
-        return;
-      }
-      if (resumeFlowInstanceId) {
-        const started = await startOnboardingRef.current(resumeFlowInstanceId);
-        if (cancelled) return;
-        if (started) return;
-      }
       try {
-        const raw = sessionStorage.getItem(SAGE_SESSION_KEY);
-        if (raw) {
-          const snap = JSON.parse(raw) as SagePersistedSession;
-          if (
-            snap.v === 1 &&
-            typeof snap.conversationId === "string" &&
-            Array.isArray(snap.messages) &&
-            snap.conversationId.length > 0
-          ) {
-            if (cancelled) return;
-            setConversationId(snap.conversationId);
-            setMessages(snap.messages);
-            setStatus(snap.status);
-            setNextStep(snap.nextStep);
-            setCurrentStep(snap.currentStep);
-            setProgressPercent(snap.progressPercent);
-            setUiActions(snap.uiActions);
-            setFlowUiActions(snap.flowUiActions ?? []);
-            setFlowSteps(snap.flowSteps ?? []);
-            setStepId(snap.stepId);
-            setFlowInstanceId(snap.flowInstanceId ?? snap.conversationId);
-            setReady(snap.ready);
-            setFlowType(snap.flowType ?? null);
-            setCompletedSteps(snap.completedSteps ?? []);
-            setTodoByTarget(snap.todoByTarget ?? {});
-            setError(null);
-            setInput("");
-            setLoading(false);
-            const snapComplete0 = persistedSessionOnboardingComplete(snap);
-            const lin0 = normalizeOnboardingLinearPersisted(snap, snapComplete0);
-            setOnboardingLinearPhase(lin0.phase);
-            setOnboardingLinearSlideIndex(lin0.slideIndex);
-            if (persistedSessionOnboardingComplete(snap)) {
-              setShowConversationList(false);
-              setSkipped(false);
-              setExpanded(true);
-              pendingReplayEndRef.current = true;
-            } else {
-              const mobileViewport =
-                typeof window !== "undefined" && !window.matchMedia("(min-width: 1024px)").matches;
-              /** Mobile/tablet: keep users in the active flow; do not re-apply paused snapshot (e.g. after tour). */
-              if (mobileViewport) {
-                setSkipped(false);
-                setExpanded(true);
-              } else {
-                setExpanded(snap.expanded);
-                setSkipped(snap.skipped);
-              }
-            }
-            try {
-              const serverFlow = await getFlowV2(snap.conversationId);
+        if (forceStart) {
+          const started = await startOnboardingRef.current(null);
+          if (cancelled) return;
+          if (started) return;
+          setReady(true);
+          setSkipped(false);
+          setExpanded(true);
+          setShowConversationList(true);
+          await fetchActiveConversations();
+          return;
+        }
+        if (resumeFlowInstanceId) {
+          const started = await startOnboardingRef.current(resumeFlowInstanceId);
+          if (cancelled) return;
+          if (started) return;
+        }
+        try {
+          const raw = sessionStorage.getItem(SAGE_SESSION_KEY);
+          if (raw) {
+            const snap = JSON.parse(raw) as SagePersistedSession;
+            if (
+              snap.v === 1 &&
+              typeof snap.conversationId === "string" &&
+              Array.isArray(snap.messages) &&
+              snap.conversationId.length > 0
+            ) {
               if (cancelled) return;
-              applyFlowState(serverFlow, true);
-              const srvComplete = onboardingCompleteFromFlowEnvelope(serverFlow);
-              const linSrv = normalizeOnboardingLinearPersisted(snap, srvComplete);
-              setOnboardingLinearPhase(linSrv.phase);
-              setOnboardingLinearSlideIndex(linSrv.slideIndex);
-              if (srvComplete) {
+              setConversationId(snap.conversationId);
+              setMessages(snap.messages);
+              setStatus(snap.status);
+              setNextStep(snap.nextStep);
+              setCurrentStep(snap.currentStep);
+              setProgressPercent(snap.progressPercent);
+              setUiActions(snap.uiActions);
+              setFlowUiActions(snap.flowUiActions ?? []);
+              setFlowSteps(snap.flowSteps ?? []);
+              setStepId(snap.stepId);
+              setFlowInstanceId(snap.flowInstanceId ?? snap.conversationId);
+              setReady(snap.ready);
+              setFlowType(snap.flowType ?? null);
+              setCompletedSteps(snap.completedSteps ?? []);
+              setTodoByTarget(snap.todoByTarget ?? {});
+              setError(null);
+              setInput("");
+              setLoading(false);
+              const snapComplete0 = persistedSessionOnboardingComplete(snap);
+              const lin0 = normalizeOnboardingLinearPersisted(snap, snapComplete0);
+              setOnboardingLinearPhase(lin0.phase);
+              setOnboardingLinearSlideIndex(lin0.slideIndex);
+              if (persistedSessionOnboardingComplete(snap)) {
                 setShowConversationList(false);
                 setSkipped(false);
                 setExpanded(true);
@@ -817,6 +800,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               } else {
                 const mobileViewport =
                   typeof window !== "undefined" && !window.matchMedia("(min-width: 1024px)").matches;
+                /** Mobile/tablet: keep users in the active flow; do not re-apply paused snapshot (e.g. after tour). */
                 if (mobileViewport) {
                   setSkipped(false);
                   setExpanded(true);
@@ -825,81 +809,112 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                   setSkipped(snap.skipped);
                 }
               }
+              try {
+                const serverFlow = await getFlowV2(snap.conversationId);
+                if (cancelled) return;
+                applyFlowState(serverFlow, true);
+                const srvComplete = onboardingCompleteFromFlowEnvelope(serverFlow);
+                const linSrv = normalizeOnboardingLinearPersisted(snap, srvComplete);
+                setOnboardingLinearPhase(linSrv.phase);
+                setOnboardingLinearSlideIndex(linSrv.slideIndex);
+                if (srvComplete) {
+                  setShowConversationList(false);
+                  setSkipped(false);
+                  setExpanded(true);
+                  pendingReplayEndRef.current = true;
+                } else {
+                  const mobileViewport =
+                    typeof window !== "undefined" && !window.matchMedia("(min-width: 1024px)").matches;
+                  if (mobileViewport) {
+                    setSkipped(false);
+                    setExpanded(true);
+                  } else {
+                    setExpanded(snap.expanded);
+                    setSkipped(snap.skipped);
+                  }
+                }
+              } catch {
+                /* offline — chrome already reflects snap above */
+              }
+              return;
+            }
+          }
+        } catch {
+          try {
+            sessionStorage.removeItem(SAGE_SESSION_KEY);
+          } catch {
+            // ignore
+          }
+        }
+        if (cancelled) return;
+        try {
+          const flows = await listActiveOnboardingFlowsV2();
+          if (cancelled) return;
+          if (flows.length > 0) {
+            const sorted = [...flows].sort(
+              (a, b) =>
+                (b.flow_instance.started_at ?? "").localeCompare(
+                  a.flow_instance.started_at ?? ""
+                )
+            );
+            const pick = sorted[0];
+            const applyPick = (envelope: FlowEnvelopeResponse) => {
+              setConversationId(envelope.flow_instance.id);
+              applyFlowState(envelope, false);
+              const donePick = onboardingCompleteFromFlowEnvelope(envelope);
+              setReady(true);
+              const persistedLin = readSagePersistedSnapForConversation(envelope.flow_instance.id);
+              let phasePick: OnboardingLinearPhase = "tasks";
+              let slidePick = 0;
+              if (donePick) {
+                const n = normalizeOnboardingLinearPersisted(persistedLin, true);
+                phasePick = n.phase;
+                slidePick = n.slideIndex;
+              } else if (persistedLin?.onboardingLinearPhase) {
+                const n = normalizeOnboardingLinearPersisted(persistedLin, false);
+                phasePick = n.phase;
+                slidePick = n.slideIndex;
+              }
+              setOnboardingLinearPhase(phasePick);
+              setOnboardingLinearSlideIndex(slidePick);
+              if (donePick) {
+                pendingReplayEndRef.current = true;
+                setShowConversationList(false);
+                setSkipped(false);
+                setExpanded(true);
+              } else {
+                setSkipped(false);
+                setExpanded(true);
+              }
+            };
+            try {
+              const full = await getFlowV2(pick.flow_instance.id);
+              if (cancelled) return;
+              applyPick(full);
             } catch {
-              /* offline — chrome already reflects snap above */
+              if (cancelled) return;
+              applyPick(pick);
             }
             return;
           }
-        }
-      } catch {
-        try {
-          sessionStorage.removeItem(SAGE_SESSION_KEY);
         } catch {
-          // ignore
+          // ignored, fallback to start
         }
-      }
-      if (cancelled) return;
-      try {
-        const flows = await listActiveOnboardingFlowsV2();
+        const started = await startOnboardingRef.current();
         if (cancelled) return;
-        if (flows.length > 0) {
-          const sorted = [...flows].sort(
-            (a, b) =>
-              (b.flow_instance.started_at ?? "").localeCompare(
-                a.flow_instance.started_at ?? ""
-              )
-          );
-          const pick = sorted[0];
-          const applyPick = (envelope: FlowEnvelopeResponse) => {
-            setConversationId(envelope.flow_instance.id);
-            applyFlowState(envelope, false);
-            const donePick = onboardingCompleteFromFlowEnvelope(envelope);
-            setReady(true);
-            const persistedLin = readSagePersistedSnapForConversation(envelope.flow_instance.id);
-            let phasePick: OnboardingLinearPhase = "tasks";
-            let slidePick = 0;
-            if (donePick) {
-              const n = normalizeOnboardingLinearPersisted(persistedLin, true);
-              phasePick = n.phase;
-              slidePick = n.slideIndex;
-            } else if (persistedLin?.onboardingLinearPhase) {
-              const n = normalizeOnboardingLinearPersisted(persistedLin, false);
-              phasePick = n.phase;
-              slidePick = n.slideIndex;
-            }
-            setOnboardingLinearPhase(phasePick);
-            setOnboardingLinearSlideIndex(slidePick);
-            if (donePick) {
-              pendingReplayEndRef.current = true;
-              setShowConversationList(false);
-              setSkipped(false);
-              setExpanded(true);
-            } else {
-              setSkipped(false);
-              setExpanded(true);
-            }
-          };
-          try {
-            const full = await getFlowV2(pick.flow_instance.id);
-            if (cancelled) return;
-            applyPick(full);
-          } catch {
-            if (cancelled) return;
-            applyPick(pick);
-          }
-          return;
+        if (started) return;
+        setReady(true);
+        setSkipped(false);
+        setExpanded(true);
+        setShowConversationList(true);
+        await fetchActiveConversations();
+      } finally {
+        prepareUiOnFlowCtaRef.current = false;
+        setFlowPrepareUiOnCta(false);
+        if (notifyFlowPrepareUiDone) {
+          window.dispatchEvent(new CustomEvent(SAGE_FLOW_PREPARE_UI_DONE_EVENT));
         }
-      } catch {
-        // ignored, fallback to start
       }
-      const started = await startOnboardingRef.current();
-      if (cancelled) return;
-      if (started) return;
-      setReady(true);
-      setSkipped(false);
-      setExpanded(true);
-      setShowConversationList(true);
-      await fetchActiveConversations();
     };
     void run();
     return () => {
@@ -1038,10 +1053,17 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
   useEffect(() => {
     const onOpenFlow = (ev: Event) => {
-      const ce = ev as CustomEvent<{ resumeFlowInstanceId?: string | null; forceStart?: boolean }>;
+      const ce = ev as CustomEvent<{
+        resumeFlowInstanceId?: string | null;
+        forceStart?: boolean;
+        prepareUiOnFlowCta?: boolean;
+      }>;
       const resumeFlowInstanceId =
         typeof ce.detail?.resumeFlowInstanceId === "string" ? ce.detail.resumeFlowInstanceId : null;
       suppressPostCompletionChromeRef.current = true;
+      const cta = Boolean(ce.detail?.prepareUiOnFlowCta);
+      prepareUiOnFlowCtaRef.current = cta;
+      setFlowPrepareUiOnCta(cta);
       setRequestedResumeFlowId(resumeFlowInstanceId);
       setRequestedForceStart(Boolean(ce.detail?.forceStart));
       setFlowBootstrapRequested(true);
@@ -1593,7 +1615,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     emitMobileSageModePreferenceIfMobile(false);
   }, [loading, onboardingCompletedForUi, ready]);
 
-  const showDesktopLoadingBanner = loading && isDesktop;
+  const showDesktopLoadingBanner = loading && isDesktop && !flowPrepareUiOnCta;
   const pausedHubDesktop = skipped && isDesktop && !loading;
   useLayoutEffect(() => {
     onRightRailChange?.(!pausedHubDesktop);
@@ -1678,9 +1700,9 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-orange-900 dark:text-orange-100">Preparing Sage</p>
+                <p className="text-sm font-semibold text-orange-900 dark:text-orange-100">Preparing Flow</p>
                 <p className="mt-1 text-xs leading-snug text-orange-800 dark:text-orange-200/90">
-                  Sage is fetching your details to personalize onboarding.
+                  Fetching your details to personalize this flow.
                 </p>
               </div>
             </div>

@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   listActiveOnboardingFlowsV2,
   listCompletedOnboardingFlowsV2,
 } from "@/lib/agent-flow-v2";
 import {
+  SAGE_FLOW_PREPARE_UI_DONE_EVENT,
   SAGE_MOBILE_MODE_PREFERENCE_EVENT,
   SAGE_ONBOARDING_COMPLETED_KEY,
   SAGE_OPEN_ONBOARDING_FLOW_EVENT,
@@ -16,11 +17,14 @@ import {
 
 type FlowDrawerStatus = "idle" | "available" | "pending" | "completed";
 
+type FlowCtaKind = "available" | "pending" | "completed";
+
 export default function DashboardFlowPullDrawer() {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<FlowDrawerStatus>("idle");
   const [pendingFlowId, setPendingFlowId] = useState<string | null>(null);
   const [completedFlowId, setCompletedFlowId] = useState<string | null>(null);
+  const [flowCtaPreparing, setFlowCtaPreparing] = useState<FlowCtaKind | null>(null);
 
   const refreshFlowState = useCallback(async () => {
     try {
@@ -81,10 +85,19 @@ export default function DashboardFlowPullDrawer() {
     return "Open Flow Panel";
   }, [status]);
 
+  useEffect(() => {
+    const onPrepareDone = () => {
+      setFlowCtaPreparing(null);
+      setOpen(false);
+    };
+    window.addEventListener(SAGE_FLOW_PREPARE_UI_DONE_EVENT, onPrepareDone);
+    return () => window.removeEventListener(SAGE_FLOW_PREPARE_UI_DONE_EVENT, onPrepareDone);
+  }, []);
+
   const isHighlighted = status === "available";
 
-  const triggerOnboardingFlow = (kind: "available" | "pending" | "completed") => {
-    setOpen(false);
+  const triggerOnboardingFlow = (kind: FlowCtaKind) => {
+    setFlowCtaPreparing(kind);
     if (typeof window !== "undefined" && !window.matchMedia("(min-width: 1024px)").matches) {
       setSageMobileUserHoldOpen(true);
       window.dispatchEvent(
@@ -102,11 +115,14 @@ export default function DashboardFlowPullDrawer() {
                   ? completedFlowId
                   : null,
             forceStart: kind === "available",
+            prepareUiOnFlowCta: true,
           },
         })
       );
     }, 0);
   };
+
+  const flowCtaDisabled = flowCtaPreparing !== null;
 
   return (
     <>
@@ -148,14 +164,37 @@ export default function DashboardFlowPullDrawer() {
                 <div className="mt-4">
                   <button
                     type="button"
+                    disabled={flowCtaDisabled}
                     onClick={() => triggerOnboardingFlow(status)}
-                    className="flex w-40 flex-col items-start gap-2 rounded-xl border border-zinc-300 bg-white p-3 text-left transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                    className={cn(
+                      "flex w-48 flex-col items-start gap-2 rounded-xl border p-3 text-left transition-colors disabled:opacity-60",
+                      flowCtaPreparing === status
+                        ? "border-orange-300 bg-orange-50 dark:border-orange-700 dark:bg-orange-950/40"
+                        : "border-zinc-300 bg-white hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800",
+                      flowCtaDisabled && flowCtaPreparing !== status && "pointer-events-none opacity-50"
+                    )}
+                    aria-busy={flowCtaPreparing === status}
                   >
-                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-orange-300 bg-orange-100 dark:border-orange-700 dark:bg-orange-900/40">
-                      <Sparkles className="h-5 w-5 text-orange-700 dark:text-orange-200" />
+                    <span
+                      className={cn(
+                        "inline-flex h-10 w-10 items-center justify-center rounded-lg border",
+                        flowCtaPreparing === status
+                          ? "border-orange-400 bg-orange-100 dark:border-orange-600 dark:bg-orange-900/50"
+                          : "border-orange-300 bg-orange-100 dark:border-orange-700 dark:bg-orange-900/40"
+                      )}
+                    >
+                      {flowCtaPreparing === status ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-orange-700 dark:text-orange-200" aria-hidden />
+                      ) : (
+                        <Sparkles className="h-5 w-5 text-orange-700 dark:text-orange-200" />
+                      )}
                     </span>
                     <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                      {status === "pending" ? "Continue Onboarding" : "Start Onboarding"}
+                      {flowCtaPreparing === status
+                        ? "Preparing Flow"
+                        : status === "pending"
+                          ? "Continue Onboarding"
+                          : "Start Onboarding"}
                     </span>
                   </button>
                 </div>
@@ -170,13 +209,34 @@ export default function DashboardFlowPullDrawer() {
                 <div className="mt-4">
                   <button
                     type="button"
+                    disabled={flowCtaDisabled}
                     onClick={() => triggerOnboardingFlow("completed")}
-                    className="flex w-40 flex-col items-start gap-2 rounded-xl border border-zinc-300 bg-zinc-50 p-3 text-left transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                    className={cn(
+                      "flex w-48 flex-col items-start gap-2 rounded-xl border p-3 text-left transition-colors disabled:opacity-60",
+                      flowCtaPreparing === "completed"
+                        ? "border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/40"
+                        : "border-zinc-300 bg-zinc-50 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800",
+                      flowCtaDisabled && flowCtaPreparing !== "completed" && "pointer-events-none opacity-50"
+                    )}
+                    aria-busy={flowCtaPreparing === "completed"}
                   >
-                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-300 bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/40">
-                      <Sparkles className="h-5 w-5 text-emerald-700 dark:text-emerald-200" />
+                    <span
+                      className={cn(
+                        "inline-flex h-10 w-10 items-center justify-center rounded-lg border",
+                        flowCtaPreparing === "completed"
+                          ? "border-emerald-400 bg-emerald-100 dark:border-emerald-600 dark:bg-emerald-900/50"
+                          : "border-emerald-300 bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/40"
+                      )}
+                    >
+                      {flowCtaPreparing === "completed" ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-emerald-700 dark:text-emerald-200" aria-hidden />
+                      ) : (
+                        <Sparkles className="h-5 w-5 text-emerald-700 dark:text-emerald-200" />
+                      )}
                     </span>
-                    <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Onboarding</span>
+                    <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      {flowCtaPreparing === "completed" ? "Preparing Flow" : "Onboarding"}
+                    </span>
                   </button>
                 </div>
               ) : (
