@@ -521,6 +521,12 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const [flowBootstrapRequested, setFlowBootstrapRequested] = useState(false);
   const [requestedResumeFlowId, setRequestedResumeFlowId] = useState<string | null>(null);
   const [requestedForceStart, setRequestedForceStart] = useState(false);
+  /**
+   * When the user explicitly opens Sage (pull-drawer completed resume, “Back to Sage”, etc.), we must not
+   * re-apply post-completion chrome (`setPanelStateForCompletedOnboarding` / mobile dismiss) — that path
+   * is for the moment they first finish replay, not every time `onboardingCompletedForUi` is true after a refetch.
+   */
+  const suppressPostCompletionChromeRef = useRef(false);
 
   const applyFlowState = useCallback((flow: FlowEnvelopeResponse, keepMessages: boolean) => {
     setFlowInstanceId(flow.flow_instance.id);
@@ -980,6 +986,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   }, [applyFlowState, conversationId, flowInstanceId]);
 
   const resumeFromTourOrDialog = useCallback(async () => {
+    suppressPostCompletionChromeRef.current = true;
     setSkipped(false);
     setExpanded(true);
     const id = flowInstanceId ?? conversationId;
@@ -992,6 +999,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       const flow = await getFlowV2(id);
       applyFlowState(flow, true);
       setShowConversationList(false);
+      setReady(true);
+      setLoading(false);
       if ((flow.flow_instance.flow_type ?? "").trim().toUpperCase() === "ONBOARDING") {
         const completeTour = onboardingCompleteFromFlowEnvelope(flow);
         const persistedTour = readSagePersistedSnapForConversation(flow.flow_instance.id);
@@ -1011,6 +1020,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         }
       }
     } catch {
+      setLoading(false);
       setShowConversationList(true);
       await fetchActiveConversations();
     }
@@ -1031,6 +1041,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       const ce = ev as CustomEvent<{ resumeFlowInstanceId?: string | null; forceStart?: boolean }>;
       const resumeFlowInstanceId =
         typeof ce.detail?.resumeFlowInstanceId === "string" ? ce.detail.resumeFlowInstanceId : null;
+      suppressPostCompletionChromeRef.current = true;
       setRequestedResumeFlowId(resumeFlowInstanceId);
       setRequestedForceStart(Boolean(ce.detail?.forceStart));
       setFlowBootstrapRequested(true);
@@ -1571,6 +1582,13 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       // ignore storage restrictions
     }
     setShowConversationList(false);
+    if (suppressPostCompletionChromeRef.current) {
+      /** Defer reset so Strict Mode’s double effect invocation (or a tight second pass) still skips hub collapse. */
+      queueMicrotask(() => {
+        suppressPostCompletionChromeRef.current = false;
+      });
+      return;
+    }
     setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
     emitMobileSageModePreferenceIfMobile(false);
   }, [loading, onboardingCompletedForUi, ready]);

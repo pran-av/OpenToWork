@@ -19,6 +19,7 @@ export default function DashboardFlowPullDrawer() {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<FlowDrawerStatus>("available");
   const [pendingFlowId, setPendingFlowId] = useState<string | null>(null);
+  const [completedFlowId, setCompletedFlowId] = useState<string | null>(null);
 
   const refreshFlowState = useCallback(async () => {
     try {
@@ -29,6 +30,7 @@ export default function DashboardFlowPullDrawer() {
       if (onboarding) {
         setStatus("pending");
         setPendingFlowId(onboarding.flow_instance.id);
+        setCompletedFlowId(null);
         return;
       }
     } catch {
@@ -37,17 +39,22 @@ export default function DashboardFlowPullDrawer() {
 
     try {
       const completed = await listCompletedOnboardingFlowsV2();
-      const onboardingCompleted = completed.some(
-        (f) => (f.flow_instance.flow_type ?? "").trim().toUpperCase() === "ONBOARDING"
-      );
+      const onboardingCompleted = completed
+        .filter((f) => (f.flow_instance.flow_type ?? "").trim().toUpperCase() === "ONBOARDING")
+        .sort((a, b) =>
+          (b.flow_instance.started_at ?? "").localeCompare(a.flow_instance.started_at ?? "")
+        );
+      const hasCompleted = onboardingCompleted.length > 0;
       setPendingFlowId(null);
-      setStatus(onboardingCompleted ? "completed" : "available");
+      setCompletedFlowId(hasCompleted ? onboardingCompleted[0].flow_instance.id : null);
+      setStatus(hasCompleted ? "completed" : "available");
       return;
     } catch {
       // fall through
     }
 
     setPendingFlowId(null);
+    setCompletedFlowId(null);
     setStatus("available");
   }, []);
 
@@ -58,7 +65,7 @@ export default function DashboardFlowPullDrawer() {
 
   const isHighlighted = status === "available";
 
-  const triggerOnboardingFlow = () => {
+  const triggerOnboardingFlow = (kind: "available" | "pending" | "completed") => {
     setOpen(false);
     if (typeof window !== "undefined" && !window.matchMedia("(min-width: 1024px)").matches) {
       setSageMobileUserHoldOpen(true);
@@ -70,8 +77,13 @@ export default function DashboardFlowPullDrawer() {
       window.dispatchEvent(
         new CustomEvent(SAGE_OPEN_ONBOARDING_FLOW_EVENT, {
           detail: {
-            resumeFlowInstanceId: status === "pending" ? pendingFlowId : null,
-            forceStart: status === "available",
+            resumeFlowInstanceId:
+              kind === "pending"
+                ? pendingFlowId
+                : kind === "completed"
+                  ? completedFlowId
+                  : null,
+            forceStart: kind === "available",
           },
         })
       );
@@ -118,7 +130,7 @@ export default function DashboardFlowPullDrawer() {
                 <div className="mt-4">
                   <button
                     type="button"
-                    onClick={triggerOnboardingFlow}
+                    onClick={() => triggerOnboardingFlow(status)}
                     className="flex w-40 flex-col items-start gap-2 rounded-xl border border-zinc-300 bg-white p-3 text-left transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
                   >
                     <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-orange-300 bg-orange-100 dark:border-orange-700 dark:bg-orange-900/40">
@@ -138,12 +150,16 @@ export default function DashboardFlowPullDrawer() {
               <h3 className="text-2xl font-medium text-zinc-900 dark:text-zinc-100">Completed Flows</h3>
               {status === "completed" ? (
                 <div className="mt-4">
-                  <div className="flex w-40 flex-col items-start gap-2 rounded-xl border border-zinc-300 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900">
+                  <button
+                    type="button"
+                    onClick={() => triggerOnboardingFlow("completed")}
+                    className="flex w-40 flex-col items-start gap-2 rounded-xl border border-zinc-300 bg-zinc-50 p-3 text-left transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                  >
                     <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-300 bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/40">
                       <Sparkles className="h-5 w-5 text-emerald-700 dark:text-emerald-200" />
                     </span>
                     <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Onboarding</span>
-                  </div>
+                  </button>
                 </div>
               ) : (
                 <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">No completed flows yet.</p>
