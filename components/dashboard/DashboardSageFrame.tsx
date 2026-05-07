@@ -155,8 +155,8 @@ type DashboardSageFrameProps = {
   children: ReactNode;
   /** Offset from the top of the viewport so the Sage column starts below the Studio header. */
   headerOffsetPx: number;
-  /** Desktop-only signal for fullscreen Sage flow mode to hide shell chrome. */
-  onDesktopFlowOverlayChange?: (active: boolean) => void;
+  /** Signal fullscreen Sage flow mode so shell chrome can be hidden. */
+  onFlowOverlayChange?: (active: boolean) => void;
 };
 
 type SageTaskNavContext = {
@@ -176,7 +176,7 @@ type SageTaskNavContext = {
 export function DashboardSageFrame({
   children,
   headerOffsetPx,
-  onDesktopFlowOverlayChange,
+  onFlowOverlayChange,
 }: DashboardSageFrameProps) {
   const [isDesktop, setIsDesktop] = useState(false);
   const [sageModeEnabled, setSageModeEnabled] = useState(true);
@@ -342,8 +342,8 @@ export function DashboardSageFrame({
   }, [sageLayerActive]);
 
   useEffect(() => {
-    onDesktopFlowOverlayChange?.(isDesktop && sageLayerActive);
-  }, [isDesktop, onDesktopFlowOverlayChange, sageLayerActive]);
+    onFlowOverlayChange?.((isDesktop && sageLayerActive) || (!isDesktop && sageModeEnabled));
+  }, [isDesktop, onFlowOverlayChange, sageLayerActive, sageModeEnabled]);
 
   useEffect(() => {
     const target = searchParams.get("sage_highlight");

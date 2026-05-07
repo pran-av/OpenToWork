@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { createPortal, flushSync } from "react-dom";
+import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Check, Circle, Loader2, MinusCircle, Sparkles } from "lucide-react";
 import ReactMarkdown, { type Components } from "react-markdown";
@@ -73,6 +73,8 @@ function buildOnboardingReplaySteps(
 
 /** Fired by `DashboardSageFrame` when the user returns from a tour step (e.g. “Back to Sage”) so the panel re-opens and rehydrates. */
 export const SAGE_RESUME_FROM_TOUR_EVENT = "opentowork-sage-resume-from-tour";
+/** Fired by global pull drawer to open onboarding only from explicit user input. */
+export const SAGE_OPEN_ONBOARDING_FLOW_EVENT = "opentowork-sage-open-onboarding-flow";
 
 const SAGE_MARKDOWN_COMPONENTS: Components = {
   p: ({ children }) => <p className="mb-2.5 last:mb-0 first:mt-0 leading-relaxed">{children}</p>,
@@ -217,18 +219,6 @@ function formatFlowStatusForDisplay(state: string): string {
   return u;
 }
 
-function oneLinePendingFromAgentText(text: string, max = 88): string {
-  const noMd = text
-    .replace(/\*\*([^*]+)\*\*/g, "$1")
-    .replace(/\*([^*]+)\*/g, "$1")
-    .replace(/\s+/g, " ")
-    .trim();
-  const bySentence = noMd.split(/(?<=[.!?])\s+/);
-  const first = (bySentence[0] ?? noMd).trim();
-  if (first.length <= max) return first;
-  return `${first.slice(0, max - 1).trim()}…`;
-}
-
 function sageMessageDedupeKey(m: SageFlowMessage): string {
   return `${m.step_key}\0${m.created_at}`;
 }
@@ -254,6 +244,7 @@ function chatMessagesFromSageList(sorted: SageFlowMessage[]): ChatMessage[] {
 }
 
 export const SAGE_SESSION_KEY = "opentowork-sage-onboarding-v1";
+export const SAGE_ONBOARDING_COMPLETED_KEY = "opentowork-sage-onboarding-completed-v1";
 const SAGE_TASK_NAV_CONTEXT_KEY = "opentowork-sage-task-nav-v1";
 
 /** `DashboardSageFrame` listens so mobile/tablet can default Sage mode OFF after onboarding completes. */
@@ -527,11 +518,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const resumeFromTourOrDialogRef = useRef<() => Promise<void>>(async () => {});
   /** After flow hits complete, landing on replay should open the last Sage line (needs replay steps memo). */
   const pendingReplayEndRef = useRef(false);
-  const [portalReady, setPortalReady] = useState(false);
-
-  useEffect(() => {
-    setPortalReady(true);
-  }, []);
+  const [flowBootstrapRequested, setFlowBootstrapRequested] = useState(false);
 
   const applyFlowState = useCallback((flow: FlowEnvelopeResponse, keepMessages: boolean) => {
     setFlowInstanceId(flow.flow_instance.id);
@@ -732,6 +719,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
    * Conversation picker only appears if starting fails (e.g. network).
    */
   useEffect(() => {
+    if (!flowBootstrapRequested) return;
     let cancelled = false;
     const run = async () => {
       try {
@@ -889,7 +877,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       cancelled = true;
     };
     /* Intentionally omit `isDesktop`: bootstrap must run on mobile/tablet; including it re-ran the flow after the media query flip and duplicated work on desktop. */
-  }, [applyFlowState, fetchActiveConversations]);
+  }, [applyFlowState, fetchActiveConversations, flowBootstrapRequested]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !conversationId) return;
@@ -1010,6 +998,29 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   }, []);
 
   useEffect(() => {
+    const onOpenFlow = (ev: Event) => {
+      const ce = ev as CustomEvent<{ resumeFlowInstanceId?: string | null }>;
+      const resumeFlowInstanceId =
+        typeof ce.detail?.resumeFlowInstanceId === "string" ? ce.detail.resumeFlowInstanceId : null;
+      setFlowBootstrapRequested(true);
+      setSkipped(false);
+      setExpanded(true);
+      setShowConversationList(false);
+      if (resumeFlowInstanceId) {
+        void startOnboardingRef.current(resumeFlowInstanceId);
+        return;
+      }
+      if (flowInstanceId ?? conversationId) {
+        void resumeFromTourOrDialogRef.current();
+        return;
+      }
+      void startOnboardingRef.current();
+    };
+    window.addEventListener(SAGE_OPEN_ONBOARDING_FLOW_EVENT, onOpenFlow);
+    return () => window.removeEventListener(SAGE_OPEN_ONBOARDING_FLOW_EVENT, onOpenFlow);
+  }, [conversationId, flowInstanceId]);
+
+  useEffect(() => {
     if (!conversationId || !expanded || skipped || showConversationList) return;
     void refreshConversationStatus();
     const t = setInterval(() => void refreshConversationStatus(), 20000);
@@ -1041,23 +1052,6 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     return flowLabel;
   }, [flowLabel, ready, showConversationList, status]);
 
-  const sageHubPendingLine = useMemo(() => {
-    if (status === "completed" || status === "FLOW_COMPLETED")
-      return "Hi, I am Sage! Let me know if you need help.";
-    if (currentStep) return `Finish: ${flowLabel}`;
-    if (nextStep) return `Up next: ${flowLabel}`;
-    if (status && status !== "completed") return `${flowLabel}: ${status}`;
-    const lastAgent = [...messages].reverse().find((m) => m.role === "agent");
-    const fromMsg = lastAgent?.text?.trim() ?? "";
-    if (fromMsg) return oneLinePendingFromAgentText(fromMsg);
-    return `Finish ${flowLabel.toLowerCase()} in Sage`;
-  }, [messages, currentStep, nextStep, status, flowLabel]);
-
-  const resumeSageFromPausedHub = useCallback(() => {
-    setSkipped(false);
-    setExpanded(true);
-    setShowConversationList(false);
-  }, []);
 
   const todoItems = useMemo(
     () => {
@@ -1520,8 +1514,6 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
   const sageProgressPercent = isOnboardingFlow ? onboardingUnifiedProgressPercent : progressBarPercent;
 
-  /** When onboarding finishes, suppress duplicate status line on the FAB; button remains. */
-  const showPausedHubCaption = !isOnboardingFlow || !onboardingCompletedForUi;
 
   /**
    * First sample after `(ready && !loading)` establishes baseline — avoids treating “already complete at mount” as a live transition,
@@ -1551,6 +1543,11 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   /** Mark flow "completed" in chrome only after replay reaches latest server step. */
   useEffect(() => {
     if (!ready || loading || !onboardingCompletedForUi) return;
+    try {
+      localStorage.setItem(SAGE_ONBOARDING_COMPLETED_KEY, "1");
+    } catch {
+      // ignore storage restrictions
+    }
     setShowConversationList(false);
     setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
     emitMobileSageModePreferenceIfMobile(false);
@@ -1558,8 +1555,6 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
   const showDesktopLoadingBanner = loading && isDesktop;
   const pausedHubDesktop = skipped && isDesktop && !loading;
-  const showPausedHubAttention = status === "active" || status === "FLOW_ACTIVE";
-
   useLayoutEffect(() => {
     onRightRailChange?.(!pausedHubDesktop);
   }, [onRightRailChange, pausedHubDesktop]);
@@ -1624,57 +1619,6 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         pausedHubDesktop && "h-0 min-h-0 overflow-hidden p-0"
       )}
     >
-      {portalReady &&
-        pausedHubDesktop &&
-        createPortal(
-          <div className="pointer-events-none max-lg:hidden">
-            <div className="pointer-events-auto fixed bottom-5 right-5 z-[44] flex w-[13.5rem] flex-col items-center gap-2 max-lg:hidden">
-              {showPausedHubCaption ? (
-                <div
-                  role="status"
-                  className="w-full max-w-full rounded-lg border border-zinc-200/90 bg-white px-2.5 py-1.5 text-left shadow-md ring-1 ring-black/5 dark:border-zinc-600 dark:bg-zinc-900 dark:ring-white/10"
-                >
-                  <p
-                    id="sage-hub-pending-line"
-                    className="text-center text-xs font-medium leading-snug text-zinc-700 dark:text-zinc-200"
-                    title={sageHubPendingLine}
-                  >
-                    {sageHubPendingLine}
-                  </p>
-                </div>
-              ) : null}
-              <div className="relative h-[4.5rem] w-[4.5rem] overflow-visible">
-                {showPausedHubAttention && showPausedHubCaption ? (
-                  <>
-                    <span
-                      className="absolute inset-0 -m-1 rounded-full bg-amber-400/40 blur-[3px] motion-safe:animate-pulse"
-                      aria-hidden
-                    />
-                    <span
-                      className="absolute inset-0 rounded-full border-2 border-amber-400/50 motion-safe:animate-ping"
-                      aria-hidden
-                    />
-                  </>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={resumeSageFromPausedHub}
-                  className="relative z-10 flex h-[4.5rem] w-[4.5rem] items-center justify-center overflow-hidden rounded-full border-2 border-amber-300 bg-orange-50 text-lg font-bold text-orange-900 shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 dark:border-amber-600/60 dark:bg-zinc-800 dark:text-orange-100 dark:focus:ring-amber-500"
-                  title="Open Sage to continue onboarding"
-                  aria-label="Open Sage to continue onboarding"
-                  aria-describedby={showPausedHubCaption ? "sage-hub-pending-line" : undefined}
-                >
-                  S
-                  <span
-                    className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-orange-50 bg-amber-500 dark:border-zinc-900 dark:bg-amber-400"
-                    aria-hidden
-                  />
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
       {!pausedHubDesktop && showDesktopLoadingBanner ? (
         <div
           className="pointer-events-none fixed z-[45] max-lg:hidden"

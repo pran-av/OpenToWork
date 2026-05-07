@@ -6,6 +6,7 @@ import DashboardFooter from "@/components/dashboard/DashboardFooter";
 import { DashboardMainCanvas } from "@/components/dashboard/DashboardMainCanvas";
 import { DashboardSageFrame } from "@/components/dashboard/DashboardSageFrame";
 import DashboardDesktopSidebar from "@/components/dashboard/DashboardDesktopSidebar";
+import DashboardFlowPullDrawer from "@/components/dashboard/DashboardFlowPullDrawer";
 
 type DashboardClientShellProps = {
   children: ReactNode;
@@ -33,6 +34,7 @@ export function DashboardClientShell({ children }: DashboardClientShellProps) {
       {!desktopFlowOverlayActive ? (
         <div ref={headerShellRef} className="relative z-50">
           <DashboardHeader />
+          <DashboardFlowPullDrawer />
         </div>
       ) : null}
       <div className="flex min-h-0 flex-1">
@@ -40,7 +42,7 @@ export function DashboardClientShell({ children }: DashboardClientShellProps) {
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <DashboardSageFrame
             headerOffsetPx={desktopFlowOverlayActive ? 0 : headerHeightPx}
-            onDesktopFlowOverlayChange={setDesktopFlowOverlayActive}
+              onFlowOverlayChange={setDesktopFlowOverlayActive}
           >
             <DashboardMainCanvas>{children}</DashboardMainCanvas>
             <DashboardFooter />
