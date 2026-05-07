@@ -5,6 +5,7 @@ import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import DashboardFooter from "@/components/dashboard/DashboardFooter";
 import { DashboardMainCanvas } from "@/components/dashboard/DashboardMainCanvas";
 import { DashboardSageFrame } from "@/components/dashboard/DashboardSageFrame";
+import DashboardDesktopSidebar from "@/components/dashboard/DashboardDesktopSidebar";
 
 type DashboardClientShellProps = {
   children: ReactNode;
@@ -31,10 +32,15 @@ export function DashboardClientShell({ children }: DashboardClientShellProps) {
       <div ref={headerShellRef} className="relative z-50">
         <DashboardHeader />
       </div>
-      <DashboardSageFrame headerOffsetPx={headerHeightPx}>
-        <DashboardMainCanvas>{children}</DashboardMainCanvas>
-        <DashboardFooter />
-      </DashboardSageFrame>
+      <div className="flex min-h-0 flex-1">
+        <DashboardDesktopSidebar />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <DashboardSageFrame headerOffsetPx={headerHeightPx}>
+            <DashboardMainCanvas>{children}</DashboardMainCanvas>
+            <DashboardFooter />
+          </DashboardSageFrame>
+        </div>
+      </div>
     </div>
   );
 }
