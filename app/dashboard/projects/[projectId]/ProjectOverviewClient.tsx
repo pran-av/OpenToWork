@@ -26,6 +26,8 @@ export default function ProjectOverviewClient({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const isOnboardingCampaignCreateStep =
+    searchParams.get("sage_highlight") === "campaigns_dashboard.project.campaign.create_cta";
   
   useEffect(() => {
     if (pathname && /^\/dashboard\/projects\/[^/]+$/.test(pathname)) {
@@ -623,13 +625,18 @@ export default function ProjectOverviewClient({
       )}
 
       {/* Create Campaign Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={(open) => {
-        setIsDialogOpen(open);
-        if (!open) {
-          setCampaignName("");
-          setError(null);
-        }
-      }}>
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            setCampaignName("");
+            setError(null);
+          }
+        }}
+        panelId="sage-onboarding-campaign-dialog"
+        hideBackdrop={isOnboardingCampaignCreateStep}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Campaign</DialogTitle>

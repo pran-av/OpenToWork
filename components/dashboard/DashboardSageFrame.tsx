@@ -106,7 +106,7 @@ const SAGE_TARGET_SELECTOR: Record<string, string> = {
   "onboarding.congrats.experience_recorded": "#experience-created-highlight",
   "nav.campaigns_dashboard": "#projects-root",
   "campaigns_dashboard.project.create_cta": `#sage-onboarding-project-dialog, #sage-onboarding-project-dialog-submit, [data-sage-target="create-project-cta"]`,
-  "campaigns_dashboard.project.campaign.create_cta": `#sage-onboarding-campaign-dialog-submit, [data-sage-target="create-campaign-cta"]`,
+  "campaigns_dashboard.project.campaign.create_cta": `#sage-onboarding-campaign-dialog, #sage-onboarding-campaign-dialog-submit, [data-sage-target="create-campaign-cta"]`,
   "campaign.form.title": "#campaign-title",
   "campaign.form.summary": "#campaign-summary",
   "campaign.form.call_to_action": "#campaign-cta",
@@ -124,6 +124,10 @@ const SAGE_TARGET_SELECTOR: Record<string, string> = {
 function getPreferredSageTargetNode(target: string, selector: string): Element | null {
   if (target === "campaigns_dashboard.project.create_cta") {
     const dialogNode = queryVisibleSageTarget("#sage-onboarding-project-dialog");
+    if (dialogNode) return dialogNode;
+  }
+  if (target === "campaigns_dashboard.project.campaign.create_cta") {
+    const dialogNode = queryVisibleSageTarget("#sage-onboarding-campaign-dialog");
     if (dialogNode) return dialogNode;
   }
   return queryVisibleSageTarget(selector);
@@ -392,7 +396,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       );
 
     const updatePosition = () => {
-      const node = queryVisibleSageTarget(selector);
+      const node = getPreferredSageTargetNode(sageTaskDialog.target ?? "", selector);
       if (!node) {
         setSageHighlightRect(null);
         return;
