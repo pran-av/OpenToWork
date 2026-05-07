@@ -576,6 +576,18 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       }
     } else {
       const primeOnly = appliedSageMessageKeysRef.current.size === 0;
+      if (primeOnly) {
+        /**
+         * First keepMessages sync after remount/resume: seed from the server envelope directly.
+         * Otherwise we suppress appends (by design below) and can miss late terminal lines
+         * like `onboarding_summary_and_close` in happy-path Back-to-Sage.
+         */
+        appliedSageMessageKeysRef.current = new Set(sortedSage.map(sageMessageDedupeKey));
+        if (sageChats.length > 0) {
+          setMessages(sageChats);
+        }
+        return;
+      }
       const toAppend: ChatMessage[] = [];
       for (const m of sortedSage) {
         const key = sageMessageDedupeKey(m);
@@ -656,10 +668,10 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         const done = onboardingCompleteFromFlowEnvelope(flow);
         setReady(true);
         if (done) {
-          setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
+          setSkipped(false);
+          setExpanded(true);
           pendingReplayEndRef.current = true;
           setOnboardingLinearPhase("replay");
-          emitMobileSageModePreferenceIfMobile(false);
         } else {
           setExpanded(true);
           setSkipped(false);
@@ -748,8 +760,9 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             setOnboardingLinearSlideIndex(lin0.slideIndex);
             if (persistedSessionOnboardingComplete(snap)) {
               setShowConversationList(false);
-              setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
-              emitMobileSageModePreferenceIfMobile(false);
+              setSkipped(false);
+              setExpanded(true);
+              pendingReplayEndRef.current = true;
             } else {
               const mobileViewport =
                 typeof window !== "undefined" && !window.matchMedia("(min-width: 1024px)").matches;
@@ -772,8 +785,9 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               setOnboardingLinearSlideIndex(linSrv.slideIndex);
               if (srvComplete) {
                 setShowConversationList(false);
-                setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
-                emitMobileSageModePreferenceIfMobile(false);
+                setSkipped(false);
+                setExpanded(true);
+                pendingReplayEndRef.current = true;
               } else {
                 const mobileViewport =
                   typeof window !== "undefined" && !window.matchMedia("(min-width: 1024px)").matches;
@@ -832,8 +846,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             if (donePick) {
               pendingReplayEndRef.current = true;
               setShowConversationList(false);
-              setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
-              emitMobileSageModePreferenceIfMobile(false);
+              setSkipped(false);
+              setExpanded(true);
             } else {
               setSkipped(false);
               setExpanded(true);
@@ -1392,6 +1406,12 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const replayStepCount = onboardingReplaySteps?.length ?? 0;
   const replayActiveIndex =
     replayStepCount > 0 ? Math.min(onboardingLinearSlideIndex, replayStepCount - 1) : 0;
+  const replayAtLatestServerStep =
+    !isOnboardingFlow ||
+    onboardingLinearPhase !== "replay" ||
+    replayStepCount === 0 ||
+    replayActiveIndex >= replayStepCount - 1;
+  const onboardingCompletedForUi = onboardingFullyComplete && replayAtLatestServerStep;
 
   const isReplayTasksHubStep = useMemo(
     () =>
@@ -1488,7 +1508,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const sageProgressPercent = isOnboardingFlow ? onboardingUnifiedProgressPercent : progressBarPercent;
 
   /** When onboarding finishes, suppress duplicate status line on the FAB; button remains. */
-  const showPausedHubCaption = !isOnboardingFlow || !onboardingFullyComplete;
+  const showPausedHubCaption = !isOnboardingFlow || !onboardingCompletedForUi;
 
   /**
    * First sample after `(ready && !loading)` establishes baseline — avoids treating “already complete at mount” as a live transition,
@@ -1496,7 +1516,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
    */
   const onboardingCompleteBaselineRef = useRef<boolean | null>(null);
 
-  /** When onboarding crosses to complete mid-session, collapse chrome and default mobile/tablet Sage mode OFF (unless user hold). */
+  /** When onboarding crosses to complete mid-session, enter replay mode first. */
   useEffect(() => {
     if (!ready || loading) return;
     const now = onboardingFullyComplete;
@@ -1509,11 +1529,19 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     onboardingCompleteBaselineRef.current = now;
     if (!now || prev) return;
     setShowConversationList(false);
-    setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
+    setSkipped(false);
+    setExpanded(true);
     pendingReplayEndRef.current = true;
     setOnboardingLinearPhase("replay");
-    emitMobileSageModePreferenceIfMobile(false);
   }, [loading, onboardingFullyComplete, ready]);
+
+  /** Mark flow "completed" in chrome only after replay reaches latest server step. */
+  useEffect(() => {
+    if (!ready || loading || !onboardingCompletedForUi) return;
+    setShowConversationList(false);
+    setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
+    emitMobileSageModePreferenceIfMobile(false);
+  }, [loading, onboardingCompletedForUi, ready]);
 
   const showDesktopLoadingBanner = loading && isDesktop;
   const pausedHubDesktop = skipped && isDesktop && !loading;
