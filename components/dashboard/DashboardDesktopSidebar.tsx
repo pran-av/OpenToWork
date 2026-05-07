@@ -40,7 +40,7 @@ const DESKTOP_NAV_ITEMS: DesktopNavItem[] = [
 export default function DashboardDesktopSidebar() {
   const router = useRouter();
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
