@@ -613,6 +613,16 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     setExpanded(false);
   }, []);
 
+  const closeFlow = useCallback(() => {
+    if (!isDesktop) {
+      setSageMobileUserHoldOpen(false);
+      emitMobileSageModePreferenceIfMobile(false);
+    }
+    setSkipped(true);
+    setExpanded(false);
+    setShowConversationList(false);
+  }, [isDesktop]);
+
   useImperativeHandle(
     ref,
     () => ({
@@ -1707,6 +1717,18 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         )}
         aria-hidden={showDesktopLoadingBanner ? true : undefined}
       >
+        <div className="flex items-center justify-between border-b border-orange-200/80 bg-orange-100/80 px-4 py-2.5 dark:border-orange-800/60 dark:bg-orange-950/35">
+          <p className="text-xs font-semibold uppercase tracking-wide text-orange-900 dark:text-orange-100">
+            Progress Saved
+          </p>
+          <button
+            type="button"
+            onClick={closeFlow}
+            className="text-xs font-semibold text-orange-900 underline-offset-2 hover:underline dark:text-orange-200"
+          >
+            Close Flow
+          </button>
+        </div>
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {loading ? (
@@ -1747,15 +1769,6 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                 className="text-xs font-medium text-orange-800 underline-offset-2 hover:underline dark:text-orange-200"
               >
                 Back to conversations
-              </button>
-            )}
-            {!loading && ready && !skipped && (
-              <button
-                type="button"
-                onClick={skipOnboarding}
-                className="hidden text-xs font-medium text-orange-800 underline-offset-2 hover:underline dark:text-orange-200 lg:block"
-              >
-                Collapse window
               </button>
             )}
           </div>
