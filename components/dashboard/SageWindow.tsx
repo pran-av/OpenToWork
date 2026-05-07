@@ -488,7 +488,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [skipped, setSkipped] = useState(false);
+  const [skipped, setSkipped] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -519,6 +519,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   /** After flow hits complete, landing on replay should open the last Sage line (needs replay steps memo). */
   const pendingReplayEndRef = useRef(false);
   const [flowBootstrapRequested, setFlowBootstrapRequested] = useState(false);
+  const [requestedResumeFlowId, setRequestedResumeFlowId] = useState<string | null>(null);
+  const [requestedForceStart, setRequestedForceStart] = useState(false);
 
   const applyFlowState = useCallback((flow: FlowEnvelopeResponse, keepMessages: boolean) => {
     setFlowInstanceId(flow.flow_instance.id);
@@ -720,8 +722,29 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
    */
   useEffect(() => {
     if (!flowBootstrapRequested) return;
+    setFlowBootstrapRequested(false);
+    const resumeFlowInstanceId = requestedResumeFlowId;
+    const forceStart = requestedForceStart;
+    setRequestedResumeFlowId(null);
+    setRequestedForceStart(false);
     let cancelled = false;
     const run = async () => {
+      if (forceStart) {
+        const started = await startOnboardingRef.current(null);
+        if (cancelled) return;
+        if (started) return;
+        setReady(true);
+        setSkipped(false);
+        setExpanded(true);
+        setShowConversationList(true);
+        await fetchActiveConversations();
+        return;
+      }
+      if (resumeFlowInstanceId) {
+        const started = await startOnboardingRef.current(resumeFlowInstanceId);
+        if (cancelled) return;
+        if (started) return;
+      }
       try {
         const raw = sessionStorage.getItem(SAGE_SESSION_KEY);
         if (raw) {
@@ -877,7 +900,13 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       cancelled = true;
     };
     /* Intentionally omit `isDesktop`: bootstrap must run on mobile/tablet; including it re-ran the flow after the media query flip and duplicated work on desktop. */
-  }, [applyFlowState, fetchActiveConversations, flowBootstrapRequested]);
+  }, [
+    applyFlowState,
+    fetchActiveConversations,
+    flowBootstrapRequested,
+    requestedForceStart,
+    requestedResumeFlowId,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !conversationId) return;
@@ -999,26 +1028,19 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
 
   useEffect(() => {
     const onOpenFlow = (ev: Event) => {
-      const ce = ev as CustomEvent<{ resumeFlowInstanceId?: string | null }>;
+      const ce = ev as CustomEvent<{ resumeFlowInstanceId?: string | null; forceStart?: boolean }>;
       const resumeFlowInstanceId =
         typeof ce.detail?.resumeFlowInstanceId === "string" ? ce.detail.resumeFlowInstanceId : null;
+      setRequestedResumeFlowId(resumeFlowInstanceId);
+      setRequestedForceStart(Boolean(ce.detail?.forceStart));
       setFlowBootstrapRequested(true);
       setSkipped(false);
       setExpanded(true);
       setShowConversationList(false);
-      if (resumeFlowInstanceId) {
-        void startOnboardingRef.current(resumeFlowInstanceId);
-        return;
-      }
-      if (flowInstanceId ?? conversationId) {
-        void resumeFromTourOrDialogRef.current();
-        return;
-      }
-      void startOnboardingRef.current();
     };
     window.addEventListener(SAGE_OPEN_ONBOARDING_FLOW_EVENT, onOpenFlow);
     return () => window.removeEventListener(SAGE_OPEN_ONBOARDING_FLOW_EVENT, onOpenFlow);
-  }, [conversationId, flowInstanceId]);
+  }, []);
 
   useEffect(() => {
     if (!conversationId || !expanded || skipped || showConversationList) return;

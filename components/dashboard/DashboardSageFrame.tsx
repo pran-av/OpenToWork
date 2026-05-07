@@ -179,7 +179,7 @@ export function DashboardSageFrame({
   onFlowOverlayChange,
 }: DashboardSageFrameProps) {
   const [isDesktop, setIsDesktop] = useState(false);
-  const [sageModeEnabled, setSageModeEnabled] = useState(true);
+  const [sageModeEnabled, setSageModeEnabled] = useState(false);
   const [sageLayerActive, setSageLayerActive] = useState(false);
   const [sageRightRailOpen, setSageRightRailOpen] = useState(true);
   const [sageTaskDialog, setSageTaskDialog] = useState<{

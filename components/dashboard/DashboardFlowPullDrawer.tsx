@@ -3,10 +3,12 @@
 import { useCallback, useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { listActiveOnboardingFlowsV2 } from "@/lib/agent-flow-v2";
+import {
+  listActiveOnboardingFlowsV2,
+  listCompletedOnboardingFlowsV2,
+} from "@/lib/agent-flow-v2";
 import {
   SAGE_MOBILE_MODE_PREFERENCE_EVENT,
-  SAGE_ONBOARDING_COMPLETED_KEY,
   SAGE_OPEN_ONBOARDING_FLOW_EVENT,
   setSageMobileUserHoldOpen,
 } from "@/components/dashboard/SageWindow";
@@ -19,20 +21,6 @@ export default function DashboardFlowPullDrawer() {
   const [pendingFlowId, setPendingFlowId] = useState<string | null>(null);
 
   const refreshFlowState = useCallback(async () => {
-    let completed = false;
-    try {
-      if (localStorage.getItem(SAGE_ONBOARDING_COMPLETED_KEY) === "1") {
-        completed = true;
-      }
-      const raw = sessionStorage.getItem(SAGE_SESSION_KEY);
-      if (raw) {
-        const snap = JSON.parse(raw) as SagePersistedSession;
-        if (snap.v === 1) completed = persistedSessionOnboardingComplete(snap);
-      }
-    } catch {
-      // ignore parse issues
-    }
-
     try {
       const flows = await listActiveOnboardingFlowsV2();
       const onboarding = flows.find(
@@ -44,20 +32,31 @@ export default function DashboardFlowPullDrawer() {
         return;
       }
     } catch {
-      // fallback to local status
+      // continue: completed lookup can still provide best-effort state
+    }
+
+    try {
+      const completed = await listCompletedOnboardingFlowsV2();
+      const onboardingCompleted = completed.some(
+        (f) => (f.flow_instance.flow_type ?? "").trim().toUpperCase() === "ONBOARDING"
+      );
+      setPendingFlowId(null);
+      setStatus(onboardingCompleted ? "completed" : "available");
+      return;
+    } catch {
+      // fall through
     }
 
     setPendingFlowId(null);
-    setStatus(completed ? "completed" : "available");
+    setStatus("available");
   }, []);
 
   const pullLabel = useMemo(() => {
-    if (status === "pending") return "Onboarding Flow Pending";
     if (status === "available") return "Onboarding Flow Available";
-    return "All Flows Completed";
+    return "Open Flow Panel";
   }, [status]);
 
-  const isHighlighted = status === "available" || status === "pending";
+  const isHighlighted = status === "available";
 
   const triggerOnboardingFlow = () => {
     setOpen(false);
@@ -67,11 +66,16 @@ export default function DashboardFlowPullDrawer() {
         new CustomEvent(SAGE_MOBILE_MODE_PREFERENCE_EVENT, { detail: { enabled: true } })
       );
     }
-    window.dispatchEvent(
-      new CustomEvent(SAGE_OPEN_ONBOARDING_FLOW_EVENT, {
-        detail: { resumeFlowInstanceId: pendingFlowId },
-      })
-    );
+    window.setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent(SAGE_OPEN_ONBOARDING_FLOW_EVENT, {
+          detail: {
+            resumeFlowInstanceId: status === "pending" ? pendingFlowId : null,
+            forceStart: status === "available",
+          },
+        })
+      );
+    }, 0);
   };
 
   return (
