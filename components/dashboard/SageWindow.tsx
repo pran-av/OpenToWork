@@ -42,6 +42,13 @@ type OnboardingReplayStep =
 
 type ChatMessage = { role: "agent" | "user"; text: string; sageStepKey?: string };
 
+/**
+ * Terminology guard (UI copy only): keep these user-facing terms stable.
+ * - Project -> Application
+ * - Campaign -> Pitch
+ * - Lead -> Recruiter
+ * Do not rename internal routes/types/identifiers from this comment.
+ */
 /** Post-completion linear tour: intro messages → tasks hub → outro + any agent rows missing from intro/outro buckets. */
 function buildOnboardingReplaySteps(
   messages: ChatMessage[],
@@ -133,7 +140,7 @@ const ONBOARDING_TARGET_DEFAULT_LABEL: Record<string, string> = {
   "profile.user_name.edit": "Update your first and last name in profile.",
   "profile.resume.upload_cta": "Upload your resume in profile.",
   "profile.linkedin.connect_cta": "Finish your LinkedIn connection in profile settings.",
-  "nav.campaigns_dashboard": "Open Campaigns to build pitches from your experiences.",
+  "nav.campaigns_dashboard": "Open Pitches to present your experiences.",
 };
 
 /**
