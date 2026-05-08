@@ -1672,6 +1672,12 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       // ignore storage restrictions
     }
     setShowConversationList(false);
+    /**
+     * Keep replay visible at completion. Collapsing here can hide the terminal
+     * onboarding message immediately after users click Next from the replay
+     * tasks hub, which feels like the flow ended abruptly.
+     */
+    if (onboardingLinearPhase === "replay") return;
     if (suppressPostCompletionChromeRef.current) {
       /** Defer reset so Strict Mode’s double effect invocation (or a tight second pass) still skips hub collapse. */
       queueMicrotask(() => {
@@ -1681,7 +1687,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     }
     setPanelStateForCompletedOnboarding(setSkipped, setExpanded);
     emitMobileSageModePreferenceIfMobile(false);
-  }, [loading, onboardingCompletedForUi, ready]);
+  }, [loading, onboardingCompletedForUi, onboardingLinearPhase, ready]);
 
   const showDesktopLoadingBanner = loading && isDesktop && !flowPrepareUiOnCta;
   const pausedHubDesktop = skipped && isDesktop && !loading;
@@ -2022,7 +2028,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                           <span className="shrink-0 rounded-md border border-amber-300/90 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-900 dark:border-amber-700/70 dark:bg-amber-950/40 dark:text-amber-100">
                             Skipped
                           </span>
-                        ) : !isOnboardingFlow && item.href ? (
+                        ) : !isOnboardingFlow && "href" in item && item.href ? (
                           <button
                             type="button"
                             onClick={() => {
@@ -2032,8 +2038,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                                 href,
                                 target: item.target,
                                 label: item.label,
-                                tooltip: item.tooltip,
-                                message: item.message,
+                                tooltip: "tooltip" in item ? item.tooltip : undefined,
+                                message: "message" in item ? item.message : undefined,
                               });
                             }}
                             className="shrink-0 rounded-md border border-orange-300 bg-orange-100 px-2 py-1 text-[11px] font-semibold text-orange-900 transition-colors hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/40 dark:text-orange-100 dark:hover:border-orange-600 dark:hover:bg-orange-800 dark:hover:text-orange-50"
