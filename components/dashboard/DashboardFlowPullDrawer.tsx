@@ -21,7 +21,7 @@ type FlowDrawerStatus = "idle" | "available" | "pending" | "completed";
 
 type FlowCtaKind = "available" | "pending" | "completed";
 
-type DashboardFlowBannerKey = keyof typeof flowBannerConfig;
+type DashboardFlowBannerKey = Exclude<keyof typeof flowBannerConfig, "_comment">;
 
 type DashboardFlowPullDrawerProps = {
   bannerKey: DashboardFlowBannerKey;
@@ -44,7 +44,11 @@ export default function DashboardFlowPullDrawer({ bannerKey }: DashboardFlowPull
         setStatus("pending");
         setPendingFlowId(onboarding.flow_instance.id);
         setCompletedFlowId(null);
-        return;
+        return {
+          status: "pending" as const,
+          pendingFlowId: onboarding.flow_instance.id,
+          completedFlowId: null,
+        };
       }
     } catch {
       // continue: completed lookup can still provide best-effort state
@@ -61,7 +65,11 @@ export default function DashboardFlowPullDrawer({ bannerKey }: DashboardFlowPull
       setPendingFlowId(null);
       setCompletedFlowId(hasCompleted ? onboardingCompleted[0].flow_instance.id : null);
       setStatus(hasCompleted ? "completed" : "available");
-      return;
+      return {
+        status: hasCompleted ? ("completed" as const) : ("available" as const),
+        pendingFlowId: null,
+        completedFlowId: hasCompleted ? onboardingCompleted[0].flow_instance.id : null,
+      };
     } catch {
       // fall through
     }
@@ -69,6 +77,11 @@ export default function DashboardFlowPullDrawer({ bannerKey }: DashboardFlowPull
     setPendingFlowId(null);
     setCompletedFlowId(null);
     setStatus("available");
+    return {
+      status: "available" as const,
+      pendingFlowId: null,
+      completedFlowId: null,
+    };
   }, []);
 
   /** Server truth for strip + drawer; run on mount so we don’t show “available” until we know. */
@@ -104,7 +117,10 @@ export default function DashboardFlowPullDrawer({ bannerKey }: DashboardFlowPull
 
   const isHighlighted = status === "available";
 
-  const triggerOnboardingFlow = (kind: FlowCtaKind) => {
+  const triggerOnboardingFlow = (
+    kind: FlowCtaKind,
+    overrides?: { pendingFlowId: string | null; completedFlowId: string | null }
+  ) => {
     setFlowCtaPreparing(kind);
     if (typeof window !== "undefined" && !window.matchMedia("(min-width: 1024px)").matches) {
       setSageMobileUserHoldOpen(true);
@@ -118,9 +134,9 @@ export default function DashboardFlowPullDrawer({ bannerKey }: DashboardFlowPull
           detail: {
             resumeFlowInstanceId:
               kind === "pending"
-                ? pendingFlowId
+                ? (overrides?.pendingFlowId ?? pendingFlowId)
                 : kind === "completed"
-                  ? completedFlowId
+                  ? (overrides?.completedFlowId ?? completedFlowId)
                   : null,
             forceStart: kind === "available",
             prepareUiOnFlowCta: true,
@@ -132,6 +148,14 @@ export default function DashboardFlowPullDrawer({ bannerKey }: DashboardFlowPull
 
   const flowCtaDisabled = flowCtaPreparing !== null;
   const bannerContent = flowBannerConfig[bannerKey];
+  const ctaLabel = pullLabel;
+  const isFlowPanelCta = status === "idle" || status === "completed";
+  const ctaDisabled = isFlowPanelCta ? false : flowCtaDisabled;
+
+  const openFlowPanel = async () => {
+    await refreshFlowState();
+    setOpen(true);
+  };
 
   return (
     <>
@@ -139,14 +163,12 @@ export default function DashboardFlowPullDrawer({ bannerKey }: DashboardFlowPull
         role="button"
         tabIndex={0}
         onClick={async () => {
-          await refreshFlowState();
-          setOpen(true);
+          await openFlowPanel();
         }}
         onKeyDown={async (event) => {
           if (event.key !== "Enter" && event.key !== " ") return;
           event.preventDefault();
-          await refreshFlowState();
-          setOpen(true);
+          await openFlowPanel();
         }}
         className={cn(
           "flex min-h-[84px] w-full cursor-pointer items-center justify-between gap-4 rounded-xl border px-5 py-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-900",
@@ -160,16 +182,36 @@ export default function DashboardFlowPullDrawer({ bannerKey }: DashboardFlowPull
           <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{bannerContent.title}</p>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{bannerContent.subtitle}</p>
         </div>
-        <span
+        <button
+          type="button"
+          onClick={async (event) => {
+            event.stopPropagation();
+            if (isFlowPanelCta) {
+              await openFlowPanel();
+              return;
+            }
+            const latest = await refreshFlowState();
+            if (latest.status === "pending") {
+              triggerOnboardingFlow("pending", latest);
+              return;
+            }
+            if (latest.status === "completed") {
+              triggerOnboardingFlow("completed", latest);
+              return;
+            }
+            triggerOnboardingFlow("available", latest);
+          }}
+          disabled={ctaDisabled}
+          aria-label={`${ctaLabel}.`}
           className={cn(
-            "shrink-0 rounded-full border px-4 py-2 text-sm font-semibold",
+            "shrink-0 rounded-full border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60",
             isHighlighted
               ? "border-orange-300 bg-orange-100 text-orange-900 dark:border-orange-700 dark:bg-orange-900/50 dark:text-orange-100"
               : "border-zinc-300 bg-white text-zinc-700 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300"
           )}
         >
-          {pullLabel}
-        </span>
+          {ctaLabel}
+        </button>
       </div>
 
       {open
