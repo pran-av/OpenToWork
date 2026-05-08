@@ -427,18 +427,13 @@ function matchesMinLgSageViewport(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
 }
 
-/** Desktop: paused hub + corner FAB. Mobile/tablet overlay has no FAB — show the full completed flow (same as desktop after opening the FAB). */
+/** Completed onboarding should stay visible; do not enter paused-hub mode. */
 function setPanelStateForCompletedOnboarding(
   setSkipped: (skipped: boolean) => void,
   setExpanded: (expanded: boolean) => void
 ): void {
-  if (matchesMinLgSageViewport()) {
-    setSkipped(true);
-    setExpanded(false);
-  } else {
-    setSkipped(false);
-    setExpanded(true);
-  }
+  setSkipped(false);
+  setExpanded(true);
 }
 
 type SageTaskNavContext = {
@@ -464,7 +459,7 @@ export interface SageWindowProps {
 }
 
 export type SageWindowHandle = {
-  /** Same as the in-panel “Skip onboarding” control (pauses and collapses the thread UI). */
+  /** Legacy no-op for compatibility; onboarding no longer supports pause/restart mode. */
   skip: () => void;
   /** Re-opens the Sage panel on the active onboarding conversation (not the conversation picker). */
   resume: () => void;
@@ -648,8 +643,9 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   }, []);
 
   const skipOnboarding = useCallback(() => {
-    setSkipped(true);
-    setExpanded(false);
+    // Pause/restart mode removed: keep onboarding active and visible.
+    setSkipped(false);
+    setExpanded(true);
   }, []);
 
   const closeFlow = useCallback(() => {
@@ -657,7 +653,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       setSageMobileUserHoldOpen(false);
       emitMobileSageModePreferenceIfMobile(false);
     }
-    setSkipped(true);
+    // Close the rail without entering paused mode.
+    setSkipped(false);
     setExpanded(false);
     setShowConversationList(false);
   }, [isDesktop]);
@@ -1690,10 +1687,12 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
   }, [loading, onboardingCompletedForUi, onboardingLinearPhase, ready]);
 
   const showDesktopLoadingBanner = loading && isDesktop && !flowPrepareUiOnCta;
-  const pausedHubDesktop = skipped && isDesktop && !loading;
+  const hideMobilePreparingUiForCta = loading && !isDesktop && flowPrepareUiOnCta;
+  const pausedHubDesktop = false;
+  const desktopRightRailOpen = loading || expanded;
   useLayoutEffect(() => {
-    onRightRailChange?.(!pausedHubDesktop);
-  }, [onRightRailChange, pausedHubDesktop]);
+    onRightRailChange?.(desktopRightRailOpen);
+  }, [desktopRightRailOpen, onRightRailChange]);
 
   const handleSend = useCallback(async () => {
     if ((flowType ?? "").trim().toUpperCase() === "ONBOARDING") return;
@@ -1738,8 +1737,8 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
       } catch {
         // ignore storage failures
       }
-      // Collapse Sage so the destination page is fully visible for task completion.
-      setSkipped(true);
+      // Collapse Sage while navigating, but do not mark onboarding as paused.
+      setSkipped(false);
       setExpanded(false);
       router.push(buildOnboardingTaskHref(item.href, item.target), { scroll: false });
     },
@@ -1791,9 +1790,11 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
           /* Desktop collapsed rail stays short; mobile/tablet full-screen needs full height while loading (expanded is false). */
           expanded ? "max-h-full" : isDesktop ? "max-h-16" : "max-h-full",
           showDesktopLoadingBanner &&
+            "max-h-0 min-h-0 border-0 p-0 opacity-0 [visibility:hidden] pointer-events-none",
+          hideMobilePreparingUiForCta &&
             "max-h-0 min-h-0 border-0 p-0 opacity-0 [visibility:hidden] pointer-events-none"
         )}
-        aria-hidden={showDesktopLoadingBanner ? true : undefined}
+        aria-hidden={showDesktopLoadingBanner || hideMobilePreparingUiForCta ? true : undefined}
       >
         <div className={cn("mx-auto flex h-full w-full flex-col", isDesktop ? "max-w-4xl" : "max-w-3xl")}>
         {isDesktop ? (
@@ -1834,7 +1835,12 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
             </button>
           </div>
         )}
-        <div className={cn("flex items-center justify-between gap-3 px-4 py-3", isDesktop && "hidden")}>
+        <div
+          className={cn(
+            "flex items-center justify-between gap-3 px-4 py-3",
+            (isDesktop || hideMobilePreparingUiForCta) && "hidden"
+          )}
+        >
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {loading ? (
               <Loader2 className="h-4 w-4 shrink-0 animate-spin text-orange-600 dark:text-orange-300" />
@@ -1845,9 +1851,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               <p className="min-w-0 shrink truncate text-sm font-medium leading-5 text-orange-900 dark:text-orange-200">
                 {loading
                   ? "Sage is fetching your details to personalize onboarding..."
-                  : skipped
-                    ? `${flowLabel} paused. Restart when you're ready.`
-                    : progressLabel}
+                  : progressLabel}
               </p>
               {status && !loading && !showConversationList ? (
                 <span

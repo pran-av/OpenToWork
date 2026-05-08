@@ -181,7 +181,7 @@ export function DashboardSageFrame({
   const [isDesktop, setIsDesktop] = useState(false);
   const [sageModeEnabled, setSageModeEnabled] = useState(false);
   const [sageLayerActive, setSageLayerActive] = useState(false);
-  const [sageRightRailOpen, setSageRightRailOpen] = useState(true);
+  const [sageRightRailOpen, setSageRightRailOpen] = useState(false);
   const [sageTaskDialog, setSageTaskDialog] = useState<{
     open: boolean;
     tooltip: string;
@@ -907,7 +907,7 @@ export function DashboardSageFrame({
           className={
             sageRightRailOpen
               ? "fixed inset-x-0 bottom-0 z-[40] min-w-0 bg-orange-50 dark:bg-zinc-950"
-              : "pointer-events-none fixed inset-x-0 bottom-0 z-[40] min-w-0 overflow-hidden border-0 p-0"
+              : "pointer-events-none invisible fixed inset-x-0 bottom-0 z-[40] min-w-0 overflow-hidden border-0 p-0 opacity-0"
           }
           style={{ top: headerOffsetPx }}
         >

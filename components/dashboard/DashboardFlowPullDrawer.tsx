@@ -157,6 +157,9 @@ export default function DashboardFlowPullDrawer({ bannerKey }: DashboardFlowPull
     setOpen(true);
   };
 
+  const isMobileOrTabletViewport = () =>
+    typeof window !== "undefined" && !window.matchMedia("(min-width: 1024px)").matches;
+
   return (
     <>
       <div
@@ -171,14 +174,14 @@ export default function DashboardFlowPullDrawer({ bannerKey }: DashboardFlowPull
           await openFlowPanel();
         }}
         className={cn(
-          "flex min-h-[84px] w-full cursor-pointer items-center justify-between gap-4 rounded-xl border px-5 py-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-900",
+          "flex min-h-[84px] w-full cursor-pointer flex-col items-start gap-3 rounded-xl border px-5 py-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 md:flex-row md:items-center md:justify-between md:gap-4 dark:focus-visible:ring-offset-zinc-900",
           isHighlighted
             ? "border-orange-300 bg-orange-50 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-900/30 dark:hover:bg-orange-900/40"
             : "border-zinc-300 bg-zinc-50 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/70 dark:hover:bg-zinc-800"
         )}
         aria-label={`${pullLabel}. Open flow panel.`}
       >
-        <div className="min-w-0">
+        <div className="min-w-0 w-full">
           <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{bannerContent.title}</p>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{bannerContent.subtitle}</p>
         </div>
@@ -186,6 +189,11 @@ export default function DashboardFlowPullDrawer({ bannerKey }: DashboardFlowPull
           type="button"
           onClick={async (event) => {
             event.stopPropagation();
+            // Mobile/tablet: always route through Flow Panel to avoid direct bootstrap/loading flash.
+            if (isMobileOrTabletViewport()) {
+              await openFlowPanel();
+              return;
+            }
             if (isFlowPanelCta) {
               await openFlowPanel();
               return;
@@ -204,7 +212,7 @@ export default function DashboardFlowPullDrawer({ bannerKey }: DashboardFlowPull
           disabled={ctaDisabled}
           aria-label={`${ctaLabel}.`}
           className={cn(
-            "shrink-0 rounded-full border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60",
+            "ml-auto mt-1 shrink-0 rounded-full border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60 md:ml-0 md:mt-0",
             isHighlighted
               ? "border-orange-300 bg-orange-100 text-orange-900 dark:border-orange-700 dark:bg-orange-900/50 dark:text-orange-100"
               : "border-zinc-300 bg-white text-zinc-700 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300"
