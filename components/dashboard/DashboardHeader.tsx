@@ -15,6 +15,13 @@ interface ProfileData {
   avatar_url: string | null;
 }
 
+/**
+ * Terminology guard (UI copy only): keep these user-facing terms stable.
+ * - Project -> Application
+ * - Campaign -> Pitch
+ * - Lead -> Recruiter
+ * Do not rename internal routes/types/identifiers from this comment.
+ */
 const SAGE_SESSION_KEY = "opentowork-sage-onboarding-v1";
 const SAGE_TASK_NAV_CONTEXT_KEY = "opentowork-sage-task-nav-v1";
 
@@ -357,7 +364,7 @@ export default function DashboardHeader() {
           >
             <span className="flex flex-col items-center justify-center gap-1">
               <Megaphone className="h-[1.1rem] w-[1.1rem]" />
-              <span>Pitches</span>
+              <span>Applications</span> {/* Terminology guard: keep this term stable. */}
             </span>
           </button>
         </div>

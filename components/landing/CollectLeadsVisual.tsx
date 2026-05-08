@@ -2,6 +2,13 @@
 
 import { useState } from "react";
 
+/**
+ * Terminology guard (UI copy only): keep these user-facing terms stable.
+ * - Project -> Application
+ * - Campaign -> Pitch
+ * - Lead -> Recruiter
+ * Do not rename internal routes/types/identifiers from this comment.
+ */
 const MOCK_LEADS = [
   { name: "Alex M.", role: "Hiring Manager", tag: "New" },
   { name: "Jordan K.", role: "Founder", tag: "Viewed 2×" },

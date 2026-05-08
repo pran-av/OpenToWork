@@ -77,7 +77,13 @@ export const SAGE_RESUME_FROM_TOUR_EVENT = "opentowork-sage-resume-from-tour";
 export const SAGE_OPEN_ONBOARDING_FLOW_EVENT = "opentowork-sage-open-onboarding-flow";
 /** After flow bootstrap finishes when the drawer asked for in-button prepare UI (`prepareUiOnFlowCta`). */
 export const SAGE_FLOW_PREPARE_UI_DONE_EVENT = "opentowork-sage-flow-prepare-ui-done";
-/** UX terminology mapping for visible copy: projects -> applications, campaigns -> pitches. */
+/**
+ * Terminology guard (UI copy only): keep these user-facing terms stable.
+ * - Project -> Application
+ * - Campaign -> Pitch
+ * - Lead -> Recruiter
+ * Do not rename internal routes/types/identifiers from this comment.
+ */
 
 const SAGE_MARKDOWN_COMPONENTS: Components = {
   p: ({ children }) => <p className="mb-2.5 last:mb-0 first:mt-0 leading-relaxed">{children}</p>,

@@ -17,7 +17,13 @@ import DashboardFlowPullDrawer from "@/components/dashboard/DashboardFlowPullDra
 import { dispatchSagePrimaryActionDone } from "@/lib/sage-onboarding-primary";
 
 export default function DashboardProjectsPage() {
-  // UX terminology: "Project" is presented as "Application" in visible UI copy.
+  /**
+   * Terminology guard (UI copy only): keep these user-facing terms stable.
+   * - Project -> Application
+   * - Campaign -> Pitch
+   * - Lead -> Recruiter
+   * Do not rename internal routes/types/identifiers from this comment.
+   */
   const [projects, setProjects] = useState<ProjectData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -212,9 +218,9 @@ export default function DashboardProjectsPage() {
       <DashboardFlowPullDrawer bannerKey="campaigns" />
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Applications</h2>
+          <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Your Applications</h2>
           <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-            Manage your applications and pitches
+            Start new applications and create pitches
           </p>
         </div>
         {projects.length > 0 && (

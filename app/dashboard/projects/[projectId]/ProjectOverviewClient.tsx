@@ -23,7 +23,13 @@ export default function ProjectOverviewClient({
   initialCampaigns,
   initialActiveCampaign,
 }: ProjectOverviewClientProps) {
-  // UX terminology: "Project" is shown as "Application" and "Campaign" as "Pitch" in UI labels.
+  /**
+   * Terminology guard (UI copy only): keep these user-facing terms stable.
+   * - Project -> Application
+   * - Campaign -> Pitch
+   * - Lead -> Recruiter
+   * Do not rename internal routes/types/identifiers from this comment.
+   */
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -917,7 +923,7 @@ export default function ProjectOverviewClient({
           <div className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
             <div className="p-6">
               <h3 className="mb-4 text-lg font-semibold text-black dark:text-zinc-50">
-                Recruiters
+                Recruiters who want to connect
               </h3>
               
               {isLoadingLeads ? (

@@ -268,7 +268,7 @@ export default function ProfilePage() {
     <div className="space-y-6">
       <DashboardFlowPullDrawer bannerKey="profile" />
       <div>
-        <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Profile</h2>
+        <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Your Profile</h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
           Update your profile information
         </p>

@@ -693,7 +693,13 @@ export default function CampaignOverviewClient({
   hasActiveCampaign,
   isPublishable: initialIsPublishable,
 }: CampaignOverviewClientProps) {
-  // UX terminology: visible labels use Application/Pitch while internal entities remain Project/Campaign.
+  /**
+   * Terminology guard (UI copy only): keep these user-facing terms stable.
+   * - Project -> Application
+   * - Campaign -> Pitch
+   * - Lead -> Recruiter
+   * Do not rename internal routes/types/identifiers from this comment.
+   */
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

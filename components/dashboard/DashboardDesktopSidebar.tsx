@@ -7,6 +7,13 @@ import { BriefcaseBusiness, ChevronLeft, LogOut, Megaphone, User } from "lucide-
 import { cn } from "@/lib/utils";
 import { setSageMobileUserHoldOpen } from "@/components/dashboard/SageWindow";
 
+/**
+ * Terminology guard (UI copy only): keep these user-facing terms stable.
+ * - Project -> Application
+ * - Campaign -> Pitch
+ * - Lead -> Recruiter
+ * Do not rename internal routes/types/identifiers from this comment.
+ */
 type DesktopNavItem = {
   key: "experiences" | "campaigns" | "profile";
   label: string;
@@ -24,7 +31,7 @@ const DESKTOP_NAV_ITEMS: DesktopNavItem[] = [
   },
   {
     key: "campaigns",
-    label: "Applications",
+    label: "Applications", // Terminology guard: keep this term stable.
     href: "/dashboard/projects",
     icon: Megaphone,
   },

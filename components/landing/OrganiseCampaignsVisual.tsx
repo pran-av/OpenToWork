@@ -3,6 +3,13 @@
 import { useState } from "react";
 import { TextWithArrow } from "./TextWithArrow";
 
+/**
+ * Terminology guard (UI copy only): keep these user-facing terms stable.
+ * - Project -> Application
+ * - Campaign -> Pitch
+ * - Lead -> Recruiter
+ * Do not rename internal routes/types/identifiers from this comment.
+ */
 const CAMPAIGNS = [
   { id: "c1", name: "Backend depth", active: true },
   { id: "c2", name: "Product sense", active: false },
