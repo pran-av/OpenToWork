@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 /**
- * Interactive hint for “share as a one-time link” — animated campaign tiles collapsing into a link chip.
+ * Interactive hint for “share as a one-time link” — animated pitch tiles collapsing into a link chip.
  */
 export function CampaignsShareVisual() {
   const [phase, setPhase] = useState(0);

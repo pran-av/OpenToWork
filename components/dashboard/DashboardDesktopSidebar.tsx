@@ -24,7 +24,7 @@ const DESKTOP_NAV_ITEMS: DesktopNavItem[] = [
   },
   {
     key: "campaigns",
-    label: "Campaigns",
+    label: "Applications",
     href: "/dashboard/projects",
     icon: Megaphone,
   },

@@ -26,10 +26,10 @@ export function OrganiseCampaignsVisual() {
       <div className="mx-auto flex w-full max-w-full flex-col rounded-xl border border-orange-100 bg-white p-3 shadow-lg sm:p-4 lg:min-h-[25.5rem] lg:justify-between lg:p-5">
         <div>
           <p className="mb-1.5 font-inter text-[10px] text-[#74777F] sm:text-xs lg:mb-2 lg:text-sm">
-            Project: “Principal PM — Fintech”
+            Application: “Principal PM — Fintech”
           </p>
           <p className="mb-2 font-poppins text-xs font-semibold text-gray-900 sm:mb-3 sm:text-sm lg:mb-4 lg:text-base">
-            Tap a campaign to make it active on your link
+            Tap a pitch to make it active on your link
           </p>
           <ul className="space-y-1.5 sm:space-y-2 lg:space-y-2.5">
             {items.map((c) => (

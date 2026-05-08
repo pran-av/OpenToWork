@@ -357,7 +357,7 @@ export default function DashboardHeader() {
           >
             <span className="flex flex-col items-center justify-center gap-1">
               <Megaphone className="h-[1.1rem] w-[1.1rem]" />
-              <span>Campaigns</span>
+              <span>Pitches</span>
             </span>
           </button>
         </div>

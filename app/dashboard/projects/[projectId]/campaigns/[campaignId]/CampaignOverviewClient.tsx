@@ -693,6 +693,7 @@ export default function CampaignOverviewClient({
   hasActiveCampaign,
   isPublishable: initialIsPublishable,
 }: CampaignOverviewClientProps) {
+  // UX terminology: visible labels use Application/Pitch while internal entities remain Project/Campaign.
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -1109,7 +1110,7 @@ export default function CampaignOverviewClient({
       const campaignData = await campaignRes.json();
 
       if (!campaignRes.ok) {
-        setError(campaignData.error || "Failed to save campaign");
+        setError(campaignData.error || "Failed to save pitch");
         setIsSaving(false);
         return false;
       }
@@ -1242,7 +1243,7 @@ export default function CampaignOverviewClient({
       });
       
       if (!opts?.quiet) {
-        setSuccess("Campaign saved successfully!");
+        setSuccess("Pitch saved successfully!");
         setTimeout(() => setSuccess(null), 3000);
       }
       setIsSaving(false);
@@ -1303,7 +1304,7 @@ export default function CampaignOverviewClient({
 
           if (!campaignRes.ok) {
             const campaignData = await campaignRes.json();
-            throw new Error(campaignData.error || "Failed to save campaign");
+            throw new Error(campaignData.error || "Failed to save pitch");
           }
 
           // Save services and case studies if needed
@@ -1392,12 +1393,12 @@ export default function CampaignOverviewClient({
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Failed to publish campaign");
+        setError(data.error || "Failed to publish pitch");
         setIsPublishing(false);
         return;
       }
 
-      setSuccess(data.message || "Campaign published successfully!");
+      setSuccess(data.message || "Pitch published successfully!");
       setIsPublishing(false);
 
       const projectPath = `/dashboard/projects/${project.project_id}`;
@@ -1476,7 +1477,7 @@ export default function CampaignOverviewClient({
 
   const handleConfirmSwitch = async () => {
     if (!selectedTargetCampaignId) {
-      setError("Please select a campaign to switch to");
+      setError("Please select a pitch to switch to");
       return;
     }
 
@@ -1499,12 +1500,12 @@ export default function CampaignOverviewClient({
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Failed to switch campaign");
+        setError(data.error || "Failed to switch pitch");
         setIsSwitching(false);
         return;
       }
 
-      setSuccess(data.message || "Campaign switched successfully!");
+      setSuccess(data.message || "Pitch switched successfully!");
       setIsSwitchModalOpen(false);
       
       // Revalidate server data before navigation
@@ -1544,15 +1545,15 @@ export default function CampaignOverviewClient({
 
   const getPrimaryCTALabel = () => {
     if (campaign.campaign_status === "ACTIVE") {
-      return "Switch Campaign";
+      return "Switch Pitch";
     }
     if (campaign.campaign_status === "DRAFT") {
-      return hasActiveCampaign ? "Switch to Current" : "Publish Campaign";
+      return hasActiveCampaign ? "Switch to Current" : "Publish Pitch";
     }
     if (campaign.campaign_status === "PAUSED") {
       return "Make Active";
     }
-    return "Switch Campaign";
+    return "Switch Pitch";
   };
 
   const shouldShowPrimaryCTA = () => {
@@ -1624,7 +1625,7 @@ export default function CampaignOverviewClient({
             disabled={isSaving || project.is_archived}
             className="hidden rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 lg:inline-flex dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
           >
-            {isSaving ? "Saving..." : "Save Campaign"}
+            {isSaving ? "Saving..." : "Save Pitch"}
           </button>
         ) : null}
       </div>
@@ -1640,7 +1641,7 @@ export default function CampaignOverviewClient({
                 onChange={(e) => setCampaignName(e.target.value)}
                 maxLength={25}
                 className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-2xl font-semibold text-black placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600"
-                placeholder="Campaign Name"
+                placeholder="Pitch Name"
               />
             ) : (
               <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">
@@ -1665,7 +1666,7 @@ export default function CampaignOverviewClient({
         {/* Toast notifications moved to fixed position */}
       </div>
 
-      {/* Performance Section - Only for ACTIVE/PAUSED campaigns */}
+      {/* Performance Section - Only for ACTIVE/PAUSED pitches */}
       {shouldShowAnalytics && (
         <div className="rounded-lg border border-orange-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex items-center justify-between mb-4">
@@ -1687,10 +1688,10 @@ export default function CampaignOverviewClient({
         </div>
       )}
 
-      {/* Add campaign details */}
+      {/* Add pitch details */}
       <div className="rounded-lg border border-orange-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between lg:items-center">
-          <h3 className="text-lg font-semibold text-black dark:text-zinc-50">Add Campaign Details</h3>
+          <h3 className="text-lg font-semibold text-black dark:text-zinc-50">Add Pitch Details</h3>
           {shouldShowPrimaryCTA() && (
             <button
               type="button"
@@ -1911,7 +1912,7 @@ export default function CampaignOverviewClient({
               Select and Add Experiences <span className="text-red-600 dark:text-red-400">*</span>
             </h3>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              Search previously created experiences by title and attach them to this campaign.
+              Search previously created experiences by title and attach them to this pitch.
             </p>
           </div>
 
@@ -1992,7 +1993,7 @@ export default function CampaignOverviewClient({
                     </p>
                     {isEditMode ? (
                       <p className="mt-1 max-w-prose text-[11px] font-normal normal-case leading-snug tracking-normal text-zinc-500 dark:text-zinc-400 lg:hidden">
-                        Tap a card to add it to this campaign. Cards with a blue outline are already attached—tap again to
+                        Tap a card to add it to this pitch. Cards with a blue outline are already attached—tap again to
                         remove them.
                       </p>
                     ) : null}
@@ -2019,11 +2020,11 @@ export default function CampaignOverviewClient({
             <div className="min-w-0 flex-1 space-y-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                  Attached to Campaign
+                  Attached to Pitch
                 </p>
                 {isEditMode ? (
                   <p className="mt-1 max-w-prose text-[11px] font-normal normal-case leading-snug tracking-normal text-zinc-500 dark:text-zinc-400 lg:hidden">
-                    Tap a card to remove it from this campaign. The border highlights red when you hover or press.
+                    Tap a card to remove it from this pitch. The border highlights red when you hover or press.
                   </p>
                 ) : null}
               </div>
@@ -2240,7 +2241,7 @@ export default function CampaignOverviewClient({
         </DialogContent>
       </Dialog>
 
-      {/* Switch Campaign Modal */}
+      {/* Switch Pitch Modal */}
       <Dialog open={isSwitchModalOpen} onOpenChange={(open) => {
         setIsSwitchModalOpen(open);
         if (!open) {
@@ -2251,18 +2252,18 @@ export default function CampaignOverviewClient({
       }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Switch Campaign</DialogTitle>
+            <DialogTitle>Switch Pitch</DialogTitle>
             <DialogDescription>
               {currentActiveCampaign 
-                ? `Switch from "${currentActiveCampaign.campaign_name}" to another campaign. The current active campaign will be paused.`
-                : "Select a campaign to activate. This will make it the active campaign for this project."}
+                ? `Switch from "${currentActiveCampaign.campaign_name}" to another pitch. The current active pitch will be paused.`
+                : "Select a pitch to activate. This will make it the active pitch for this application."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             {currentActiveCampaign && (
               <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
                 <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  Current Active Campaign:
+                  Current Active Pitch:
                 </p>
                 <p className="mt-1 text-sm text-zinc-900 dark:text-zinc-50">
                   {currentActiveCampaign.campaign_name}
@@ -2271,11 +2272,11 @@ export default function CampaignOverviewClient({
             )}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
-                Switch To Campaign <span className="text-red-600 dark:text-red-400">*</span>
+                Switch To Pitch <span className="text-red-600 dark:text-red-400">*</span>
               </label>
               {availableCampaigns.length === 0 ? (
                 <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">
-                  No other campaigns available to switch to.
+                  No other pitches available to switch to.
                 </p>
               ) : (
                 <select
@@ -2284,7 +2285,7 @@ export default function CampaignOverviewClient({
                   disabled={isSwitching}
                   className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-black shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
                 >
-                  <option value="">Select a campaign...</option>
+                  <option value="">Select a pitch...</option>
                   {availableCampaigns.map((c) => (
                     <option key={c.campaign_id} value={c.campaign_id}>
                       {c.campaign_name} ({c.campaign_status})
@@ -2296,7 +2297,7 @@ export default function CampaignOverviewClient({
             {currentActiveCampaign && (
               <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
                 <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  <strong>Warning:</strong> This will atomically switch campaigns. The current active campaign will be paused and the selected campaign will become active. The project URL will remain unchanged.
+                  <strong>Warning:</strong> This will atomically switch pitches. The current active pitch will be paused and the selected pitch will become active. The application URL will remain unchanged.
                 </p>
               </div>
             )}
