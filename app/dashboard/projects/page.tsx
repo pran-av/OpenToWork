@@ -13,6 +13,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { DashboardMobileFab } from "@/components/dashboard/DashboardMobileFab";
+import DashboardFlowPullDrawer from "@/components/dashboard/DashboardFlowPullDrawer";
 import { dispatchSagePrimaryActionDone } from "@/lib/sage-onboarding-primary";
 
 export default function DashboardProjectsPage() {
@@ -207,6 +208,7 @@ export default function DashboardProjectsPage() {
 
   return (
     <div id="projects-root" className="space-y-6 pb-24 lg:pb-0 scroll-mt-4">
+      <DashboardFlowPullDrawer bannerKey="campaigns" />
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Projects</h2>

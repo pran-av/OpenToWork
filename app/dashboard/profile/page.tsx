@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { dispatchSageProfileVerificationDone } from "@/lib/sage-onboarding-primary";
+import DashboardFlowPullDrawer from "@/components/dashboard/DashboardFlowPullDrawer";
 
 interface ProfileData {
   user_first_name: string | null;
@@ -265,6 +266,7 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
+      <DashboardFlowPullDrawer bannerKey="profile" />
       <div>
         <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Profile</h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">

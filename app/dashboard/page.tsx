@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ExperienceCaseStudyCard } from "@/components/dashboard/ExperienceCaseStudyCard";
 import { DashboardMobileFab } from "@/components/dashboard/DashboardMobileFab";
+import DashboardFlowPullDrawer from "@/components/dashboard/DashboardFlowPullDrawer";
 import { dispatchSagePrimaryActionDone } from "@/lib/sage-onboarding-primary";
 
 interface ExperienceCaseStudy {
@@ -222,6 +223,7 @@ function DashboardPageContent() {
 
   return (
     <div className="relative min-h-[70vh] space-y-6 pb-24">
+      <DashboardFlowPullDrawer bannerKey="experience" />
       {timelineBody}
 
       <div className="pointer-events-none fixed bottom-8 left-1/2 z-40 hidden -translate-x-1/2 lg:block">
