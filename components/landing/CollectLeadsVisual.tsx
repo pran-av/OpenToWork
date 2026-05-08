@@ -22,7 +22,7 @@ export function CollectLeadsVisual() {
             <div className="mt-1.5 h-7 w-20 rounded-lg bg-[#FF8C00]/90 sm:h-8 lg:mt-2 lg:h-10 lg:w-28" />
           </div>
         </div>
-        <p className="mb-1 font-inter text-[10px] text-[#74777F] sm:text-xs lg:mb-2 lg:text-sm">Your leads (tap to highlight)</p>
+        <p className="mb-1 font-inter text-[10px] text-[#74777F] sm:text-xs lg:mb-2 lg:text-sm">Your recruiters (tap to highlight)</p>
         <ul className="space-y-1.5 sm:space-y-2 lg:space-y-2.5">
           {MOCK_LEADS.map((lead, i) => (
             <li key={lead.name}>

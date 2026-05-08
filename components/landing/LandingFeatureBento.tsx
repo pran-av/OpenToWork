@@ -113,7 +113,7 @@ export function LandingFeatureBento({
           </div>
         </div>
 
-        {/* Leads — cool grey */}
+        {/* Recruiters — cool grey */}
         <div
           className="flex w-full min-w-0 flex-col rounded-2xl border p-6 shadow-lg md:p-8"
           style={{

@@ -1785,7 +1785,7 @@ export default function CampaignOverviewClient({
           <div className="min-w-0 flex-1 space-y-4">
             <div>
               <h3 className="text-lg font-semibold text-black dark:text-zinc-50">
-                How shall your leads reach you?
+                How shall recruiters reach you?
               </h3>
               <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
                 CTA configuration <span className="text-red-600 dark:text-red-400">*</span>

@@ -89,7 +89,7 @@ export default function ProjectOverviewClient({
   // Tab state
   const [activeTab, setActiveTab] = useState<"overview" | "leads">("overview");
   
-  // Leads state
+  // Recruiters state (UI label only; data model remains leads)
   const [leads, setLeads] = useState<LeadData[]>([]);
   const [isLoadingLeads, setIsLoadingLeads] = useState(false);
   const [leadsPage, setLeadsPage] = useState(1);
@@ -355,7 +355,7 @@ export default function ProjectOverviewClient({
 
   const hasActiveCampaign = activeCampaign !== null;
 
-  // Fetch leads when Leads tab is active
+  // Fetch leads when Recruiters tab is active
   const fetchLeads = useCallback(async (page: number = 1) => {
     setIsLoadingLeads(true);
     try {
@@ -379,10 +379,10 @@ export default function ProjectOverviewClient({
     }
   }, [project.project_id, leadsPageSize]);
 
-  // Fetch leads when Leads tab is selected
+  // Fetch leads when Recruiters tab is selected
   useEffect(() => {
     if (activeTab === "leads") {
-      fetchLeads(1); // Always start from page 1 when switching to Leads tab
+      fetchLeads(1); // Always start from page 1 when switching to Recruiters tab
       setLeadsPage(1);
     }
   }, [activeTab, fetchLeads]);
@@ -431,7 +431,7 @@ export default function ProjectOverviewClient({
                 : "border-transparent text-gray-500 hover:border-orange-200 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-300"
             }`}
           >
-            Leads
+            Recruiters
           </button>
         </nav>
       </div>
@@ -913,20 +913,20 @@ export default function ProjectOverviewClient({
         </>
       ) : (
         <>
-          {/* Leads Tab */}
+          {/* Recruiters Tab */}
           <div className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
             <div className="p-6">
               <h3 className="mb-4 text-lg font-semibold text-black dark:text-zinc-50">
-                Leads
+                Recruiters
               </h3>
               
               {isLoadingLeads ? (
                 <div className="flex items-center justify-center py-8">
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading leads...</p>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading recruiters...</p>
                 </div>
               ) : leads.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">No leads found for this application.</p>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">No recruiters found for this application.</p>
                 </div>
               ) : (
                 <>
@@ -935,7 +935,7 @@ export default function ProjectOverviewClient({
                       <thead>
                         <tr className="border-b border-zinc-200 dark:border-zinc-800">
                           <th className="px-4 py-3 text-left text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-                            Lead Name
+                            Recruiter Name
                           </th>
                           <th className="px-4 py-3 text-left text-sm font-semibold text-zinc-700 dark:text-zinc-300">
                             Company Name
@@ -976,7 +976,7 @@ export default function ProjectOverviewClient({
                   {totalPages > 1 && (
                     <div className="mt-4 flex items-center justify-between">
                       <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                        Showing {(leadsPage - 1) * leadsPageSize + 1} to {Math.min(leadsPage * leadsPageSize, leadsTotal)} of {leadsTotal} leads
+                        Showing {(leadsPage - 1) * leadsPageSize + 1} to {Math.min(leadsPage * leadsPageSize, leadsTotal)} of {leadsTotal} recruiters
                       </p>
                       <div className="flex gap-2">
                         <button
