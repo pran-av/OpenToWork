@@ -77,13 +77,6 @@ export const SAGE_RESUME_FROM_TOUR_EVENT = "opentowork-sage-resume-from-tour";
 export const SAGE_OPEN_ONBOARDING_FLOW_EVENT = "opentowork-sage-open-onboarding-flow";
 /** After flow bootstrap finishes when the drawer asked for in-button prepare UI (`prepareUiOnFlowCta`). */
 export const SAGE_FLOW_PREPARE_UI_DONE_EVENT = "opentowork-sage-flow-prepare-ui-done";
-/**
- * Terminology guard (UI copy only): keep these user-facing terms stable.
- * - Project -> Application
- * - Campaign -> Pitch
- * - Lead -> Recruiter
- * Do not rename internal routes/types/identifiers from this comment.
- */
 
 const SAGE_MARKDOWN_COMPONENTS: Components = {
   p: ({ children }) => <p className="mb-2.5 last:mb-0 first:mt-0 leading-relaxed">{children}</p>,
@@ -140,7 +133,7 @@ const ONBOARDING_TARGET_DEFAULT_LABEL: Record<string, string> = {
   "profile.user_name.edit": "Update your first and last name in profile.",
   "profile.resume.upload_cta": "Upload your resume in profile.",
   "profile.linkedin.connect_cta": "Finish your LinkedIn connection in profile settings.",
-  "nav.campaigns_dashboard": "Open Pitches to present your experiences.",
+  "nav.campaigns_dashboard": "Open Campaigns to build pitches from your experiences.",
 };
 
 /**
@@ -156,6 +149,38 @@ const ONBOARDING_TARGET_TO_COMPLETION_STEP: Record<string, string> = {
 
 /** Parent flow step that groups onboarding `ui_actions`; not a user task row. */
 const EXECUTE_ONBOARDING_TODOS_STEP_KEY = "execute_onboarding_todos";
+
+type OnboardingPartConfig = {
+  key: "part-1" | "part-2" | "part-3";
+  label: string;
+  description: string;
+  minSequence: number;
+  maxSequence: number;
+};
+
+const ONBOARDING_PARTS: readonly OnboardingPartConfig[] = [
+  {
+    key: "part-1",
+    label: "Part 1",
+    description: "Add your key experiences",
+    minSequence: 1,
+    maxSequence: 10,
+  },
+  {
+    key: "part-2",
+    label: "Part 2",
+    description: "Create and launch your pitch",
+    minSequence: 11,
+    maxSequence: 20,
+  },
+  {
+    key: "part-3",
+    label: "Part 3",
+    description: "Complete your profile details",
+    minSequence: 21,
+    maxSequence: 25,
+  },
+] as const;
 
 function formatStepKeyAsSectionTitle(stepKey: string): string {
   return stepKey
@@ -1182,6 +1207,35 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     [todoItems]
   );
 
+  const onboardingPartTodoItems = useMemo(() => {
+    return ONBOARDING_PARTS.map((part) => {
+      const itemsInPart = orderedTodoItems.filter(
+        (item) => item.sequence >= part.minSequence && item.sequence <= part.maxSequence
+      );
+      const hasPending = itemsInPart.some((item) => item.resolution === "pending");
+      const hasDone = itemsInPart.some((item) => item.resolution === "done");
+      const hasSkipped = itemsInPart.some((item) => item.resolution === "skipped");
+      const resolution: TodoItemResolution = hasPending
+        ? "pending"
+        : hasDone
+          ? "done"
+          : hasSkipped
+            ? "skipped"
+            : "pending";
+      return {
+        key: part.key,
+        label: `${part.label}: ${part.description}`,
+        target: part.key,
+        resolution,
+      };
+    });
+  }, [orderedTodoItems]);
+
+  const displayedTodoItems = useMemo(
+    () => (isOnboardingFlow ? onboardingPartTodoItems : orderedTodoItems),
+    [isOnboardingFlow, onboardingPartTodoItems, orderedTodoItems]
+  );
+
   const nextPendingTodo = useMemo(() => {
     if (!isOnboardingFlow) {
       return orderedTodoItems.find((item) => !item.done && Boolean(item.href)) ?? null;
@@ -1897,7 +1951,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         !loading &&
         !skipped &&
         !showConversationList &&
-        orderedTodoItems.length > 0 &&
+        displayedTodoItems.length > 0 &&
         (!isOnboardingFlow || onboardingShowTasksHub) ? (
           <div
             className={cn(
@@ -1922,7 +1976,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               aria-label={todoSectionTitle}
               id="sage-todo-list"
             >
-              {orderedTodoItems.map((item) => {
+              {displayedTodoItems.map((item) => {
                 return (
                   <li key={item.key} className="flex min-w-0 items-center gap-2">
                     <span
@@ -2120,14 +2174,14 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                         <p className="text-zinc-500 dark:text-zinc-400">No message for this step.</p>
                       )}
                     </div>
-                    {isReplayTasksHubStep && orderedTodoItems.length > 0 ? (
+                    {isReplayTasksHubStep && displayedTodoItems.length > 0 ? (
                       <div className="mt-4 border-t border-orange-200/80 pt-4 dark:border-orange-800/50">
                         <ul
                           className="flex flex-col gap-2 [scrollbar-gutter:stable]"
                           role="list"
                           aria-label={todoSectionTitle}
                         >
-                          {orderedTodoItems.map((item) => (
+                          {displayedTodoItems.map((item) => (
                             <li key={item.key} className="flex min-w-0 items-center gap-2">
                               <span className="shrink-0 self-center" aria-hidden>
                                 {item.resolution === "done" ? (
