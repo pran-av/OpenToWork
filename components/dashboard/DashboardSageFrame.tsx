@@ -870,7 +870,7 @@ export function DashboardSageFrame({
                       disabled={acknowledging}
                       className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                     >
-                      Back to Sage
+                      Skip Remaining Parts
                     </button>
                   ) : null}
                   {hidesNextForProfileVerification ? (
@@ -890,7 +890,7 @@ export function DashboardSageFrame({
                       disabled={acknowledging}
                       className="rounded-md bg-orange-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
                     >
-                      {sageTaskDialog.target === "nav.sage_window" ? "Back to Sage window" : "Next"}
+                      Next
                     </button>
                   ) : null}
                 </div>
