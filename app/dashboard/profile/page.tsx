@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { dispatchSageProfileVerificationDone } from "@/lib/sage-onboarding-primary";
+import DashboardFlowPullDrawer from "@/components/dashboard/DashboardFlowPullDrawer";
 
 interface ProfileData {
   user_first_name: string | null;
@@ -18,12 +19,6 @@ interface ResumeItem {
   file_name: string;
   created_at: string;
 }
-
-interface AgentProfileData {
-  experience_summary: string | null;
-  goals_summary: string | null;
-}
-
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -43,8 +38,6 @@ export default function ProfilePage() {
   const [uploadName, setUploadName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [agentProfile, setAgentProfile] = useState<AgentProfileData | null>(null);
-  const [agentProfileLoading, setAgentProfileLoading] = useState(true);
 
   const fetchResumes = useCallback(async () => {
     try {
@@ -79,7 +72,6 @@ export default function ProfilePage() {
     fetchProfile();
     void checkLinkedInStatus();
     fetchResumes();
-    fetchAgentProfile();
   }, [fetchResumes, checkLinkedInStatus]);
 
   // Refresh profile when returning from LinkedIn OAuth (check URL params)
@@ -116,25 +108,6 @@ export default function ProfilePage() {
       setTimeout(() => setToast(null), 5000);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fetchAgentProfile = async () => {
-    try {
-      const res = await fetch("/api/agent/profiles/me");
-      const data = (await res.json()) as Partial<AgentProfileData> & { error?: string };
-      if (res.ok) {
-        setAgentProfile({
-          experience_summary: typeof data.experience_summary === "string" ? data.experience_summary : null,
-          goals_summary: typeof data.goals_summary === "string" ? data.goals_summary : null,
-        });
-      } else {
-        setAgentProfile(null);
-      }
-    } catch {
-      setAgentProfile(null);
-    } finally {
-      setAgentProfileLoading(false);
     }
   };
 
@@ -293,8 +266,9 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
+      <DashboardFlowPullDrawer bannerKey="profile" />
       <div>
-        <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Profile</h2>
+        <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Your Profile</h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
           Update your profile information
         </p>
@@ -318,24 +292,6 @@ export default function ProfilePage() {
           </button>
         </div>
       )}
-
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-zinc-100 mb-2">Experience Summary</h3>
-        <p className="text-sm text-gray-600 dark:text-zinc-400">
-          {agentProfileLoading
-            ? "Loading your experience summary..."
-            : agentProfile?.experience_summary?.trim() || "No experience summary available yet."}
-        </p>
-      </div>
-
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-zinc-100 mb-2">Goals</h3>
-        <p className="text-sm text-gray-600 dark:text-zinc-400">
-          {agentProfileLoading
-            ? "Loading your goals..."
-            : agentProfile?.goals_summary?.trim() || "No goals summary available yet."}
-        </p>
-      </div>
 
       {/* Profile Form Section */}
       <div

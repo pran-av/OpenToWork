@@ -1,0 +1,17 @@
+{
+  "_comment": {
+    "ctaActionRule": "CTA text is dynamic from code. If text is exactly 'Visit Flow Panel', CTA opens Flow Panel. Any other text opens onboarding flow directly."
+  },
+  "experience": {
+    "title": "Experience our AI Powered Flows",
+    "subtitle": "Coming Soon: more flows to help you apply faster and convert better"
+  },
+  "campaigns": {
+    "title": "Experience our AI Powered Flows",
+    "subtitle": "Coming Soon: more flows to help you apply faster and convert better"
+  },
+  "profile": {
+    "title": "Experience our AI Powered Flows",
+    "subtitle": "Coming Soon: more flows to help you apply faster and convert better"
+  }
+}

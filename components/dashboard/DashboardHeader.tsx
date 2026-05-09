@@ -3,12 +3,15 @@
 import { useRouter, usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useStudioCampaignWriteModeListener } from "@/hooks/useStudioCampaignWriteChrome";
+import {
+  STUDIO_SUPPRESS_MOBILE_BOTTOM_NAV_EVENT,
+  type StudioSuppressMobileBottomNavDetail,
+} from "@/lib/studio-mobile-nav";
 import Image from "next/image";
 import { useTheme } from "next-themes";
 import { BriefcaseBusiness, Megaphone, User } from "lucide-react";
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import LinkIdentityBanner from "./LinkIdentityBanner";
-import Link from "next/link";
 import { setSageMobileUserHoldOpen } from "@/components/dashboard/SageWindow";
 
 interface ProfileData {
@@ -16,6 +19,13 @@ interface ProfileData {
   avatar_url: string | null;
 }
 
+/**
+ * Terminology guard (UI copy only): keep these user-facing terms stable.
+ * - Project -> Application
+ * - Campaign -> Pitch
+ * - Lead -> Recruiter
+ * Do not rename internal routes/types/identifiers from this comment.
+ */
 const SAGE_SESSION_KEY = "opentowork-sage-onboarding-v1";
 const SAGE_TASK_NAV_CONTEXT_KEY = "opentowork-sage-task-nav-v1";
 
@@ -72,9 +82,17 @@ export default function DashboardHeader() {
   const isProjectsArea = pathname.startsWith("/dashboard/projects");
   const isProjectCampaignPath = /^\/dashboard\/projects\/[^/]+\/campaigns\/[^/]+$/.test(pathname);
   const campaignWriteMode = useStudioCampaignWriteModeListener();
-  const hideMobileBottomNav = isProjectCampaignPath && campaignWriteMode;
-  const switchTargetPath = isProjectsArea ? "/dashboard" : "/dashboard/projects";
-  const switchLabel = isProjectsArea ? "Switch to Add Experiences" : "Switch to Create Campaigns";
+  const [suppressMobileBottomNavFromChild, setSuppressMobileBottomNavFromChild] = useState(false);
+  useEffect(() => {
+    const onSuppress = (ev: Event) => {
+      const ce = ev as CustomEvent<StudioSuppressMobileBottomNavDetail>;
+      setSuppressMobileBottomNavFromChild(Boolean(ce.detail?.suppressed));
+    };
+    window.addEventListener(STUDIO_SUPPRESS_MOBILE_BOTTOM_NAV_EVENT, onSuppress);
+    return () => window.removeEventListener(STUDIO_SUPPRESS_MOBILE_BOTTOM_NAV_EVENT, onSuppress);
+  }, []);
+  const hideMobileBottomNav =
+    suppressMobileBottomNavFromChild || (isProjectCampaignPath && campaignWriteMode);
   const isProfileArea = pathname.startsWith("/dashboard/profile");
   const isExperiencesArea = pathname.startsWith("/dashboard") && !isProjectsArea && !isProfileArea;
 
@@ -127,21 +145,6 @@ export default function DashboardHeader() {
           </button>
         </div>
         <div className="hidden items-center gap-3 lg:flex">
-          <button
-            onClick={() => router.push(switchTargetPath)}
-            className="rounded-md border border-orange-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-          >
-            {switchLabel}
-          </button>
-
-          <Link
-            href="/dashboard/profile"
-            id="profile-desktop-sage-target"
-            className="rounded-md border border-orange-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-          >
-            Profile
-          </Link>
-
           {/* Theme Toggle */}
           {mounted && (
             <button
@@ -243,7 +246,7 @@ export default function DashboardHeader() {
                   </svg>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 cursor-pointer">
+                <div className="flex items-center gap-2 rounded-md border border-orange-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer">
                   <span>Update Profile</span>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -255,7 +258,7 @@ export default function DashboardHeader() {
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="text-white"
+                    className="text-zinc-700 dark:text-zinc-200"
                   >
                     <path d="m6 9 6 6 6-6" />
                   </svg>
@@ -338,6 +341,8 @@ export default function DashboardHeader() {
       <nav className="fixed bottom-3 left-1/2 z-30 w-[calc(100%-1rem)] max-w-md -translate-x-1/2 rounded-2xl border border-orange-100 bg-white/85 p-2 shadow-[0_10px_30px_rgba(15,23,42,0.22)] backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-900/85 lg:hidden">
         <div className="grid grid-cols-3 gap-1.5">
           <button
+            id="experience-nav-cta"
+            type="button"
             onClick={() => router.push("/dashboard")}
             className={`rounded-xl px-2 py-2 text-[11px] font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 ${
               isExperiencesArea
@@ -366,6 +371,8 @@ export default function DashboardHeader() {
             </span>
           </button>
           <button
+            id="applications-nav-cta"
+            type="button"
             onClick={() => router.push("/dashboard/projects")}
             className={`rounded-xl px-2 py-2 text-[11px] font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 ${
               isProjectsArea
@@ -375,7 +382,7 @@ export default function DashboardHeader() {
           >
             <span className="flex flex-col items-center justify-center gap-1">
               <Megaphone className="h-[1.1rem] w-[1.1rem]" />
-              <span>Campaigns</span>
+              <span>Applications</span> {/* Terminology guard: keep this term stable. */}
             </span>
           </button>
         </div>

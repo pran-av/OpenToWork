@@ -23,9 +23,18 @@ export default function ProjectOverviewClient({
   initialCampaigns,
   initialActiveCampaign,
 }: ProjectOverviewClientProps) {
+  /**
+   * Terminology guard (UI copy only): keep these user-facing terms stable.
+   * - Project -> Application
+   * - Campaign -> Pitch
+   * - Lead -> Recruiter
+   * Do not rename internal routes/types/identifiers from this comment.
+   */
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const isOnboardingCampaignCreateStep =
+    searchParams.get("sage_highlight") === "campaigns_dashboard.project.campaign.create_cta";
   
   useEffect(() => {
     if (pathname && /^\/dashboard\/projects\/[^/]+$/.test(pathname)) {
@@ -41,7 +50,7 @@ export default function ProjectOverviewClient({
     const hl = searchParams.get("sage_highlight");
     if (hl !== "campaigns_dashboard.project.campaign.create_cta") return;
     setIsDialogOpen(true);
-    setCampaignName((prev) => (prev.trim() ? prev : "Onboarding Campaign"));
+    setCampaignName((prev) => (prev.trim() ? prev : "Onboarding Pitch"));
     setError(null);
   }, [searchParams]);
 
@@ -86,7 +95,7 @@ export default function ProjectOverviewClient({
   // Tab state
   const [activeTab, setActiveTab] = useState<"overview" | "leads">("overview");
   
-  // Leads state
+  // Recruiters state (UI label only; data model remains leads)
   const [leads, setLeads] = useState<LeadData[]>([]);
   const [isLoadingLeads, setIsLoadingLeads] = useState(false);
   const [leadsPage, setLeadsPage] = useState(1);
@@ -197,14 +206,14 @@ export default function ProjectOverviewClient({
       });
       const data = await res.json();
       if (!res.ok || !data?.success) {
-        throw new Error(data?.error || data?.message || "Failed to archive project");
+        throw new Error(data?.error || data?.message || "Failed to archive application");
       }
       setIsArchived(true);
       markActiveCampaignPaused();
       setIsArchiveModalOpen(false);
     } catch (error) {
-      console.error("Failed to archive project:", error);
-      alert("Failed to archive project. Please try again.");
+      console.error("Failed to archive application:", error);
+      alert("Failed to archive application. Please try again.");
     } finally {
       setIsArchiving(false);
     }
@@ -212,12 +221,12 @@ export default function ProjectOverviewClient({
 
   const handleCreateCampaign = async () => {
     if (!campaignName.trim()) {
-      setError("Campaign name is required");
+      setError("Pitch name is required");
       return;
     }
 
     if (campaignName.trim().length > 25) {
-      setError("Campaign name must be 25 characters or less");
+      setError("Pitch name must be 25 characters or less");
       return;
     }
 
@@ -279,7 +288,7 @@ export default function ProjectOverviewClient({
         } catch (error) {
           console.error("Error removing optimistic campaign:", error);
         }
-        setError(data.error || "Failed to create campaign");
+        setError(data.error || "Failed to create pitch");
         setIsCreating(false);
         return;
       }
@@ -352,7 +361,7 @@ export default function ProjectOverviewClient({
 
   const hasActiveCampaign = activeCampaign !== null;
 
-  // Fetch leads when Leads tab is active
+  // Fetch leads when Recruiters tab is active
   const fetchLeads = useCallback(async (page: number = 1) => {
     setIsLoadingLeads(true);
     try {
@@ -376,10 +385,10 @@ export default function ProjectOverviewClient({
     }
   }, [project.project_id, leadsPageSize]);
 
-  // Fetch leads when Leads tab is selected
+  // Fetch leads when Recruiters tab is selected
   useEffect(() => {
     if (activeTab === "leads") {
-      fetchLeads(1); // Always start from page 1 when switching to Leads tab
+      fetchLeads(1); // Always start from page 1 when switching to Recruiters tab
       setLeadsPage(1);
     }
   }, [activeTab, fetchLeads]);
@@ -404,7 +413,7 @@ export default function ProjectOverviewClient({
     <div className="space-y-6 pb-24 lg:pb-0">
       {isArchived && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          This project is archived. You can view details, but creating, switching, or publishing campaigns is disabled.
+          This application is archived. You can view details, but creating, switching, or publishing pitches is disabled.
         </div>
       )}
       {/* Tabs */}
@@ -428,23 +437,23 @@ export default function ProjectOverviewClient({
                 : "border-transparent text-gray-500 hover:border-orange-200 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-300"
             }`}
           >
-            Leads
+            Recruiters
           </button>
         </nav>
       </div>
 
-      {/* Loading State for Campaign Navigation */}
+      {/* Loading State for Pitch Navigation */}
       {isNavigating && (
         <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-black dark:border-zinc-700 dark:border-t-zinc-50"></div>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">Opening campaign...</p>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">Opening pitch...</p>
         </div>
       )}
 
       {/* Tab Content */}
       {!isNavigating && activeTab === "overview" ? (
         <>
-          {/* Project Details Section */}
+          {/* Application Details Section */}
       <div className="rounded-lg border border-orange-100 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -464,7 +473,7 @@ export default function ProjectOverviewClient({
                 <button
                   onClick={handleCopyUrl}
                   className="flex items-center justify-center rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                  title="Copy Project URL"
+                  title="Copy Application URL"
                 >
                   <Copy className="h-4 w-4" />
                 </button>
@@ -487,7 +496,7 @@ export default function ProjectOverviewClient({
             onClick={() => setIsArchiveModalOpen(true)}
             disabled={isArchiving || isArchived}
           >
-            Archive Project
+            Archive Application
           </DropdownMenuItem>
           </DropdownMenu>
         </div>
@@ -495,11 +504,11 @@ export default function ProjectOverviewClient({
 
       {isArchived && (
         <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500 dark:bg-amber-900/20 dark:text-amber-100">
-          This project is archived. Creation, publish, switch, and pause actions are disabled. Public link shows an end-of-life message.
+          This application is archived. Creation, publish, switch, and pause actions are disabled. Public link shows an end-of-life message.
         </div>
       )}
 
-      {/* Create Campaign Button - Top Right (if campaigns exist) */}
+      {/* Create Pitch Button - Top Right (if pitches exist) */}
       {campaigns.length > 0 && (
         <div className="hidden justify-end lg:flex">
           <button
@@ -509,12 +518,12 @@ export default function ProjectOverviewClient({
             disabled={isArchived}
             className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Create New Campaign
+            Create New Pitch
           </button>
         </div>
       )}
 
-      {/* Active Campaign Section */}
+      {/* Active Pitch Section */}
       {hasActiveCampaign ? (
         <div id="campaign-highlight" className="scroll-mt-4">
         <Link
@@ -522,7 +531,7 @@ export default function ProjectOverviewClient({
           className="block rounded-lg border border-orange-100 bg-white p-6 transition-colors hover:border-orange-200 hover:bg-orange-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
         >
           <h3 className="mb-4 text-lg font-semibold text-black dark:text-zinc-50">
-            Currently Active Campaign
+            Currently Active Pitch
           </h3>
           <div className="space-y-2">
             <div>
@@ -551,7 +560,7 @@ export default function ProjectOverviewClient({
                   disabled={isArchived}
                   className="ml-auto rounded-md border border-orange-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                 >
-                  Switch Campaign
+                  Switch Pitch
                 </button>
               )}
             </div>
@@ -561,16 +570,16 @@ export default function ProjectOverviewClient({
       ) : (
         <div className="rounded-lg border border-orange-100 bg-orange-50 p-6 dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-sm text-gray-600 dark:text-zinc-400">
-            Publish at least one campaign to generate shareable link
+            Publish at least one pitch to generate shareable link
           </p>
         </div>
       )}
 
-      {/* Remaining Campaigns Section */}
+      {/* Remaining Pitches Section */}
       {remainingCampaigns.length > 0 && (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-black dark:text-zinc-50">
-            Other Campaigns
+            Other Pitches
           </h3>
           <div className="space-y-3">
             {remainingCampaigns.map((campaign) => (
@@ -604,11 +613,11 @@ export default function ProjectOverviewClient({
         </div>
       )}
 
-      {/* Create Campaign CTA - Center (if no campaigns) */}
+      {/* Create Pitch CTA - Center (if no pitches) */}
       {campaigns.length === 0 && (
         <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4 rounded-lg border border-orange-100 bg-white p-8 dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-center text-gray-600 dark:text-zinc-400">
-            You don't have any campaigns yet.
+            You don't have any pitches yet.
           </p>
           <button
             type="button"
@@ -617,24 +626,29 @@ export default function ProjectOverviewClient({
             disabled={isArchived}
             className="hidden rounded-md bg-orange-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200 lg:inline-flex"
           >
-            Create a campaign
+            Create a pitch
           </button>
         </div>
       )}
 
-      {/* Create Campaign Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={(open) => {
-        setIsDialogOpen(open);
-        if (!open) {
-          setCampaignName("");
-          setError(null);
-        }
-      }}>
+      {/* Create Pitch Dialog */}
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            setCampaignName("");
+            setError(null);
+          }
+        }}
+        panelId="sage-onboarding-campaign-dialog"
+        hideBackdrop={isOnboardingCampaignCreateStep}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New Campaign</DialogTitle>
+            <DialogTitle>Create New Pitch</DialogTitle>
             <DialogDescription>
-              Enter a name for your campaign. Campaign names must be unique and cannot exceed 25 characters.
+              Enter a name for your pitch. Pitch names must be unique and cannot exceed 25 characters.
             </DialogDescription>
           </DialogHeader>
 
@@ -644,7 +658,7 @@ export default function ProjectOverviewClient({
                 htmlFor="campaign-name"
                 className="block text-sm font-medium text-gray-700 dark:text-zinc-300"
               >
-                Campaign Name
+                Pitch Name
               </label>
               <input
                 id="campaign-name"
@@ -661,7 +675,7 @@ export default function ProjectOverviewClient({
                 }}
                 maxLength={25}
                 className="mt-1 block w-full rounded-md border border-orange-200 bg-white px-3 py-2 text-gray-800 placeholder-gray-400 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-orange-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
-                placeholder="My Campaign"
+                placeholder="My Pitch"
                 disabled={isCreating}
                 autoFocus
               />
@@ -695,25 +709,25 @@ export default function ProjectOverviewClient({
               disabled={isCreating || !campaignName.trim()}
               className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
             >
-              {isCreating ? "Creating..." : "Create Campaign"}
+              {isCreating ? "Creating..." : "Create Pitch"}
             </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Archive Project Modal */}
+      {/* Archive Application Modal */}
       <Dialog open={isArchiveModalOpen} onOpenChange={setIsArchiveModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Archive Project</DialogTitle>
+            <DialogTitle>Archive Application</DialogTitle>
             <DialogDescription>
-              Once archived, a project cannot be activated again. Public links will show: "owner has archieved this campaign".
+              Once archived, an application cannot be activated again. Public links will show: "owner has archived this pitch".
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 text-sm text-gray-700 dark:text-zinc-300">
             {hasActiveCampaign && (
               <p className="text-amber-700 dark:text-amber-300">
-                Active campaign "{activeCampaign?.campaign_name}" will be paused.
+                Active pitch "{activeCampaign?.campaign_name}" will be paused.
               </p>
             )}
             <p>All publish/switch/pause and creation actions will be disabled.</p>
@@ -730,13 +744,13 @@ export default function ProjectOverviewClient({
               disabled={isArchiving}
               className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isArchiving ? "Archiving..." : "Archive Project"}
+              {isArchiving ? "Archiving..." : "Archive Application"}
             </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Switch Campaign Modal */}
+      {/* Switch Pitch Modal */}
       <Dialog open={isSwitchModalOpen} onOpenChange={(open) => {
         setIsSwitchModalOpen(open);
         if (!open) {
@@ -748,18 +762,18 @@ export default function ProjectOverviewClient({
       }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Switch Campaign</DialogTitle>
+            <DialogTitle>Switch Pitch</DialogTitle>
             <DialogDescription>
               {activeCampaign 
-                ? `Switch from "${activeCampaign.campaign_name}" to another campaign. The current active campaign will be paused.`
-                : "Select a campaign to activate. This will make it the active campaign for this project."}
+                ? `Switch from "${activeCampaign.campaign_name}" to another pitch. The current active pitch will be paused.`
+                : "Select a pitch to activate. This will make it the active pitch for this application."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             {activeCampaign && (
               <div className="rounded-md border border-orange-100 bg-orange-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
                 <p className="text-sm font-medium text-gray-700 dark:text-zinc-300">
-                  Current Active Campaign:
+                  Current Active Pitch:
                 </p>
                 <p className="mt-1 text-sm text-gray-900 dark:text-zinc-50">
                   {activeCampaign.campaign_name}
@@ -768,11 +782,11 @@ export default function ProjectOverviewClient({
             )}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300">
-                Switch To Campaign <span className="text-red-600 dark:text-red-400">*</span>
+                Switch To Pitch <span className="text-red-600 dark:text-red-400">*</span>
               </label>
               {remainingCampaigns.length === 0 ? (
                 <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">
-                  No other campaigns available to switch to.
+                  No other pitches available to switch to.
                 </p>
               ) : (
                 <select
@@ -781,7 +795,7 @@ export default function ProjectOverviewClient({
                   disabled={isSwitching}
                   className="mt-1 block w-full rounded-md border border-orange-200 bg-white px-3 py-2 text-gray-800 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-orange-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
                 >
-                  <option value="">Select a campaign...</option>
+                  <option value="">Select a pitch...</option>
                   {remainingCampaigns.map((c) => (
                     <option key={c.campaign_id} value={c.campaign_id}>
                       {c.campaign_name} ({c.campaign_status})
@@ -793,7 +807,7 @@ export default function ProjectOverviewClient({
             {activeCampaign && (
               <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
                 <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  <strong>Warning:</strong> This will atomically switch campaigns. The current active campaign will be paused and the selected campaign will become active. The project URL will remain unchanged.
+                  <strong>Warning:</strong> This will switch your pitches. The current active pitch will be paused and the selected pitch will become active. The application URL will remain unchanged.
                 </p>
               </div>
             )}
@@ -813,7 +827,7 @@ export default function ProjectOverviewClient({
             <button
               onClick={async () => {
                 if (!selectedTargetCampaignId) {
-                  setError("Please select a campaign to switch to");
+                  setError("Please select a pitch to switch to");
                   return;
                 }
 
@@ -827,7 +841,7 @@ export default function ProjectOverviewClient({
                 // Find target campaign
                 const targetCampaign = campaigns.find((c) => c.campaign_id === selectedTargetCampaignId);
                 if (!targetCampaign) {
-                  setError("Target campaign not found");
+                  setError("Target pitch not found");
                   setIsSwitching(false);
                   return;
                 }
@@ -869,7 +883,7 @@ export default function ProjectOverviewClient({
                     // Revert optimistic update on error
                     setCampaigns(previousCampaigns);
                     setActiveCampaign(previousActiveCampaign);
-                    setError(data.error || "Failed to switch campaign");
+                    setError(data.error || "Failed to switch pitch");
                     setIsSwitching(false);
                     return;
                   }
@@ -905,20 +919,20 @@ export default function ProjectOverviewClient({
         </>
       ) : (
         <>
-          {/* Leads Tab */}
+          {/* Recruiters Tab */}
           <div className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
             <div className="p-6">
               <h3 className="mb-4 text-lg font-semibold text-black dark:text-zinc-50">
-                Leads
+                Recruiters who want to connect
               </h3>
               
               {isLoadingLeads ? (
                 <div className="flex items-center justify-center py-8">
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading leads...</p>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading recruiters...</p>
                 </div>
               ) : leads.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">No leads found for this project.</p>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">No recruiters found for this application.</p>
                 </div>
               ) : (
                 <>
@@ -927,7 +941,7 @@ export default function ProjectOverviewClient({
                       <thead>
                         <tr className="border-b border-zinc-200 dark:border-zinc-800">
                           <th className="px-4 py-3 text-left text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-                            Lead Name
+                            Recruiter Name
                           </th>
                           <th className="px-4 py-3 text-left text-sm font-semibold text-zinc-700 dark:text-zinc-300">
                             Company Name
@@ -936,7 +950,7 @@ export default function ProjectOverviewClient({
                             Contact
                           </th>
                           <th className="px-4 py-3 text-left text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-                            Campaign Name
+                            Pitch Name
                           </th>
                         </tr>
                       </thead>
@@ -968,7 +982,7 @@ export default function ProjectOverviewClient({
                   {totalPages > 1 && (
                     <div className="mt-4 flex items-center justify-between">
                       <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                        Showing {(leadsPage - 1) * leadsPageSize + 1} to {Math.min(leadsPage * leadsPageSize, leadsTotal)} of {leadsTotal} leads
+                        Showing {(leadsPage - 1) * leadsPageSize + 1} to {Math.min(leadsPage * leadsPageSize, leadsTotal)} of {leadsTotal} recruiters
                       </p>
                       <div className="flex gap-2">
                         <button
@@ -1007,7 +1021,7 @@ export default function ProjectOverviewClient({
         <DashboardMobileFab
           dataSageTarget="create-campaign-cta"
           onClick={() => setIsDialogOpen(true)}
-          ariaLabel="Create new campaign"
+          ariaLabel="Create new pitch"
         />
       )}
     </div>

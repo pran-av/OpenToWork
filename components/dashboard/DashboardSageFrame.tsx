@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { createPortal, flushSync } from "react-dom";
+import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils";
-import { SageMascotPicture } from "@/components/dashboard/SageMascotPicture";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { FlowEnvelopeResponse } from "@/lib/agent-onboarding-types";
 import {
@@ -74,6 +73,15 @@ const SAGE_MODAL_STEP_TARGETS = new Set<string>([
   "campaign.form.publish",
 ]);
 
+/**
+ * Create Application / Create Pitch use `Dialog` as bottom sheets below the lg breakpoint.
+ * Tour card placement is header-pinned there (anchor-relative overlaps inputs / flaky `rect.bottom` vs chrome).
+ */
+const SAGE_ONBOARDING_CREATE_SHEET_TARGETS = new Set<string>([
+  "campaigns_dashboard.project.create_cta",
+  "campaigns_dashboard.project.campaign.create_cta",
+]);
+
 const SAGE_MODAL_BELOW_EXTRA_GAP_PX = 28;
 
 type SageDialogTopNudge = { desktop: number; mobile: number };
@@ -94,7 +102,7 @@ const SAGE_TASK_DIALOG_TOP_NUDGE: Partial<Record<string, SageDialogTopNudge>> = 
 };
 
 const SAGE_TARGET_SELECTOR: Record<string, string> = {
-  "nav.experience_dashboard": "#experience-dashboard-root",
+  "nav.experience_dashboard": "#experience-nav-cta, #experience-desktop-sage-target",
   "experience_dashboard.experience.create_cta": ".sage-highlight-exp-create",
   "experience.form.service_class": "#service_class",
   "experience.form.display_year": "#display_year",
@@ -104,9 +112,9 @@ const SAGE_TARGET_SELECTOR: Record<string, string> = {
   "experience.form.highlights": "#highlights",
   "experience.form.save": "#save-experience",
   "onboarding.congrats.experience_recorded": "#experience-created-highlight",
-  "nav.campaigns_dashboard": "#projects-root",
-  "campaigns_dashboard.project.create_cta": `#sage-onboarding-project-dialog-submit, [data-sage-target="create-project-cta"]`,
-  "campaigns_dashboard.project.campaign.create_cta": `#sage-onboarding-campaign-dialog-submit, [data-sage-target="create-campaign-cta"]`,
+  "nav.campaigns_dashboard": "#applications-nav-cta, #applications-desktop-sage-target",
+  "campaigns_dashboard.project.create_cta": `#sage-onboarding-project-dialog, #sage-onboarding-project-dialog-submit, [data-sage-target="create-project-cta"]`,
+  "campaigns_dashboard.project.campaign.create_cta": `#sage-onboarding-campaign-dialog, #sage-onboarding-campaign-dialog-submit, [data-sage-target="create-campaign-cta"]`,
   "campaign.form.title": "#campaign-title",
   "campaign.form.summary": "#campaign-summary",
   "campaign.form.call_to_action": "#campaign-cta",
@@ -121,14 +129,17 @@ const SAGE_TARGET_SELECTOR: Record<string, string> = {
   "nav.sage_window": "#sage-window-root",
 };
 
-const PROFILE_VERIFICATION_HINTS: Record<SageProfileVerificationTarget, string> = {
-  "profile.user_name.edit":
-    "Save your first and last name using Save Changes. This step completes only after your profile saves successfully.",
-  "profile.resume.upload_cta":
-    "Upload a PDF using the resumes section below. This step completes only after the upload succeeds.",
-  "profile.linkedin.connect_cta":
-    "Finish LinkedIn OAuth. This step completes only after your account is linked.",
-};
+function getPreferredSageTargetNode(target: string, selector: string): Element | null {
+  if (target === "campaigns_dashboard.project.create_cta") {
+    const dialogNode = queryVisibleSageTarget("#sage-onboarding-project-dialog");
+    if (dialogNode) return dialogNode;
+  }
+  if (target === "campaigns_dashboard.project.campaign.create_cta") {
+    const dialogNode = queryVisibleSageTarget("#sage-onboarding-campaign-dialog");
+    if (dialogNode) return dialogNode;
+  }
+  return queryVisibleSageTarget(selector);
+}
 
 const TARGET_PREFILL_VALUE: Record<string, string> = {
   "experience.form.display_year": "2026",
@@ -144,6 +155,8 @@ type DashboardSageFrameProps = {
   children: ReactNode;
   /** Offset from the top of the viewport so the Sage column starts below the Studio header. */
   headerOffsetPx: number;
+  /** Signal fullscreen Sage flow mode so shell chrome can be hidden. */
+  onFlowOverlayChange?: (active: boolean) => void;
 };
 
 type SageTaskNavContext = {
@@ -160,11 +173,15 @@ type SageTaskNavContext = {
  * conversation and API state survive client navigations. When the “layer” is active, the
  * rest of the app (below the header) is dimmed and blurred; the header stays clear (z-50).
  */
-export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFrameProps) {
+export function DashboardSageFrame({
+  children,
+  headerOffsetPx,
+  onFlowOverlayChange,
+}: DashboardSageFrameProps) {
   const [isDesktop, setIsDesktop] = useState(false);
-  const [sageModeEnabled, setSageModeEnabled] = useState(true);
+  const [sageModeEnabled, setSageModeEnabled] = useState(false);
   const [sageLayerActive, setSageLayerActive] = useState(false);
-  const [sageRightRailOpen, setSageRightRailOpen] = useState(true);
+  const [sageRightRailOpen, setSageRightRailOpen] = useState(false);
   const [sageTaskDialog, setSageTaskDialog] = useState<{
     open: boolean;
     tooltip: string;
@@ -189,8 +206,13 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
   const sageTaskDialogRef = useRef<HTMLDivElement>(null);
   const highlightedTargetRef = useRef<Element | null>(null);
   const [activeHighlightTarget, setActiveHighlightTarget] = useState<string | null>(null);
-  /** Mobile Sage switch renders in `document.body` so it stacks above the `z-50` header shell (Radix / banners / nav). */
-  const [mobileSageSwitchPortalReady, setMobileSageSwitchPortalReady] = useState(false);
+  const [sageHighlightRect, setSageHighlightRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+    radius: number;
+  } | null>(null);
   /** When true, keep `sageInterStepBlocking` until the next `sageTaskDialog` opens (after chained navigation). */
   const interStepOverlayHoldForNextDialogRef = useRef(false);
 
@@ -204,13 +226,6 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
   useEffect(() => {
     sageTourDialogOpenRef.current = sageTaskDialog.open;
   }, [sageTaskDialog.open]);
-
-  useLayoutEffect(() => {
-    setMobileSageSwitchPortalReady(true);
-    return () => {
-      setMobileSageSwitchPortalReady(false);
-    };
-  }, []);
 
   useEffect(() => {
     if (!sageTaskDialog.open || !interStepOverlayHoldForNextDialogRef.current) return;
@@ -232,10 +247,6 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
   const hidesNextForPrimaryInPageOnly = onboardingHidesNextForPrimary(sageTaskDialog.target);
   const hidesNextForProfileVerification = onboardingProfileRequiresDbVerification(sageTaskDialog.target);
   const hidesNextTourAction = hidesNextForPrimaryInPageOnly || hidesNextForProfileVerification;
-  const primaryActionHint =
-    sageTaskDialog.target === "campaign.form.publish"
-      ? "Use the highlighted Publish Campaign button to finish this step — onboarding continues only after a successful publish."
-      : "Use the highlighted control (Save, Create, or Add) to finish this step.";
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1024px)");
@@ -273,6 +284,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
   }, []);
 
   const clearSageHighlight = useCallback(() => {
+    setSageHighlightRect(null);
     if (!highlightedTargetRef.current) return;
     highlightedTargetRef.current.classList.remove("sage-target-highlight");
     highlightedTargetRef.current = null;
@@ -293,7 +305,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
     (target: string) => {
       const selector = SAGE_TARGET_SELECTOR[target];
       if (!selector) return false;
-      const node = queryVisibleSageTarget(selector);
+      const node = getPreferredSageTargetNode(target, selector);
       if (!node) return false;
       clearSageHighlight();
       node.classList.add("sage-target-highlight");
@@ -324,6 +336,10 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       document.body.style.overflow = prev;
     };
   }, [sageLayerActive]);
+
+  useEffect(() => {
+    onFlowOverlayChange?.((isDesktop && sageLayerActive) || (!isDesktop && sageModeEnabled));
+  }, [isDesktop, onFlowOverlayChange, sageLayerActive, sageModeEnabled]);
 
   useEffect(() => {
     const target = searchParams.get("sage_highlight");
@@ -385,9 +401,20 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       );
 
     const updatePosition = () => {
-      const node = queryVisibleSageTarget(selector);
-      if (!node) return;
+      const node = getPreferredSageTargetNode(sageTaskDialog.target ?? "", selector);
+      if (!node) {
+        setSageHighlightRect(null);
+        return;
+      }
       const rect = (node as HTMLElement).getBoundingClientRect();
+      const highlightPadding = 8;
+      setSageHighlightRect({
+        top: Math.max(8, rect.top - highlightPadding),
+        left: Math.max(8, rect.left - highlightPadding),
+        width: Math.max(8, rect.width + highlightPadding * 2),
+        height: Math.max(8, rect.height + highlightPadding * 2),
+        radius: 12,
+      });
       const cardNode = sageTaskDialogRef.current;
       const viewportW = window.innerWidth;
       const viewportH = window.innerHeight;
@@ -396,7 +423,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       const gap = 14;
       const padding = 12;
       const isLgViewport = window.matchMedia("(min-width: 1024px)").matches;
-      const topNudge = resolveSageDialogTopNudge(
+      const topNudgeBase = resolveSageDialogTopNudge(
         SAGE_TASK_DIALOG_TOP_NUDGE[sageTaskDialog.target ?? ""],
         isLgViewport
       );
@@ -410,6 +437,22 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
 
       const targetKey = sageTaskDialog.target ?? "";
       const isModalStep = SAGE_MODAL_STEP_TARGETS.has(targetKey);
+      const onboardingCreateBottomSheet =
+        !isLgViewport && SAGE_ONBOARDING_CREATE_SHEET_TARGETS.has(targetKey);
+
+      /**
+       * Create Application/Pitch dialogs are bottom sheets below lg. Anchor-relative placements often
+       * cannot avoid the panel (clamp + shortest-overlap fallback lands on inputs). Safari/toolbars
+       * also skew `rect.bottom` vs viewport. Pin under the persistent header instead.
+       */
+      if (onboardingCreateBottomSheet) {
+        setSageTaskDialogPos({
+          top: Math.max(padding, headerOffsetPx + padding),
+          left: clamp((viewportW - cardWidth) / 2, padding, viewportW - cardWidth - padding),
+        });
+        return;
+      }
+
       const belowTailGap = gap + (isModalStep ? SAGE_MODAL_BELOW_EXTRA_GAP_PX : 0);
 
       const above = {
@@ -430,6 +473,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       };
 
       const preferBelowFirst = isModalStep;
+      const topNudge = topNudgeBase;
       const rawOrder = preferBelowFirst ? [below, above, right, left] : [above, below, right, left];
 
       const candidates = rawOrder.map((c) => ({
@@ -471,7 +515,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [sageTaskDialog.open, sageTaskDialog.target]);
+  }, [sageTaskDialog.open, sageTaskDialog.target, headerOffsetPx]);
 
   useEffect(() => {
     if (!activeHighlightTarget || !sageTaskDialog.open) return;
@@ -752,6 +796,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
       ) : null}
       <style jsx global>{`
         .sage-target-highlight {
+          position: relative;
           outline: 3px solid rgba(245, 158, 11, 0.9);
           outline-offset: 4px;
           box-shadow: 0 0 0 6px rgba(251, 191, 36, 0.28);
@@ -761,6 +806,10 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
             outline-offset 0.22s ease,
             box-shadow 0.22s ease;
           animation: sage-highlight-pulse 1.2s ease-in-out 2;
+        }
+        :root:not(.dark) .sage-target-highlight {
+          /* Keep focus ring visible while spotlight hole handles dimming. */
+          z-index: 53 !important;
         }
         @media (prefers-reduced-motion: reduce) {
           .sage-target-highlight {
@@ -779,10 +828,25 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
 
       {sageTaskDialog.open ? (
         <>
-          <div
-            className="pointer-events-none fixed inset-0 z-[54] bg-black/18 motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out"
-            aria-hidden
-          />
+          {sageHighlightRect ? (
+            <div
+              className="pointer-events-none fixed z-[54] motion-safe:transition-[top,left,width,height] motion-safe:duration-150 motion-safe:ease-out"
+              style={{
+                top: sageHighlightRect.top,
+                left: sageHighlightRect.left,
+                width: sageHighlightRect.width,
+                height: sageHighlightRect.height,
+                borderRadius: sageHighlightRect.radius,
+                boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.18)",
+              }}
+              aria-hidden
+            />
+          ) : (
+            <div
+              className="pointer-events-none fixed inset-0 z-[54] bg-black/18 motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out"
+              aria-hidden
+            />
+          )}
           <div
             ref={sageTaskDialogRef}
             className="pointer-events-auto fixed z-[56] w-[min(22.5rem,calc(100vw-1.5rem))] rounded-xl border border-zinc-200 bg-white p-4 shadow-xl motion-safe:origin-top motion-safe:transition-[opacity,transform] motion-safe:duration-200 motion-safe:ease-out dark:border-zinc-700 dark:bg-zinc-900"
@@ -794,25 +858,10 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
             }}
           >
             <div className="flex w-full items-start gap-3">
-              <SageMascotPicture
-                alt="Sage"
-                width={44}
-                height={56}
-                className="mt-0.5 h-10 w-auto shrink-0 object-contain"
-              />
               <div className="flex min-w-0 flex-1 flex-col">
                 <h2 className="text-lg font-semibold text-black dark:text-zinc-50">{sageTaskDialog.tooltip}</h2>
                 {sageTaskDialog.message ? (
                   <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{sageTaskDialog.message}</p>
-                ) : null}
-                {hidesNextTourAction && !isBackToSageTarget ? (
-                  <p className="mt-2 text-xs leading-snug text-zinc-500 dark:text-zinc-400">
-                    {hidesNextForProfileVerification
-                      ? PROFILE_VERIFICATION_HINTS[
-                          sageTaskDialog.target as SageProfileVerificationTarget
-                        ] ?? "Complete the highlighted step on the page to continue."
-                      : primaryActionHint}
-                  </p>
                 ) : null}
                 <div className="mt-4 flex w-full flex-wrap items-center justify-end gap-2">
                   {ackError ? (
@@ -825,7 +874,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
                       disabled={acknowledging}
                       className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                     >
-                      Back to Sage
+                      Skip Remaining Parts
                     </button>
                   ) : null}
                   {hidesNextForProfileVerification ? (
@@ -845,7 +894,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
                       disabled={acknowledging}
                       className="rounded-md bg-orange-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
                     >
-                      {sageTaskDialog.target === "nav.sage_window" ? "Back to Sage window" : "Next"}
+                      Next
                     </button>
                   ) : null}
                 </div>
@@ -857,39 +906,12 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
 
       {/* Desktop Sage chrome: fixed to viewport, persists across page transitions */}
       <div className="max-lg:hidden">
-        {sageLayerActive ? (
-          <div
-            className="pointer-events-none fixed inset-0 z-[32] bg-zinc-900/20 backdrop-blur-md dark:bg-black/35"
-            role="presentation"
-            aria-hidden
-          />
-        ) : null}
-
-        {sageLayerActive ? (
-          <div
-            className="pointer-events-none fixed bottom-8 right-[calc(50vw+1.75rem)] z-[36] flex max-w-[19rem] flex-col items-center gap-3"
-            role="complementary"
-            aria-label="Sage"
-          >
-            <div className="rounded-2xl border border-orange-200/90 bg-orange-50 px-3 py-2 text-center text-xs font-medium text-orange-900 shadow-sm dark:border-zinc-600 dark:bg-zinc-800/95 dark:text-zinc-100">
-              Hi, I&apos;m Sage!
-            </div>
-            <SageMascotPicture
-              alt="Sage, your guide"
-              width={120}
-              height={150}
-              className="h-32 w-auto object-contain drop-shadow-lg select-none"
-              priority
-            />
-          </div>
-        ) : null}
-
         <div
           id="sage-window-root"
           className={
             sageRightRailOpen
-              ? "fixed right-0 bottom-0 z-[40] w-[50vw] min-w-0 pl-0"
-              : "pointer-events-none fixed right-0 bottom-0 z-[40] w-0 min-w-0 max-w-0 overflow-hidden border-0 p-0 pl-0"
+              ? "fixed inset-x-0 bottom-0 z-[40] min-w-0 bg-orange-50 dark:bg-zinc-950"
+              : "pointer-events-none invisible fixed inset-x-0 bottom-0 z-[40] min-w-0 overflow-hidden border-0 p-0 opacity-0"
           }
           style={{ top: headerOffsetPx }}
         >
@@ -902,7 +924,7 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
               ref={sageRef}
               onSageLayerChange={onSageLayerChange}
               onRightRailChange={setSageRightRailOpen}
-              className="h-full"
+              className="mx-auto h-full w-full max-w-5xl"
               headerOffsetPx={headerOffsetPx}
             />
           ) : null}
@@ -911,75 +933,6 @@ export function DashboardSageFrame({ children, headerOffsetPx }: DashboardSageFr
 
       {!isDesktop ? (
         <>
-          {mobileSageSwitchPortalReady
-            ? createPortal(
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={sageModeEnabled}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    setSageModeEnabled((prev) => {
-                      const next = !prev;
-                      setSageMobileUserHoldOpen(next);
-                      return next;
-                    });
-                  }}
-                  onPointerDown={(event) => {
-                    /** Stop bubbling so fullscreen drag / swipe layers under the onboarding shell cannot steal taps. */
-                    event.stopPropagation();
-                  }}
-                  aria-label={sageModeEnabled ? "Disable Sage mode" : "Enable Sage mode"}
-                  className={cn(
-                    "pointer-events-auto fixed right-[max(0.5rem,env(safe-area-inset-right))] top-1/2 isolate -translate-y-1/2 touch-manipulation select-none",
-                    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
-                  )}
-                  /** Inline stacking so this always clears Radix/fullscreen shells (often z-50–z-[100]). */
-                  style={{ zIndex: 2147483000 }}
-                >
-                  <div
-                    className={cn(
-                      "flex h-[6.25rem] w-[3rem] flex-col items-stretch justify-between gap-1 overflow-hidden rounded-[1.5rem] border-2 p-1 shadow-md transition-[background-color,border-color,box-shadow] duration-300",
-                      sageModeEnabled
-                        ? "border-emerald-300/90 bg-gradient-to-b from-emerald-50 via-white to-emerald-50/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_4px_14px_rgba(16,185,129,0.2)] dark:border-emerald-800/50 dark:bg-gradient-to-b dark:from-zinc-900 dark:via-zinc-950 dark:to-zinc-900 dark:shadow-[inset_0_2px_8px_rgba(0,0,0,0.35)]"
-                        : "border-emerald-200/80 bg-gradient-to-b from-zinc-200 via-zinc-300 to-zinc-400 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12)] dark:border-zinc-800 dark:from-zinc-900 dark:via-zinc-950 dark:to-black dark:shadow-[inset_0_2px_10px_rgba(0,0,0,0.45)]"
-                    )}
-                  >
-                    {sageModeEnabled ? (
-                      <>
-                        <span
-                          className="relative z-10 mx-auto flex size-9 shrink-0 items-center justify-center rounded-full border border-emerald-300 bg-white text-center text-[9px] font-bold uppercase leading-none tracking-tight text-emerald-950 shadow-[0_2px_0_rgba(255,255,255,0.95),0_3px_10px_rgba(16,185,129,0.22)] dark:border-emerald-600 dark:bg-zinc-800 dark:text-emerald-100 dark:shadow-[0_3px_12px_rgba(0,0,0,0.35)]"
-                          aria-hidden
-                        >
-                          On
-                        </span>
-                        <div className="flex min-h-0 flex-1 items-center justify-center px-0.5 pb-0.5" aria-hidden>
-                          <span className="text-center text-[7px] font-bold uppercase leading-snug tracking-wide text-emerald-950 dark:text-emerald-100">
-                            Sage mode
-                          </span>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex min-h-0 flex-1 items-center justify-center px-0.5 pt-0.5" aria-hidden>
-                          <span className="text-center text-[7px] font-bold uppercase leading-snug tracking-wide text-zinc-900 dark:text-zinc-100">
-                            Sage mode
-                          </span>
-                        </div>
-                        <span
-                          className="relative z-10 mx-auto flex size-9 shrink-0 items-center justify-center rounded-full border border-emerald-200/90 bg-emerald-50 text-center text-[9px] font-bold uppercase leading-none tracking-tight text-emerald-950 shadow-[0_2px_0_rgba(255,255,255,0.75),0_3px_10px_rgba(0,0,0,0.2)] dark:border-zinc-600 dark:bg-zinc-700 dark:text-emerald-50 dark:shadow-[0_3px_12px_rgba(0,0,0,0.4)]"
-                          aria-hidden
-                        >
-                          Off
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </button>,
-                document.body
-              )
-            : null}
           {sageModeEnabled ? (
             <div className="fixed inset-0 z-[55] bg-orange-50 dark:bg-zinc-950 lg:hidden" style={{ top: headerOffsetPx }}>
               <div id="sage-window-root" className="h-full">

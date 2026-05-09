@@ -1,6 +1,13 @@
 import type { ReactNode } from "react";
 import { landingTheme } from "./landing-tokens";
 
+/**
+ * Terminology guard (UI copy only): keep these user-facing terms stable.
+ * - Project -> Application
+ * - Campaign -> Pitch
+ * - Lead -> Recruiter
+ * Do not rename internal routes/types/identifiers from this comment.
+ */
 /** Same title scale + weight across all #features rows. */
 const FEATURE_TITLE =
   "font-poppins font-semibold text-2xl sm:text-3xl md:text-4xl leading-tight";
@@ -113,7 +120,7 @@ export function LandingFeatureBento({
           </div>
         </div>
 
-        {/* Leads — cool grey */}
+        {/* Recruiters — cool grey */}
         <div
           className="flex w-full min-w-0 flex-col rounded-2xl border p-6 shadow-lg md:p-8"
           style={{

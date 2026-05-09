@@ -13,9 +13,17 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { DashboardMobileFab } from "@/components/dashboard/DashboardMobileFab";
+import DashboardFlowPullDrawer from "@/components/dashboard/DashboardFlowPullDrawer";
 import { dispatchSagePrimaryActionDone } from "@/lib/sage-onboarding-primary";
 
 export default function DashboardProjectsPage() {
+  /**
+   * Terminology guard (UI copy only): keep these user-facing terms stable.
+   * - Project -> Application
+   * - Campaign -> Pitch
+   * - Lead -> Recruiter
+   * Do not rename internal routes/types/identifiers from this comment.
+   */
   const [projects, setProjects] = useState<ProjectData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -25,6 +33,7 @@ export default function DashboardProjectsPage() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isOnboardingProjectCreateStep = searchParams.get("sage_highlight") === "campaigns_dashboard.project.create_cta";
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -57,7 +66,7 @@ export default function DashboardProjectsPage() {
     const hl = searchParams.get("sage_highlight");
     if (hl !== "campaigns_dashboard.project.create_cta") return;
     setIsDialogOpen(true);
-    setProjectName((prev) => (prev.trim() ? prev : "Onboarding Sample Project"));
+    setProjectName((prev) => (prev.trim() ? prev : "Onboarding Sample Application"));
     setError(null);
   }, [searchParams]);
 
@@ -134,12 +143,12 @@ export default function DashboardProjectsPage() {
 
   const handleCreateProject = async () => {
     if (!projectName.trim()) {
-      setError("Project name is required");
+      setError("Application name is required");
       return;
     }
 
     if (projectName.trim().length > 50) {
-      setError("Project name must be 50 characters or less");
+      setError("Application name must be 50 characters or less");
       return;
     }
 
@@ -167,7 +176,7 @@ export default function DashboardProjectsPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Failed to create project");
+        setError(data.error || "Failed to create application");
         setIsCreating(false);
         return;
       }
@@ -199,18 +208,19 @@ export default function DashboardProjectsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading projects...</p>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading applications...</p>
       </div>
     );
   }
 
   return (
     <div id="projects-root" className="space-y-6 pb-24 lg:pb-0 scroll-mt-4">
+      <DashboardFlowPullDrawer bannerKey="campaigns" />
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Projects</h2>
+          <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Your Applications</h2>
           <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-            Manage your projects and campaigns
+            Start new applications and create pitches
           </p>
         </div>
         {projects.length > 0 && (
@@ -220,7 +230,7 @@ export default function DashboardProjectsPage() {
             onClick={() => setIsDialogOpen(true)}
             className="hidden rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 lg:inline-flex"
           >
-            Create New Project
+            Create New Application
           </button>
         )}
       </div>
@@ -228,7 +238,7 @@ export default function DashboardProjectsPage() {
       {projects.length === 0 ? (
         <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4 rounded-lg border border-orange-100 bg-white p-8 dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-center text-gray-600 dark:text-zinc-400">
-            You don&apos;t have any projects yet.
+            You don&apos;t have any applications yet.
           </p>
           <button
             type="button"
@@ -236,7 +246,7 @@ export default function DashboardProjectsPage() {
             onClick={() => setIsDialogOpen(true)}
             className="hidden rounded-md bg-orange-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 lg:inline-flex"
           >
-            Create a project
+            Create an application
           </button>
         </div>
       ) : (
@@ -252,7 +262,7 @@ export default function DashboardProjectsPage() {
                   {project.project_url ? (
                     <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{project.project_url}</p>
                   ) : (
-                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">No active campaign</p>
+                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">No active pitch</p>
                   )}
                 </Link>
                 <div className="ml-4 flex items-center gap-2">
@@ -286,16 +296,21 @@ export default function DashboardProjectsPage() {
         <DashboardMobileFab
           dataSageTarget="create-project-cta"
           onClick={() => setIsDialogOpen(true)}
-          ariaLabel="Create new project"
+          ariaLabel="Create new application"
         />
       )}
 
-      <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={handleDialogClose}
+        panelId="sage-onboarding-project-dialog"
+        hideBackdrop={isOnboardingProjectCreateStep}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New Project</DialogTitle>
+            <DialogTitle>Create New Application</DialogTitle>
             <DialogDescription>
-              Enter a name for your project. Project names must be unique and cannot exceed 50 characters.
+              Enter a name for your application. Application names must be unique and cannot exceed 50 characters.
             </DialogDescription>
           </DialogHeader>
 
@@ -305,7 +320,7 @@ export default function DashboardProjectsPage() {
                 htmlFor="project-name"
                 className="block text-sm font-medium text-zinc-700 dark:text-zinc-300"
               >
-                Project Name
+                Application Name
               </label>
               <input
                 id="project-name"
@@ -322,7 +337,7 @@ export default function DashboardProjectsPage() {
                 }}
                 maxLength={50}
                 className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-black placeholder-zinc-400 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-600 dark:focus:ring-zinc-600 sm:text-sm"
-                placeholder="My Project"
+                placeholder="My Application"
                 disabled={isCreating}
                 autoFocus
               />
@@ -350,7 +365,7 @@ export default function DashboardProjectsPage() {
               disabled={isCreating || !projectName.trim()}
               className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isCreating ? "Creating..." : "Create Project"}
+              {isCreating ? "Creating..." : "Create Application"}
             </button>
           </DialogFooter>
         </DialogContent>

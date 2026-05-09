@@ -12,6 +12,7 @@ import {
 } from "@/lib/utils/client-input-security";
 import StudioBackButton from "@/components/dashboard/StudioBackButton";
 import { dispatchSagePrimaryActionDone } from "@/lib/sage-onboarding-primary";
+import { setStudioMobileBottomNavSuppressed } from "@/lib/studio-mobile-nav";
 
 interface ServiceClassData {
   service_class_id: string;
@@ -134,6 +135,12 @@ function NewExperienceCaseStudyForm() {
     media.addEventListener("change", syncMode);
     return () => media.removeEventListener("change", syncMode);
   }, []);
+
+  useEffect(() => {
+    const suppressed = isServiceClassPickerOpen && !isDesktopPicker;
+    setStudioMobileBottomNavSuppressed(suppressed);
+    return () => setStudioMobileBottomNavSuppressed(false);
+  }, [isServiceClassPickerOpen, isDesktopPicker]);
 
   const handleAddHighlight = () => {
     setCaseHighlights((prev) => (prev.length >= MAX_HIGHLIGHTS ? prev : [...prev, ""]));

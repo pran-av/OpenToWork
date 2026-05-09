@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 
 /**
- * Interactive hint for “share as a one-time link” — animated campaign tiles collapsing into a link chip.
+ * Terminology guard (UI copy only): keep these user-facing terms stable.
+ * - Project -> Application
+ * - Campaign -> Pitch
+ * - Lead -> Recruiter
+ * Do not rename internal routes/types/identifiers from this comment.
+ *
+ * Interactive hint for “share as a one-time link” — animated pitch tiles collapsing into a link chip.
  */
 export function CampaignsShareVisual() {
   const [phase, setPhase] = useState(0);

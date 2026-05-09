@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ExperienceCaseStudyCard } from "@/components/dashboard/ExperienceCaseStudyCard";
 import { DashboardMobileFab } from "@/components/dashboard/DashboardMobileFab";
+import DashboardFlowPullDrawer from "@/components/dashboard/DashboardFlowPullDrawer";
 import { dispatchSagePrimaryActionDone } from "@/lib/sage-onboarding-primary";
 
 interface ExperienceCaseStudy {
@@ -170,9 +171,9 @@ function DashboardPageContent() {
     >
         <div className="relative z-0 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Experience Canvas</h2>
+            <h2 className="text-2xl font-semibold text-black dark:text-zinc-50">Your Experiences</h2>
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-              Timeline view of reusable case studies, grouped by start year.
+              Add and manage experience from your career
             </p>
           </div>
         </div>
@@ -222,6 +223,7 @@ function DashboardPageContent() {
 
   return (
     <div className="relative min-h-[70vh] space-y-6 pb-24">
+      <DashboardFlowPullDrawer bannerKey="experience" />
       {timelineBody}
 
       <div className="pointer-events-none fixed bottom-8 left-1/2 z-40 hidden -translate-x-1/2 lg:block">
