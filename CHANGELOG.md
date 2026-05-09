@@ -1,13 +1,67 @@
 # CHANGELOG
 
 ## v2.0.0 (Current)
-(Apr 18, 2026 - May 05, 2026)
+(Apr 18, 2026 - May 09, 2026)
 
 - Agent Integration: Added PLT Agent Service integration with server routes for resumes, job descriptions, resume scoring tasks/reports, notifications, and profile APIs.
 - Onboarding v2: Rolled out server-led onboarding flows with improved step sequencing, status handling, and recovery behavior across desktop/mobile Sage experiences.
 - Infrastructure: Introduced/expanded `agents` schema migrations for tasks, conversations/messages partitioning, flow/step/UI-action state models, and related hardening.
 - Deployment Config: Added production base URL fallback for agent API (`https://agentservice.pitchlikethis.com`) with env override support.
 - Policies: Published and wired **Privacy Policy v1.0.0** and **Terms of Service v1.0.0** pages.
+
+### Engineering — Studio onboarding linear flow & Sage shell (`feat/onboarding-linear-flow`)
+
+High-signal notes for future work. Internal API/route names still use `project` / `campaign` / `lead` in many places; user-facing copy and comments follow the **Application / Pitch / Recruiter** terminology guard.
+
+#### Layout & chrome
+
+- **`app/dashboard/DashboardClientShell.tsx`** — Wires the dashboard body: desktop **left rail** (`DashboardDesktopSidebar`), **`DashboardFlowPullDrawer`** on key routes, and coordinates with Sage. Banner copy is driven by **`lib/dashboard-flow-banners.json`** (per `bannerKey`: `experience` | `campaigns` | `profile`). JSON `_comment.ctaActionRule`: if banner CTA label is exactly **`Visit Flow Panel`**, the handler opens the pull drawer; **any other** CTA label starts/resumes onboarding via **`SAGE_OPEN_ONBOARDING_FLOW_EVENT`** (direct flow entry without requiring the drawer step first).
+- **`components/dashboard/DashboardDesktopSidebar.tsx`** — New desktop-only nav (`lg:flex`, hidden on small viewports). Items: Experiences → `/dashboard`, Applications → `/dashboard/projects`, Profile → `/dashboard/profile`. Collapsible width (`lg:w-16` ↔ `lg:w-60`). Stable Sage highlight targets: `id="experience-desktop-sage-target"`, `id="applications-desktop-sage-target"`, `id="profile-desktop-sage-target"` (used by tour positioning in `DashboardSageFrame`).
+- **`components/dashboard/DashboardHeader.tsx`** — Mobile bottom pill nav (`fixed`, `lg:hidden`) with matching IDs: `experience-nav-cta`, `applications-nav-cta`, `profile-nav-cta`. **Campaign editor write mode** still hides bottom nav when pathname matches `/dashboard/projects/[projectId]/campaigns/[campaignId]` + `useStudioCampaignWriteModeListener()`. **Cross-page suppression**: listens for **`STUDIO_SUPPRESS_MOBILE_BOTTOM_NAV_EVENT`** (`lib/studio-mobile-nav.ts`) so children (e.g. experience form) can hide the bar while a bottom sheet is open.
+- **Sage mode toggle removed** — Closing/opening Sage is unified around **Close Flow** / flow panel behavior across viewports (see `SageWindow`).
+
+#### Pull drawer & flow bootstrap
+
+- **`components/dashboard/DashboardFlowPullDrawer.tsx`** — Portal-based pull-to-reveal (or CTA-opened) drawer listing flow state: **idle → available | pending | completed** using `listActiveOnboardingFlowsV2` / `listCompletedOnboardingFlowsV2`. Persists **Prepare** UI on CTA via `prepareUiOnFlowCta` / `flowPrepareUiOnCta` coordination with `SageWindow` (mobile avoids duplicate “Preparing” surfaces). Dispatches **`SAGE_OPEN_ONBOARDING_FLOW_EVENT`** with optional `prepareUiOnFlowCta`, `resumeFlowInstanceId`, `forceStart`. Integrates **`SAGE_FLOW_PREPARE_UI_DONE_EVENT`**, **`SAGE_MOBILE_MODE_PREFERENCE_EVENT`**, `setSageMobileUserHoldOpen` for correct mobile overlay + session behavior.
+- **`SageWindow`** exposes constants used across shell: e.g. **`SAGE_OPEN_ONBOARDING_FLOW_EVENT`**, **`SAGE_RESUME_FROM_TOUR_EVENT`**, **`SAGE_MOBILE_MODE_PREFERENCE_EVENT`**, **`SAGE_SESSION_KEY`**, **`SAGE_ONBOARDING_COMPLETED_KEY`**, onboarding task nav storage key mirroring `DashboardSageFrame`, etc.
+
+#### `SageWindow` (onboarding UX core)
+
+- **Phases** — `onboardingLinearPhase`: **`intro`** → **`tasks`** → **`outro`**, with **`replay`** after completion for wrap-up / task list replay. Slide indices are partitioned from `messages` + `EXECUTE_ONBOARDING_TODOS_STEP_KEY` / `flowSteps` (lines keyed before vs after execute step; unkeyed tail can be outro).
+- **Part-based To Do** — `ONBOARDING_PARTS` groups steps into **Part 1 / 2 / 3** with `minSequence`/`maxSequence` aligned to `lib/sage-onboarding-nav.ts` ordering. UI checklist labels use flow step titles / agent tooltips where present.
+- **Progress** — Onboarding uses **`onboardingUnifiedProgressPercent`** so the header progress bar reflects intro + synthetic “tasks hub” slice + outro (not raw server percent only).
+- **Mobile/tablet fixed bottom CTAs (`!isDesktop`, onboarding only)** — Intro/outro/replay **Back | step counter | Next** moved to **`fixed bottom-0`** toolbars (`z-[25]`, safe-area padding on wrapper) so they don’t compete with scroll content. **Tasks hub** **Start / Resume Onboarding** duplicated to a full-width fixed bar; inline duplicate hidden; list container gets extra **bottom padding** so rows clear the bar. Desktop keeps inline controls (unchanged).
+- **Step counter text** — Shared memo **`onboardingLinearStepProgressText`** feeds both desktop inline and mobile dock (replay / intro / outro formats).
+- **Loading / prepare** — Desktop: optional **Preparing Flow** banner (top offset uses `headerOffsetPx` + gaps). Mobile: can hide duplicate preparing strip when `flowPrepareUiOnCta` / pull-drawer CTA owns the spinner.
+- **Completed flow** — Users can re-open a **completed** onboarding from the drawer; replay/terminal message behavior adjusted so the last step isn’t “lost” after logout/session edge cases.
+
+#### `DashboardSageFrame` (tour spotlight + task dialog)
+
+- **Highlight selectors** — `SAGE_TARGET_SELECTOR` / `getPreferredSageTargetNode`: **Experiences** (`nav.experience_dashboard`) and **Applications** (`nav.campaigns_dashboard`) highlight **nav buttons** (`#experience-nav-cta`, `#experience-desktop-sage-target`, etc.), not `#experience-dashboard-root` / `#projects-root`.
+- **Create Application / Create Pitch tour card (< lg)** — For `campaigns_dashboard.project.create_cta` and `campaigns_dashboard.project.campaign.create_cta`, onboarding task dialog position uses **header-pinned** placement (`headerOffsetPx + padding`, centered) instead of anchor-relative placement. Reason: shared `Dialog` is a **bottom sheet** (`items-end`, `max-lg:h-[80dvh]`); “below panel” overflowed the viewport and **clamp** pulled the tooltip over form fields; `rect.bottom` vs chrome was unreliable.
+- **`SAGE_MODAL_STEP_TARGETS` / `SAGE_ONBOARDING_CREATE_SHEET_TARGETS`** — Modal step set still includes publish/create targets for ordering/gaps; create-sheet subset drives the pin behavior above.
+- **Copy / buttons** — Profile verification (Part 3) **`PROFILE_VERIFICATION_HINTS` removed**; no extra gray hint paragraph for DB-verified steps. **Primary-action hints** (“Use the highlighted control…”) removed entirely. **`nav.sage_window`** primary CTA stays **Next** (not Skip). Profile skip control label **Skip** (not “Skip Remaining Parts”) where applicable.
+- **Events** — Still listens for **`SAGE_PRIMARY_ACTION_DONE_EVENT`**, **`SAGE_PROFILE_VERIFICATION_DONE_EVENT`**, persists task nav context in **`sessionStorage`**, clears `sage_highlight` query param after apply.
+
+#### Profile & onboarding completion (client)
+
+- **`app/dashboard/profile/page.tsx`** — Dispatches **`dispatchSageProfileVerificationDone`** for **`profile.user_name.edit`**, **`profile.resume.upload_cta`**, **`profile.linkedin.connect_cta`** when saves/uploads/LinkedIn state succeed (ties Part 3 to `STEP_DONE` via ack path in `DashboardSageFrame`).
+
+#### Experience / projects / campaigns (onboarding hooks)
+
+- **`app/dashboard/experience/new/page.tsx`** — Sage highlight field IDs unchanged (`#service_class`, `#display_year`, …). **Service class picker**: when **`isServiceClassPickerOpen && !isDesktopPicker`**, calls **`setStudioMobileBottomNavSuppressed(true)`** so **`DashboardHeader`** hides the pill nav (drawer no longer clashes with **`bottom-3 z-30`** chrome).
+- **`app/dashboard/projects/page.tsx`**, **`ProjectOverviewClient.tsx`**, **`CampaignOverviewClient.tsx`** — Onboarding dialogs, `data-sage-target` CTAs, `sage_highlight` query handling, **`dispatchSagePrimaryActionDone`** targets (`campaigns_dashboard.project.create_cta`, `campaigns_dashboard.project.campaign.create_cta`, publish, etc.) aligned with **`DashboardSageFrame`** selectors (`#sage-onboarding-project-dialog`, `#sage-onboarding-campaign-dialog`, …).
+- **`components/ui/dialog.tsx`** — Responsive shell: **`max-lg:h-[80dvh]`**, **`items-end`** for sheet behavior; informs tour positioning assumptions in `DashboardSageFrame`.
+
+#### New lib module
+
+- **`lib/studio-mobile-nav.ts`** — **`STUDIO_SUPPRESS_MOBILE_BOTTOM_NAV_EVENT`** + **`setStudioMobileBottomNavSuppressed(suppressed)`**. Pattern: **`useEffect`** with **`suppressed`** + cleanup resetting **`false`** on unmount.
+
+#### Marketing / terminology (landing components)
+
+- **`CampaignsShareVisual`**, **`CollectLeadsVisual`**, **`OrganiseCampaignsVisual`**, **`LandingFeatureBento`** — Copy/visuals aligned with **Applications / Pitches / Recruiters** (and related wording) where this branch touched them.
+
+---
 
 ### Fixes:
 - Onboarding UX: Fixed Back-to-Sage handling, completed-flow reopening behavior, mobile/tablet restart flow entry, and To-Do list/status rendering issues.
