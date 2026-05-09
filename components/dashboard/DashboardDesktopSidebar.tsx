@@ -28,12 +28,14 @@ const DESKTOP_NAV_ITEMS: DesktopNavItem[] = [
     label: "Experiences",
     href: "/dashboard",
     icon: BriefcaseBusiness,
+    id: "experience-desktop-sage-target",
   },
   {
     key: "campaigns",
     label: "Applications", // Terminology guard: keep this term stable.
     href: "/dashboard/projects",
     icon: Megaphone,
+    id: "applications-desktop-sage-target",
   },
   {
     key: "profile",

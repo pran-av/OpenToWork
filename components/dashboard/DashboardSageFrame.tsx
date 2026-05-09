@@ -73,6 +73,15 @@ const SAGE_MODAL_STEP_TARGETS = new Set<string>([
   "campaign.form.publish",
 ]);
 
+/**
+ * Create Application / Create Pitch use `Dialog` as bottom sheets below the lg breakpoint.
+ * Tour card placement is header-pinned there (anchor-relative overlaps inputs / flaky `rect.bottom` vs chrome).
+ */
+const SAGE_ONBOARDING_CREATE_SHEET_TARGETS = new Set<string>([
+  "campaigns_dashboard.project.create_cta",
+  "campaigns_dashboard.project.campaign.create_cta",
+]);
+
 const SAGE_MODAL_BELOW_EXTRA_GAP_PX = 28;
 
 type SageDialogTopNudge = { desktop: number; mobile: number };
@@ -93,7 +102,7 @@ const SAGE_TASK_DIALOG_TOP_NUDGE: Partial<Record<string, SageDialogTopNudge>> = 
 };
 
 const SAGE_TARGET_SELECTOR: Record<string, string> = {
-  "nav.experience_dashboard": "#experience-dashboard-root",
+  "nav.experience_dashboard": "#experience-nav-cta, #experience-desktop-sage-target",
   "experience_dashboard.experience.create_cta": ".sage-highlight-exp-create",
   "experience.form.service_class": "#service_class",
   "experience.form.display_year": "#display_year",
@@ -103,7 +112,7 @@ const SAGE_TARGET_SELECTOR: Record<string, string> = {
   "experience.form.highlights": "#highlights",
   "experience.form.save": "#save-experience",
   "onboarding.congrats.experience_recorded": "#experience-created-highlight",
-  "nav.campaigns_dashboard": "#projects-root",
+  "nav.campaigns_dashboard": "#applications-nav-cta, #applications-desktop-sage-target",
   "campaigns_dashboard.project.create_cta": `#sage-onboarding-project-dialog, #sage-onboarding-project-dialog-submit, [data-sage-target="create-project-cta"]`,
   "campaigns_dashboard.project.campaign.create_cta": `#sage-onboarding-campaign-dialog, #sage-onboarding-campaign-dialog-submit, [data-sage-target="create-campaign-cta"]`,
   "campaign.form.title": "#campaign-title",
@@ -427,7 +436,7 @@ export function DashboardSageFrame({
       const gap = 14;
       const padding = 12;
       const isLgViewport = window.matchMedia("(min-width: 1024px)").matches;
-      const topNudge = resolveSageDialogTopNudge(
+      const topNudgeBase = resolveSageDialogTopNudge(
         SAGE_TASK_DIALOG_TOP_NUDGE[sageTaskDialog.target ?? ""],
         isLgViewport
       );
@@ -441,6 +450,22 @@ export function DashboardSageFrame({
 
       const targetKey = sageTaskDialog.target ?? "";
       const isModalStep = SAGE_MODAL_STEP_TARGETS.has(targetKey);
+      const onboardingCreateBottomSheet =
+        !isLgViewport && SAGE_ONBOARDING_CREATE_SHEET_TARGETS.has(targetKey);
+
+      /**
+       * Create Application/Pitch dialogs are bottom sheets below lg. Anchor-relative placements often
+       * cannot avoid the panel (clamp + shortest-overlap fallback lands on inputs). Safari/toolbars
+       * also skew `rect.bottom` vs viewport. Pin under the persistent header instead.
+       */
+      if (onboardingCreateBottomSheet) {
+        setSageTaskDialogPos({
+          top: Math.max(padding, headerOffsetPx + padding),
+          left: clamp((viewportW - cardWidth) / 2, padding, viewportW - cardWidth - padding),
+        });
+        return;
+      }
+
       const belowTailGap = gap + (isModalStep ? SAGE_MODAL_BELOW_EXTRA_GAP_PX : 0);
 
       const above = {
@@ -461,6 +486,7 @@ export function DashboardSageFrame({
       };
 
       const preferBelowFirst = isModalStep;
+      const topNudge = topNudgeBase;
       const rawOrder = preferBelowFirst ? [below, above, right, left] : [above, below, right, left];
 
       const candidates = rawOrder.map((c) => ({
@@ -502,7 +528,7 @@ export function DashboardSageFrame({
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [sageTaskDialog.open, sageTaskDialog.target]);
+  }, [sageTaskDialog.open, sageTaskDialog.target, headerOffsetPx]);
 
   useEffect(() => {
     if (!activeHighlightTarget || !sageTaskDialog.open) return;

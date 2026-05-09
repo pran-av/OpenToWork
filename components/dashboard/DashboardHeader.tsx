@@ -327,6 +327,8 @@ export default function DashboardHeader() {
       <nav className="fixed bottom-3 left-1/2 z-30 w-[calc(100%-1rem)] max-w-md -translate-x-1/2 rounded-2xl border border-orange-100 bg-white/85 p-2 shadow-[0_10px_30px_rgba(15,23,42,0.22)] backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-900/85 lg:hidden">
         <div className="grid grid-cols-3 gap-1.5">
           <button
+            id="experience-nav-cta"
+            type="button"
             onClick={() => router.push("/dashboard")}
             className={`rounded-xl px-2 py-2 text-[11px] font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 ${
               isExperiencesArea
@@ -355,6 +357,8 @@ export default function DashboardHeader() {
             </span>
           </button>
           <button
+            id="applications-nav-cta"
+            type="button"
             onClick={() => router.push("/dashboard/projects")}
             className={`rounded-xl px-2 py-2 text-[11px] font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 ${
               isProjectsArea
