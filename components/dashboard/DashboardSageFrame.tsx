@@ -141,15 +141,6 @@ function getPreferredSageTargetNode(target: string, selector: string): Element |
   return queryVisibleSageTarget(selector);
 }
 
-const PROFILE_VERIFICATION_HINTS: Record<SageProfileVerificationTarget, string> = {
-  "profile.user_name.edit":
-    "Save your first and last name using Save Changes. This step completes only after your profile saves successfully.",
-  "profile.resume.upload_cta":
-    "Upload a PDF using the resumes section below. This step completes only after the upload succeeds.",
-  "profile.linkedin.connect_cta":
-    "Finish LinkedIn OAuth. This step completes only after your account is linked.",
-};
-
 const TARGET_PREFILL_VALUE: Record<string, string> = {
   "experience.form.display_year": "2026",
   "experience.form.case_title": "Sample Onboarding Experience",
@@ -256,10 +247,6 @@ export function DashboardSageFrame({
   const hidesNextForPrimaryInPageOnly = onboardingHidesNextForPrimary(sageTaskDialog.target);
   const hidesNextForProfileVerification = onboardingProfileRequiresDbVerification(sageTaskDialog.target);
   const hidesNextTourAction = hidesNextForPrimaryInPageOnly || hidesNextForProfileVerification;
-  const primaryActionHint =
-    sageTaskDialog.target === "campaign.form.publish"
-      ? "Use the highlighted Publish Campaign button to finish this step — onboarding continues only after a successful publish."
-      : "Use the highlighted control (Save, Create, or Add) to finish this step.";
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1024px)");
@@ -875,15 +862,6 @@ export function DashboardSageFrame({
                 <h2 className="text-lg font-semibold text-black dark:text-zinc-50">{sageTaskDialog.tooltip}</h2>
                 {sageTaskDialog.message ? (
                   <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{sageTaskDialog.message}</p>
-                ) : null}
-                {hidesNextTourAction && !isBackToSageTarget ? (
-                  <p className="mt-2 text-xs leading-snug text-zinc-500 dark:text-zinc-400">
-                    {hidesNextForProfileVerification
-                      ? PROFILE_VERIFICATION_HINTS[
-                          sageTaskDialog.target as SageProfileVerificationTarget
-                        ] ?? "Complete the highlighted step on the page to continue."
-                      : primaryActionHint}
-                  </p>
                 ) : null}
                 <div className="mt-4 flex w-full flex-wrap items-center justify-end gap-2">
                   {ackError ? (
