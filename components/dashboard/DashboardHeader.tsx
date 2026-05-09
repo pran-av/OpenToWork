@@ -3,6 +3,10 @@
 import { useRouter, usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useStudioCampaignWriteModeListener } from "@/hooks/useStudioCampaignWriteChrome";
+import {
+  STUDIO_SUPPRESS_MOBILE_BOTTOM_NAV_EVENT,
+  type StudioSuppressMobileBottomNavDetail,
+} from "@/lib/studio-mobile-nav";
 import Image from "next/image";
 import { useTheme } from "next-themes";
 import { BriefcaseBusiness, Megaphone, User } from "lucide-react";
@@ -78,7 +82,17 @@ export default function DashboardHeader() {
   const isProjectsArea = pathname.startsWith("/dashboard/projects");
   const isProjectCampaignPath = /^\/dashboard\/projects\/[^/]+\/campaigns\/[^/]+$/.test(pathname);
   const campaignWriteMode = useStudioCampaignWriteModeListener();
-  const hideMobileBottomNav = isProjectCampaignPath && campaignWriteMode;
+  const [suppressMobileBottomNavFromChild, setSuppressMobileBottomNavFromChild] = useState(false);
+  useEffect(() => {
+    const onSuppress = (ev: Event) => {
+      const ce = ev as CustomEvent<StudioSuppressMobileBottomNavDetail>;
+      setSuppressMobileBottomNavFromChild(Boolean(ce.detail?.suppressed));
+    };
+    window.addEventListener(STUDIO_SUPPRESS_MOBILE_BOTTOM_NAV_EVENT, onSuppress);
+    return () => window.removeEventListener(STUDIO_SUPPRESS_MOBILE_BOTTOM_NAV_EVENT, onSuppress);
+  }, []);
+  const hideMobileBottomNav =
+    suppressMobileBottomNavFromChild || (isProjectCampaignPath && campaignWriteMode);
   const isProfileArea = pathname.startsWith("/dashboard/profile");
   const isExperiencesArea = pathname.startsWith("/dashboard") && !isProjectsArea && !isProfileArea;
 
