@@ -1584,6 +1584,28 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     replayStepCount,
   ]);
 
+  /** Shown beside Back / Next — shared by inline (desktop) and fixed (mobile/tablet) linear navigation. */
+  const onboardingLinearStepProgressText = useMemo(() => {
+    if (!onboardingShowLinearReader) return "";
+    if (onboardingLinearPhase === "replay" && onboardingReplaySteps?.length) {
+      const L = onboardingReplaySteps.length;
+      return `${Math.min(onboardingLinearSlideIndex, L - 1) + 1} / ${L}`;
+    }
+    if (onboardingLinearPhase === "intro") {
+      const iLen = introSlideIndices.length;
+      return `${iLen > 0 ? Math.min(onboardingLinearSlideIndex + 1, iLen) : 0} / ${Math.max(iLen, 1)}`;
+    }
+    const oLen = outroSlideIndices.length;
+    return `${oLen > 0 ? Math.min(onboardingLinearSlideIndex + 1, oLen) : 1} / ${Math.max(oLen, 1)}`;
+  }, [
+    introSlideIndices.length,
+    onboardingLinearPhase,
+    onboardingLinearSlideIndex,
+    onboardingReplaySteps,
+    onboardingShowLinearReader,
+    outroSlideIndices.length,
+  ]);
+
   /** Linear wizard fill: each intro slide, tasks hub (+1), then outro slides (advances with Next / phase). */
   const onboardingUnifiedProgressPercent = useMemo(() => {
     if (!isOnboardingFlow || !ready || skipped || showConversationList) {
@@ -1744,6 +1766,25 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
     },
     [conversationId, flowInstanceId, flowSteps, router, stepId]
   );
+
+  const showMobileOnboardingLinearDock =
+    !isDesktop &&
+    isOnboardingFlow &&
+    expanded &&
+    !loading &&
+    !skipped &&
+    !showConversationList &&
+    onboardingShowLinearReader;
+
+  const showMobileOnboardingTasksDock =
+    !isDesktop &&
+    isOnboardingFlow &&
+    expanded &&
+    !loading &&
+    !skipped &&
+    !showConversationList &&
+    displayedTodoItems.length > 0 &&
+    onboardingShowTasksHub;
 
   return (
     <section
@@ -1976,7 +2017,9 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               isDesktop ? "border-t border-zinc-200 bg-transparent dark:border-zinc-700" : "border-t border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950",
               onboardingShowTasksHub
                 ? "max-h-none min-h-0 flex-1 flex-col justify-start"
-                : "max-h-[min(52dvh,26rem)]"
+                : "max-h-[min(52dvh,26rem)]",
+              showMobileOnboardingTasksDock &&
+                "pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+5.5rem))]"
             )}
           >
             <div className="flex shrink-0 items-center gap-2">
@@ -2059,7 +2102,9 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               })}
             </ul>
             {isOnboardingFlow ? (
-              <div className="shrink-0 pt-1">
+              <div
+                className={cn("shrink-0 pt-1", showMobileOnboardingTasksDock && "hidden")}
+              >
                 <button
                   type="button"
                   onClick={() => {
@@ -2170,13 +2215,20 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
               )}
             >
               {onboardingShowLinearReader ? (
-                <div className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col gap-4">
+                <div
+                  className={cn(
+                    "mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col",
+                    showMobileOnboardingLinearDock ? "min-h-0 gap-0" : "gap-4"
+                  )}
+                >
                   <div
                     className={cn(
                       "min-h-0 max-h-[min(70dvh,36rem)] overflow-y-auto overscroll-y-contain px-4 py-4",
                       isDesktop
                         ? "rounded-2xl border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900"
-                        : "rounded-xl bg-orange-100 dark:bg-orange-900/40"
+                        : "rounded-xl bg-orange-100 dark:bg-orange-900/40",
+                      showMobileOnboardingLinearDock &&
+                        "max-h-none flex-1 min-h-0 pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+5.75rem))]"
                     )}
                   >
                     <div className="sage-reply-md text-sm leading-relaxed text-zinc-900 dark:text-zinc-100 [&_ul]:mt-1.5">
@@ -2247,7 +2299,12 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                       </div>
                     ) : null}
                   </div>
-                  <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-orange-200/70 pt-4 dark:border-orange-800/50">
+                  <div
+                    className={cn(
+                      "flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-orange-200/70 pt-4 dark:border-orange-800/50",
+                      showMobileOnboardingLinearDock && "hidden"
+                    )}
+                  >
                     <div className="flex min-w-[5.25rem] shrink-0 justify-start">
                       {onboardingLinearShowBack ? (
                         <button
@@ -2260,26 +2317,7 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
                       ) : null}
                     </div>
                     <div className="text-center text-[11px] font-medium tabular-nums text-zinc-500 dark:text-zinc-400">
-                      {onboardingLinearPhase === "replay" && onboardingReplaySteps?.length ? (
-                        <>
-                          {Math.min(onboardingLinearSlideIndex, onboardingReplaySteps.length - 1) + 1}{" "}
-                          / {onboardingReplaySteps.length}
-                        </>
-                      ) : onboardingLinearPhase === "intro" ? (
-                        <>
-                          {introSlideIndices.length > 0
-                            ? Math.min(onboardingLinearSlideIndex + 1, introSlideIndices.length)
-                            : 0}{" "}
-                          / {Math.max(introSlideIndices.length, 1)}
-                        </>
-                      ) : (
-                        <>
-                          {outroSlideIndices.length > 0
-                            ? Math.min(onboardingLinearSlideIndex + 1, outroSlideIndices.length)
-                            : 1}{" "}
-                          / {Math.max(outroSlideIndices.length, 1)}
-                        </>
-                      )}
+                      {onboardingLinearStepProgressText}
                     </div>
                     <div className="flex min-w-[5.25rem] shrink-0 justify-end">
                       {onboardingLinearShowNext ? (
@@ -2379,6 +2417,75 @@ export const SageWindow = forwardRef<SageWindowHandle, SageWindowProps>(function
         </div>
       </div>
       )}
+
+      {showMobileOnboardingLinearDock ? (
+        <div
+          className="pointer-events-none fixed inset-x-0 bottom-0 z-[25] max-lg:block lg:hidden"
+          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        >
+          <div className="pointer-events-auto border-t border-orange-200/90 bg-orange-50/95 px-4 py-3 backdrop-blur-md dark:border-orange-800 dark:bg-zinc-950/95">
+            <div className="mx-auto grid w-full max-w-lg grid-cols-3 items-center gap-2">
+              <div className="justify-self-start">
+                {onboardingLinearShowBack ? (
+                  <button
+                    type="button"
+                    onClick={onboardingLinearRetreat}
+                    className="rounded-md border border-zinc-300 bg-white px-3 py-2.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  >
+                    Back
+                  </button>
+                ) : null}
+              </div>
+              <p className="justify-self-center text-center text-[11px] font-medium tabular-nums text-zinc-600 dark:text-zinc-400">
+                {onboardingLinearStepProgressText}
+              </p>
+              <div className="justify-self-end">
+                {onboardingLinearShowNext ? (
+                  <button
+                    type="button"
+                    onClick={onboardingLinearAdvance}
+                    className="rounded-md bg-orange-500 px-3 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-orange-600"
+                  >
+                    Next
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showMobileOnboardingTasksDock ? (
+        <div
+          className="pointer-events-none fixed inset-x-0 bottom-0 z-[25] max-lg:block lg:hidden"
+          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        >
+          <div className="pointer-events-auto border-t border-orange-200/90 bg-orange-50/95 px-4 py-3 backdrop-blur-md dark:border-orange-800 dark:bg-zinc-950/95">
+            <button
+              type="button"
+              onClick={() => {
+                if (!nextPendingTodo?.href) return;
+                handleTodoCtaClick({
+                  href: nextPendingTodo.href,
+                  target: nextPendingTodo.target,
+                  label: nextPendingTodo.label,
+                  tooltip: nextPendingTodo.tooltip,
+                  message: nextPendingTodo.message,
+                });
+              }}
+              disabled={!nextPendingTodo}
+              className="mx-auto flex w-full max-w-lg justify-center rounded-md border border-orange-300 bg-orange-100 px-3 py-3 text-xs font-semibold text-orange-900 transition-colors hover:bg-orange-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-orange-700 dark:bg-orange-900/40 dark:text-orange-100 dark:hover:border-orange-600 dark:hover:bg-orange-800 dark:hover:text-orange-50"
+              aria-label={
+                nextPendingTodo
+                  ? `${onboardingCtaLabel}: ${nextPendingTodo.label}`
+                  : "No pending onboarding tasks available"
+              }
+            >
+              {onboardingCtaLabel}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 });
