@@ -14,6 +14,11 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  experimental: {
+    // Persistent FS cache for `next build` (Turbopack). Speeds up repeat builds.
+    // Stable for dev (on by default since 16.1); experimental for prod builds.
+    turbopackFileSystemCacheForBuild: true,
+  },
 };
 
 export default nextConfig;
