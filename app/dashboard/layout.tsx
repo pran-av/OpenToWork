@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
-import { ThemeProvider } from "@/components/ui/theme-provider";
 import { DashboardClientShell } from "./DashboardClientShell";
 
 export default async function DashboardLayout({
@@ -17,10 +16,6 @@ export default async function DashboardLayout({
     redirect("/auth");
   }
 
-  return (
-    <ThemeProvider>
-      <DashboardClientShell>{children}</DashboardClientShell>
-    </ThemeProvider>
-  );
+  return <DashboardClientShell>{children}</DashboardClientShell>;
 }
 
