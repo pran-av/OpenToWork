@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { Poppins, Inter, Comic_Neue } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { ThemeProvider } from "@/components/ui/theme-provider";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -74,7 +75,7 @@ export default function RootLayout({
             gtag('config', 'G-7BW3L8CRHB');
           `}
         </Script>
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
         <SpeedInsights />
       </body>
     </html>

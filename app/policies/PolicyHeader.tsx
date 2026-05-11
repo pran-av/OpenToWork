@@ -16,7 +16,7 @@ export default function PolicyHeader() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-4 pb-4">
-      <div className="w-[60%] bg-white/80 backdrop-blur-sm border border-orange-100 rounded-2xl shadow-md">
+      <div className="w-[60%] bg-white/80 backdrop-blur-sm border border-orange-100 rounded-2xl shadow-md dark:bg-zinc-900/80 dark:border-orange-900/30 dark:shadow-none">
         <div className="flex items-center justify-between h-14 md:h-16 px-4 sm:px-6">
           {/* Logo */}
           <Link href="/" className="relative h-8 md:h-10 w-32 md:w-40">
